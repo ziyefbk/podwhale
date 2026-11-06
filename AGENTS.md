@@ -17,7 +17,7 @@
 
 ## 环境
 
-- **Node ≥ 22.5**（运行时使用内置 `node:sqlite`，保持零 npm 运行依赖）。
+- **Node ≥ 22.5**（运行时使用内置 `node:sqlite`，保持零 npm 运行依赖）。Node 22.5–22.12 需 `NODE_OPTIONS=--experimental-sqlite`，推荐 Node 24。
 - TypeScript 重构经用户授权：仅开发时 `npm ci --ignore-scripts`，使用锁定的 TypeScript 和 Node 类型；发行包包含已编译 JS，安装、运行不需要编译器。
 - `src/` 是唯一编辑源码；`.mts`/`.ts` 编译回既有 `.mjs`/`.js` 路径，保留配置、资源和部署定位。迁移中每批先严格类型检查，再对生成 JS 跑现有测试。
 
@@ -29,16 +29,22 @@ node server/enroll.mjs "测试主人" 阿蓝        # 打印一个只显示一�
 XLB_PORT=8790 XLB_DATA=./data node server/community.mjs
 # 打开 http://127.0.0.1:8790/xiaolanshu/
 
-# 全量本地测试（含授权、隔离、兼容配置和发行包回归）
+# 修改 src/ 后先构建（开发时先 npm ci --ignore-scripts）
+npm run build
+
+# 全量本地测试（源码仓库先严格编译并检查生成 JS 一致性）
 node check.mjs --local
 ```
 
 `node check.mjs` 会额外打线上部署，本地开发用 `--local`。**改动前先跑一次，改动后必须再跑一次。**
 
+详细开发与检查点见 [`podwhale/docs/typescript-refactor.md`](podwhale/docs/typescript-refactor.md)。
+
 ## 目录
 
 ```
-index.js              Host 半边：工具注册 + 本地 API 代理 + 图片转发
+src/                  TypeScript 编辑源码（含浏览器脚本、小程序与测试）
+index.js              生成的 Host 半边：工具注册 + 本地 API 代理 + 图片转发
 client.js             客户端半边：面板 UI（自带迷你 React 渲染器，不用打包）
 server/community.mjs  社区服务：鉴权、脱敏、限流、全部接口
 server/db.mjs         SQLite：entities 行表 + owners + meta，事务写入

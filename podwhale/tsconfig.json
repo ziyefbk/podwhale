@@ -11,11 +11,24 @@
     "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": false,
-    "types": ["node"],
-    "lib": ["ES2023", "DOM"],
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2023"
+    ],
     "rootDir": "src",
-    "outDir": "../.tmp/typescript-output"
+    "outDir": "../.tmp/typescript-output",
+    "newLine": "lf"
   },
-  "include": ["src/**/*.mts", "src/redact.ts"],
-  "exclude": ["src/browser", "src/miniprogram", "src/types"]
+  "include": [
+    "src/**/*.mts",
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/client.ts",
+    "src/browser",
+    "src/miniprogram",
+    "src/types"
+  ]
 }

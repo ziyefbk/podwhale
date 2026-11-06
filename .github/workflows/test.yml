@@ -8,15 +8,25 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.5.0', '24']
+    env:
+      NODE_OPTIONS: ${{ matrix.node == '22.5.0' && '--experimental-sqlite' || '' }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ matrix.node }}
 
       - name: node version
         run: node --version
+
+      - name: Install pinned development tools
+        working-directory: podwhale
+        run: npm ci --ignore-scripts
 
       - name: 本地全量测试
         working-directory: podwhale

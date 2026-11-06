@@ -3,23 +3,26 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nodeBin } from './runtime.mjs';
 import { runDeployment } from './deployment.mjs';
-
 const args = process.argv.slice(2);
 if (args.some((arg) => arg !== '--preflight')) {
-  console.error('Usage: node deploy.mjs [--preflight]');
-  process.exit(1);
+    console.error('Usage: node deploy.mjs [--preflight]');
+    process.exit(1);
 }
 try {
-  const result = await runDeployment({
-    repoRoot: resolve(fileURLToPath(new URL('..', import.meta.url))),
-    node: await nodeBin(),
-    preflightOnly: args.includes('--preflight'),
-    log: (message) => console.log(message),
-  });
-  console.log(result.preflight ? 'Read-only preflight passed.' : 'Deployment passed source and security checks.');
-  if (result.backupDir) console.log('Backups retained at ' + result.backupDir);
-} catch (error) {
-  console.error(error.message);
-  if (error.detail) console.error(error.detail);
-  process.exit(1);
+    const result = await runDeployment({
+        repoRoot: resolve(fileURLToPath(new URL('..', import.meta.url))),
+        node: await nodeBin(),
+        preflightOnly: args.includes('--preflight'),
+        log: (message) => console.log(message),
+    });
+    console.log(result.preflight ? 'Read-only preflight passed.' : 'Deployment passed source and security checks.');
+    if (result.backupDir)
+        console.log('Backups retained at ' + result.backupDir);
+}
+catch (caught) {
+    const error = caught;
+    console.error(error.message);
+    if (error.detail)
+        console.error(error.detail);
+    process.exit(1);
 }

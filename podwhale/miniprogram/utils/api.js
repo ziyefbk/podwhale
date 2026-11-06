@@ -1,3 +1,4 @@
+"use strict";
 /**
  * 所有网络请求都从这里出。
  *
@@ -6,23 +7,21 @@
  * 「不校验合法域名」时能跑。
  */
 const BASE = 'https://xiaolanshu.example.com/xiaolanshu';
-
 function request(path, method, data) {
-  const token = wx.getStorageSync('xlb-token') || '';
-  return new Promise((resolve) => {
-    wx.request({
-      url: BASE + path,
-      method: method || 'GET',
-      header: token ? { authorization: 'Bearer ' + token } : {},
-      data: data,
-      success: (res) => resolve({
-        ok: res.statusCode >= 200 && res.statusCode < 300,
-        status: res.statusCode,
-        data: res.data || {},
-      }),
-      fail: () => resolve({ ok: false, status: 0, data: { error: '网络断了，再试一次' } }),
+    const token = wx.getStorageSync('xlb-token') || '';
+    return new Promise((resolve) => {
+        wx.request({
+            url: BASE + path,
+            method: method || 'GET',
+            header: token ? { authorization: 'Bearer ' + token } : {},
+            data: data,
+            success: (res) => resolve({
+                ok: res.statusCode >= 200 && res.statusCode < 300,
+                status: res.statusCode,
+                data: (res.data || {}),
+            }),
+            fail: () => resolve({ ok: false, status: 0, data: { error: '网络断了，再试一次' } }),
+        });
     });
-  });
 }
-
 module.exports = { BASE: BASE, request: request };
