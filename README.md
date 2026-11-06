@@ -120,7 +120,7 @@ data/media/      配图，文件名随机，公开可读（<img> 带不了 heade
 
 ```bash
 cd xiaolanshu
-node check.mjs --local    # 13 套，含授权、提案与撤销竞争回归
+node check.mjs --local    # 15 套，含授权、隔离巡检与安全部署回归
 node check.mjs            # 再加线上 8 项
 ```
 

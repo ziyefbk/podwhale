@@ -104,6 +104,7 @@ try {
   check('health needs no token', health.status === 200 && health.json.ok === true);
   check('health reports counts', typeof health.json.counts.posts === 'number' && typeof health.json.counts.owners === 'number', JSON.stringify(health.json.counts));
   check('health reports backup freshness', health.json.backup !== undefined && Array.isArray(health.json.warnings), JSON.stringify(health.json.warnings));
+  check('health has no patrol before the first run', health.json.lastPatrol === null);
 
   const anonymous = await call('/feed');
   check('feed rejects no token', anonymous.status === 401, anonymous.status);
@@ -148,10 +149,40 @@ try {
   check('feed accepts a valid token', feed.status === 200 && feed.json.tasks.length === 5, feed.status);
   check('feed tells the caller who they are', feed.json.me === 'otest', feed.json.me);
 
-  const patrol = await call('/patrol', known, { summary: '回了 1 条，没领任务' });
+  const privatePatrolA = 'private-patrol-owner-a-marker';
+  const privatePatrolB = 'private-patrol-owner-b-marker';
+  const patrol = await call('/patrol', known, { summary: privatePatrolA });
   check('a patrol run can be recorded', patrol.status === 201 && !!patrol.json.at, patrol.status);
   const healthAfter = await call('/health');
-  check('health shows the last patrol', !!healthAfter.json.lastPatrol && healthAfter.json.lastPatrol.summary.indexOf('回了') === 0, JSON.stringify(healthAfter.json.lastPatrol));
+  check('anonymous health exposes only the latest patrol time', healthAfter.status === 200
+    && healthAfter.json.lastPatrol?.at === patrol.json.at
+    && Object.keys(healthAfter.json.lastPatrol).join(',') === 'at');
+  check('anonymous health omits private patrol content and owner identity', !JSON.stringify(healthAfter.json).includes(privatePatrolA)
+    && !JSON.stringify(healthAfter.json).includes('otest'));
+  const ownPatrolFeed = await call('/feed', known);
+  check('patrol owner can read their complete summary', ownPatrolFeed.json.lastPatrol?.summary === privatePatrolA
+    && ownPatrolFeed.json.patrols.some((entry) => entry.summary === privatePatrolA && entry.ownerId === 'otest'));
+  const noPatrolFeed = await call('/feed', known2);
+  check('another owner sees no foreign patrol when they have none', noPatrolFeed.json.lastPatrol === null
+    && noPatrolFeed.json.patrols.length === 0 && !JSON.stringify(noPatrolFeed.json).includes(privatePatrolA));
+  const secondPatrol = await call('/patrol', known2, { summary: privatePatrolB });
+  check('another owner can record their own private patrol', secondPatrol.status === 201 && !!secondPatrol.json.at);
+  const healthWithBoth = await call('/health');
+  check('public health freshness follows the latest owner without exposing either summary', healthWithBoth.json.lastPatrol?.at === secondPatrol.json.at
+    && Object.keys(healthWithBoth.json.lastPatrol).join(',') === 'at'
+    && !JSON.stringify(healthWithBoth.json).includes(privatePatrolA)
+    && !JSON.stringify(healthWithBoth.json).includes(privatePatrolB));
+  const firstOwnerFeed = await call('/feed', known);
+  const secondOwnerFeed = await call('/feed', known2);
+  check('newer foreign patrol does not replace the first owner summary', firstOwnerFeed.json.lastPatrol?.summary === privatePatrolA
+    && firstOwnerFeed.json.patrols.every((entry) => entry.ownerId === 'otest')
+    && !JSON.stringify(firstOwnerFeed.json).includes(privatePatrolB));
+  check('second owner sees only their own patrol history', secondOwnerFeed.json.lastPatrol?.summary === privatePatrolB
+    && secondOwnerFeed.json.patrols.every((entry) => entry.ownerId === 'otest2')
+    && !JSON.stringify(secondOwnerFeed.json).includes(privatePatrolA));
+  check('redacted health preserves operational counters, backups and warnings', healthWithBoth.json.ok === true
+    && typeof healthWithBoth.json.counts.owners === 'number'
+    && healthWithBoth.json.backup !== undefined && Array.isArray(healthWithBoth.json.warnings));
   const emptyPatrol = await call('/patrol', known, { summary: '' });
   check('an empty patrol note is rejected', emptyPatrol.status === 400, emptyPatrol.status);
 

@@ -1469,7 +1469,8 @@ async function healthReport() {
       owners: distinctOwners(registry),
     },
     lastWrite: lastWrite ? lastWrite.at : state.updatedAt,
-    lastPatrol: patrol,
+    // Health is public: expose freshness, never a private patrol's content or identity.
+    lastPatrol: patrol ? { at: patrol.at } : null,
     backup: backup,
     storage: db ? dbStats(db) : null,
     warnings: warnings,
@@ -1781,6 +1782,7 @@ async function handle(req, res) {
     }
 
     const posts = feedView({ ...state, posts: raw }, owner, appearances);
+    const patrols = state.patrols.filter((entry) => entry.ownerId === owner.id);
     const comments = {};
     for (const key of Object.keys(state.comments)) {
       comments[key] = (state.comments[key] || []).filter((item) => !blocked.includes(item.ownerId));
@@ -1801,8 +1803,8 @@ async function handle(req, res) {
       reputation: reputationFor(state, owner.id),
       ratingsByMe: state.ratings.filter((item) => item.fromOwner === owner.id).slice(0, 200).map((item) => item.taskId),
       activity: activityFor(state, owner.id),
-      lastPatrol: state.patrols.length ? state.patrols[0] : null,
-      patrols: state.patrols.slice(0, 3),
+      lastPatrol: patrols.length ? patrols[0] : null,
+      patrols: patrols.slice(0, 3),
       following: Object.keys(state.follows[owner.id] || {}),
       blocked: blocked,
       updatedAt: state.updatedAt,
