@@ -43,6 +43,8 @@ function check(name, condition, detail) {
   const { writeFile } = await import('node:fs/promises');
   const owners = {};
   const seed = (token, owner) => {
+    // These exercise the human-owned workflow; legacy/agent denial is tested separately.
+    owner.credential = { role: 'human', expiresAt: new Date(Date.now() + 86400000).toISOString() };
     owners[createHash('sha256').update(token).digest('hex')] = owner;
   };
   seed('xlb_' + 'b'.repeat(48), { id: 'otest', name: '测试主人', handle: '阿蓝', ownerLabel: '你', createdAt: new Date().toISOString(), revoked: false });
@@ -247,55 +249,20 @@ try {
     + '<FromUserName><![CDATA[openid-1]]></FromUserName><CreateTime>1700000001</CreateTime>'
     + `<MsgType><![CDATA[text]]></MsgType><Content><![CDATA[${content}]]></Content></xml>`;
 
-  const wechatPost = await raw(`/wechat?${query}`, envelope('今天在手机上试了一下'));
-  check('wechat text becomes a note', wechatPost.status === 200 && wechatPost.text.includes('已发出'), wechatPost.text.slice(0, 100));
-
-  const taggedPost = await raw(`/wechat?${query}`, envelope('#吐槽 今天真的不想动了'));
-  check('wechat picks a category with #', taggedPost.status === 200 && taggedPost.text.includes('吐槽'), taggedPost.text.slice(0, 100));
-
-  const claimedByWechat = await raw(`/wechat?${query}`, envelope('领 t4'));
-  check('wechat command claims a task', claimedByWechat.status === 200 && claimedByWechat.text.includes('已代领'), claimedByWechat.text.slice(0, 100));
-
   const unsigned = await raw('/wechat', envelope('没签名'));
   check('wechat message needs a signature', unsigned.status === 403, unsigned.status);
-
-  const listed = await raw(`/wechat?${query}`, envelope('看'));
-  check('wechat lists recent notes', listed.status === 200 && listed.text.includes('最近五条'), listed.text.slice(0, 90));
-
-  await call('/post', known, { title: '标题里有 ]]> 三个字符', text: '用来验证 CDATA 转义' });
-  const tricky = await raw(`/wechat?${query}`, envelope('看'));
-  check(
-    'user text cannot break the reply XML',
-    tricky.status === 200 && tricky.text.includes(']]]]><![CDATA[>'),
-    tricky.text.slice(0, 200),
-  );
-
-  const subscribeXml = '<xml><ToUserName><![CDATA[gh_account]]></ToUserName><FromUserName><![CDATA[openid-1]]></FromUserName>'
-    + '<CreateTime>1700000001</CreateTime><MsgType><![CDATA[event]]></MsgType><Event><![CDATA[subscribe]]></Event></xml>';
-  const greeting = await raw(`/wechat?${query}`, subscribeXml);
-  check('a subscribe event gets a greeting', greeting.status === 200 && greeting.text.includes('欢迎'), greeting.text.slice(0, 120));
-
-  const contextReply = await raw(`/wechat?${query}`, envelope('回 这个方向我也试过'));
-  check('wechat replies without an id', contextReply.status === 200 && contextReply.text.includes('已回在'), contextReply.text.slice(0, 90));
-
-  const wechatAsk = await raw(`/wechat?${query}`, envelope('问 今天有什么活'));
-  check('wechat can queue a question', wechatAsk.status === 200 && wechatAsk.text.includes('记下了'), wechatAsk.text.slice(0, 90));
-
-  const wechatQuery = await raw(`/wechat?${query}`, envelope('查'));
-  check('wechat lists my questions', wechatQuery.status === 200 && wechatQuery.text.includes('还没答'), wechatQuery.text.slice(0, 90));
-
-  const doomed = await call('/post', known, { title: '微信里要删掉的笔记', text: '发错了' });
-  const deletedByWechat = await raw(`/wechat?${query}`, envelope('删 ' + doomed.json.post.id));
-  check('wechat can delete a note by id', deletedByWechat.status === 200 && deletedByWechat.text.includes('删掉了'), deletedByWechat.text.slice(0, 80));
-  const afterWechatDelete = await call('/feed', known, null);
-  check('the note is really gone', !(afterWechatDelete.json.posts || []).some((post) => post.id === doomed.json.post.id));
-
-  const retractable = await call('/ask', known, { text: '微信里要撤回的问题' });
-  check('a question is queued for the wechat test', retractable.status === 201, retractable.status);
-  const retractedByWechat = await raw(`/wechat?${query}`, envelope('撤'));
-  check('wechat can retract a pending question', retractedByWechat.status === 200 && retractedByWechat.text.includes('撤回了'), retractedByWechat.text.slice(0, 80));
-  const afterWechatRetract = await call('/feed', known, null);
-  check('the question is really gone', !(afterWechatRetract.json.asks || []).some((item) => item.id === retractable.json.ask.id));
+  const beforeWebhook = await call('/feed', known, null);
+  const beforeWebhookInbox = await call('/notifications', known, null);
+  for (const command of ['今天在手机上试了一下', '#吐槽 今天真的不想动了', '领 t4', '看', '回 这个方向我也试过', '问 今天有什么活', '查', '删 ' + posted.json.post.id, '撤']) {
+    const result = await raw(`/wechat?${query}`, envelope(command));
+    check('plaintext webhook cannot execute ' + command.split(' ')[0], result.status === 403, result.status);
+  }
+  const forgedSender = await raw(`/wechat?${query}`, envelope('看').replace('openid-1', 'attacker-openid'));
+  check('platform signature does not authorize another sender', forgedSender.status === 403, forgedSender.status);
+  const afterWebhook = await call('/feed', known, null);
+  const afterWebhookInbox = await call('/notifications', known, null);
+  check('blocked webhook leaves community state unchanged', JSON.stringify(beforeWebhook.json) === JSON.stringify(afterWebhook.json));
+  check('blocked webhook creates no notifications', JSON.stringify(beforeWebhookInbox.json) === JSON.stringify(afterWebhookInbox.json));
 
   const who = await call('/whoami', known);
   check('whoami carries a default look', who.json.owner.appearance.shape === 'girl', JSON.stringify(who.json.owner.appearance));
@@ -396,8 +363,9 @@ try {
   const foreignDeliver = await call('/deliver', known2, { taskId: published.json.task.id, text: '抢着交付' });
   check('only the claimer can deliver', foreignDeliver.status === 403, foreignDeliver.status);
 
+  await call('/claim', known, { taskId: 't4', note: '主人已明确接下示例任务' });
   const seedDeliver = await call('/deliver', known, { taskId: 't4', text: '教完了，对方跑通了一次 rank 对照' });
-  check('a seed job confirms itself on delivery', seedDeliver.status === 200 && seedDeliver.json.confirmed === true, JSON.stringify(seedDeliver.json));
+  check('seed jobs do not bypass explicit confirmation', seedDeliver.status === 200 && seedDeliver.json.confirmed === false, JSON.stringify(seedDeliver.json));
 
   const bTask = await call('/task', known2, { title: 'B 发的活', desc: '测试交付通知', budget: '¥1', period: '1 天', match: 60 });
   const bTaskId = bTask.json.task.id;
@@ -653,25 +621,11 @@ try {
   }
   check('the store has no dangling references', dangling.length === 0, dangling.join(', '));
 
-  const bindCode = await call('/pair', known, {});
-  const start = await fetch(BASE + '/wx?bind=' + bindCode.json.code, { redirect: 'manual' });
-  const startLocation = start.headers.get('location') || '';
-  check(
-    'wechat login redirects to the authorizer',
-    start.status === 302 && startLocation.indexOf('open.weixin.qq.com') > 0 && startLocation.indexOf('state=' + bindCode.json.code) > 0,
-    startLocation.slice(0, 90),
-  );
-
-  const bound = await fetch(BASE + '/wx/callback?code=abc&state=' + bindCode.json.code, { redirect: 'manual' });
-  const boundLocation = bound.headers.get('location') || '';
-  const deviceToken = decodeURIComponent((boundLocation.split('t=')[1] || ''));
-  check('the callback issues a device token', bound.status === 302 && deviceToken.indexOf('xlb_') === 0, boundLocation.slice(0, 70));
-  const wxFeed = await call('/feed?limit=1', deviceToken, null);
-  check('the wechat-issued token works', wxFeed.status === 200, wxFeed.status);
-
-  const again = await fetch(BASE + '/wx/callback?code=abc&state=login', { redirect: 'manual' });
-  const againLocation = again.headers.get('location') || '';
-  check('a bound openid logs in without any code', again.status === 302 && againLocation.indexOf('/m?t=') > 0, againLocation.slice(0, 70));
+  const start = await fetch(BASE + '/wx?bind=123456', { redirect: 'manual' });
+  check('legacy OAuth entry is closed', start.status === 410, start.status);
+  const bound = await fetch(BASE + '/wx/callback?code=abc&state=123456', { redirect: 'manual' });
+  check('legacy callback cannot mint a credential', bound.status === 410 && !bound.headers.get('location'), bound.status);
+  check('callback does not expose a full credential in its body', !(await bound.text()).includes('xlb_'));
 
   // 小程序：未绑定先 409，用配对码绑一次之后免码登录
   const appUnbound = await call('/wxapp/login', null, { code: 'js-code-1' });

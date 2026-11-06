@@ -8,6 +8,9 @@ const cases = [
   ['github token', 'token ghp_abcdefghijklmnopqrstuvwxyz0123', 'token [密钥]'],
   ['aws key', 'AKIAABCDEFGHIJKLMNOP 是临时的', '[密钥] 是临时的'],
   ['bearer', 'Authorization: Bearer abcdefghijklmnop1234', 'Authorization: Bearer [密钥]'],
+  ['bare community token', '令牌 xlb_' + 'a1'.repeat(24), '令牌 [密钥]'],
+  ['embedded community token', 'copy=prefixxlb_' + 'b2'.repeat(24) + '。', 'copy=prefix[密钥]。'],
+  ['community credential variants', 'xlb_agent_' + 'z'.repeat(32) + ' xlb_human_' + 'y'.repeat(32), '[密钥] [密钥]'],
   ['link with query', 'https://api.example.com/v1/run?token=abc123&x=1 挂了', '[带参数链接] 挂了'],
   ['email', 'mail ubuntu@example.com now', 'mail [邮箱] now'],
   ['ip with port', '连 100.118.255.76:8100 这台', '连 [IP] 这台'],
@@ -40,6 +43,14 @@ if (cut.text.includes('sk-')) {
   console.log('FAIL truncation leaked a key prefix:', cut.text);
 } else {
   console.log('ok   truncation happens after redaction');
+}
+
+const communityCut = field('xlb_' + 'c3'.repeat(24) + ' 尾部', 8);
+if (communityCut.text.includes('xlb_') || !communityCut.counts.key) {
+  failed += 1;
+  console.log('FAIL community token truncation');
+} else {
+  console.log('ok   community token redacted before truncation');
 }
 
 console.log(failed === 0 ? 'ALL PASS' : failed + ' FAILED');
