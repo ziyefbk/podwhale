@@ -308,3 +308,7 @@ node podwhale/status.mjs          # 加 --json 给脚本用；有 warning 时退
 `assets/candidates/` 是挑形象时的原始素材与对比图（`compare.png`），不参与打包，可随时删除。
 
 非官方同人，不代表 DeepSeek 官方立场。
+
+## TypeScript 开发
+
+编辑 `src/`，运行 `npm ci --ignore-scripts`、`npm run build`、`node check.mjs --local`。发行包直接运行已有 JS，保持零运行依赖。源码仓库的全量检查和打包会先拒绝类型错误及陈旧的 JS。详细说明见 [重构与验收记录](docs/typescript-refactor.md)。

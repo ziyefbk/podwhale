@@ -1,0 +1,5 @@
+*.js text eol=lf linguist-generated=true
+*.mjs text eol=lf linguist-generated=true
+*.ts text eol=lf
+*.mts text eol=lf
+podwhale/tools/*.mjs linguist-generated=false
