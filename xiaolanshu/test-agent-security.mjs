@@ -110,6 +110,7 @@ async function host(config, faults = {}) {
   let callId = 0;
   let lastCreate;
   let followed = 0;
+  let firstUserMessage;
   const networkGuards = [];
   const runtime = {
     on(event, guard) {
@@ -157,9 +158,21 @@ async function host(config, faults = {}) {
         };
         let pending = Promise.resolve();
         const agent = { id: options.sessionId, ctx: scoped,
-          followup() {
+          followup(message) {
             followed += 1;
+            firstUserMessage = message;
             pending = Promise.resolve().then(async () => {
+              // Match actual DSH: followup forwards this exact message unchanged.
+              // The fake must not manufacture its missing id, role or source.
+              const schemas = executor.describe([...tools.values()]).schemas;
+              const request = {
+                provider: options.agentOptions.provider, model: options.agentOptions.model,
+                sessionId: options.sessionId, tools: schemas, toolHistory: { tools: schemas, updates: [] },
+                messages: [{ id: 'system-' + (++callId), role: 'system', source: { kind: 'system-prompt' },
+                  content: [{ type: 'text', text: PATROL_SYSTEM }] }, faults.badFollowupEnvelope
+                    ? { content: message.content, source: message.source } : message],
+              };
+              for (const guard of networkGuards) await guard(request, () => undefined);
               const invoke = async (name, args) => {
                 const exec = { name, agent, callId: 'call-' + (++callId) };
                 for (const guard of guards) { const reason = guard(exec); if (reason) throw Object.assign(new Error(reason), { status: 403 }); }
@@ -195,6 +208,7 @@ async function host(config, faults = {}) {
     Promise.resolve(route.handler(req, res)).catch(() => send(res, { ok: false }, 500));
   }));
   return { tools, base, home, created: () => lastCreate, followups: () => followed,
+    firstUserMessage: () => firstUserMessage,
     async resumedRequest() {
       let sent = false;
       try { await networkGuards[0]({ sessionId: lastCreate.sessionId }, () => { sent = true; }); }
@@ -239,6 +253,11 @@ try {
   const created = active.created();
   check('patrol creates a new session without parent history or cwd', !created.parentAgent && !created.seed
     && !created.meta.parentSession && created.meta.cwd !== HERE && created.agentOptions.maxTokens === 1024);
+  const initialMessage = active.firstUserMessage();
+  check('followup receives a complete deeply immutable Host UserMessage', initialMessage.role === 'user'
+    && /^[a-f0-9-]{36}$/i.test(initialMessage.id) && Object.isFrozen(initialMessage)
+    && Object.isFrozen(initialMessage.source) && Object.isFrozen(initialMessage.content)
+    && initialMessage.content.every(Object.isFrozen));
   check('retired patrol sessions cannot resume without their live boundary', await active.resumedRequest());
   check('main cannot grant itself isolated write access', await rejects(() => active.tools.get('xlb_post').execute({
     ...inputs.post, agent: {}, isolated: true, role: 'human' }, { agent: {} }), 403));
@@ -315,6 +334,14 @@ try {
     check('isolation failure blocks before community read: ' + fault, outcome.summary.status === 'blocked'
       && restricted.followups() === 0 && !calls.slice(before).some((call) => call.path === '/xiaolanshu/feed'));
   }
+  const malformedEnvelope = await host(config, { badFollowupEnvelope: true });
+  const malformedBefore = calls.length;
+  const malformedResult = await malformedEnvelope.within((invoke) => invoke('xlb_feed', {}));
+  const malformedStatus = await (await fetch(malformedEnvelope.base + '/xiaolanshu/api/security')).json();
+  check('actual legacy followup envelope is blocked with a fixed structural diagnostic', malformedResult.summary.status === 'blocked'
+    && malformedStatus.networkPolicyFailure === 'message_structure'
+    && !calls.slice(malformedBefore).some((call) => call.path === '/xiaolanshu/feed')
+    && !JSON.stringify(malformedStatus).includes(attack));
   const budget = await host(config);
   let rejectedFourth = false;
   const capped = await budget.within(async (invoke) => {

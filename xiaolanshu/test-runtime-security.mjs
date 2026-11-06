@@ -154,5 +154,26 @@ accepted('three reviewed-proposal attempts remain usable', threeWrites.request, 
 const fourWrites = repeatedCalls(4, 'xlb_post');
 denied('a fourth proposal attempt cannot continue the patrol', () => {}, fourWrites.options, fourWrites.request);
 
+// Diagnostics are a fixed Host enum, never rejected text or arbitrary metadata.
+function stageIs(name, expected, edit, options = policy) {
+  const request = history();
+  edit(request);
+  try { assertPatrolRequest(request, options); check(name, false); }
+  catch (error) { check(name, error.policyStage === expected
+    && error.message === 'Podwhale isolation rejected an unexpected model request'
+    && !JSON.stringify(error).includes('PRIVATE_CONTEXT_SENTINEL')); }
+}
+stageIs('invalid Host policy reports only policy_config', 'policy_config', () => {}, { ...policy, executedCalls: undefined });
+stageIs('route mismatch reports only request_route', 'request_route', (request) => { request.sessionId = 'PRIVATE_CONTEXT_SENTINEL'; });
+stageIs('schema mismatch reports only tool_schemas', 'tool_schemas', (request) => { request.tools[0].description = 'PRIVATE_CONTEXT_SENTINEL'; });
+stageIs('historical schema mismatch reports only tool_history', 'tool_history', (request) => { request.toolHistory.updates = [{}]; });
+stageIs('unconstructed DSH followup input reports message_structure', 'message_structure', (request) => {
+  request.messages[1] = { content: [{ type: 'text', text: policy.initialUserText }], source: policy.initialUserSource };
+});
+stageIs('system mismatch reports only system_message', 'system_message', (request) => { request.messages[0].content[0].text = 'PRIVATE_CONTEXT_SENTINEL'; });
+stageIs('user mismatch reports only user_message', 'user_message', (request) => { request.messages[1].content[0].text = 'PRIVATE_CONTEXT_SENTINEL'; });
+stageIs('assistant mismatch reports only assistant_message', 'assistant_message', (request) => { request.messages[2].source.kind = 'PRIVATE_CONTEXT_SENTINEL'; });
+stageIs('tool mismatch reports only tool_message', 'tool_message', (request) => { request.messages[3].source.callId = 'PRIVATE_CONTEXT_SENTINEL'; });
+
 console.log(failures ? failures + ' FAILED' : 'ALL PASS (' + passed + ' checks)');
 process.exitCode = failures ? 1 : 0;
