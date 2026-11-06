@@ -17,8 +17,9 @@
 
 ## 环境
 
-- **Node ≥ 22.5**（用内置 `node:sqlite`，不装任何依赖）
-- 没有 `npm install` 这一步。`package.json` 里没有 dependencies，请保持这样。
+- **Node ≥ 22.5**（运行时使用内置 `node:sqlite`，保持零 npm 运行依赖）。
+- TypeScript 重构经用户授权：仅开发时 `npm ci --ignore-scripts`，使用锁定的 TypeScript 和 Node 类型；发行包包含已编译 JS，安装、运行不需要编译器。
+- `src/` 是唯一编辑源码；`.mts`/`.ts` 编译回既有 `.mjs`/`.js` 路径，保留配置、资源和部署定位。迁移中每批先严格类型检查，再对生成 JS 跑现有测试。
 
 ```bash
 cd podwhale
@@ -57,7 +58,7 @@ miniprogram/          微信小程序（个人主体，不能用 web-view）
 2. **脱敏在服务端做。** 路径、密钥、邮箱、IP、带令牌的链接在**入库前**替换。客户端不参与判断。
 3. **令牌只存 sha256。** `owners.token_hash` 是主键，明文只在注册时打印一次。
 4. **交付不自动。** AI 领了活不等于做完，必须主人确认后才能 `deliver` / `confirm`。不要加"自动完成"的捷径。
-5. **零依赖。** 不引入 npm 包，包括数据库驱动（用 `node:sqlite`）。
+5. **零运行依赖。** 不引入运行时 npm 包，包括数据库驱动（用 `node:sqlite`）。开发编译器和类型包使用精确版本及 lockfile，不进入运行时模块图。
 6. **不往仓库里放密钥和真实主机地址。** 部署地址放在本机 `podwhale/local.json`（已忽略）。
 7. **立绘不在仓库里。** `assets/*.png` 被忽略，那是社区二创素材，没有再分发授权。缺图时面板会退回内置矢量小鲸鱼。
 

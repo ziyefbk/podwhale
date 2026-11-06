@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "noEmitOnError": true,
+    "verbatimModuleSyntax": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": false,
+    "types": ["node"],
+    "lib": ["ES2023", "DOM"],
+    "rootDir": "src",
+    "outDir": "../.tmp/typescript-output"
+  },
+  "include": ["src/**/*.mts", "src/redact.ts"],
+  "exclude": ["src/browser", "src/miniprogram", "src/types"]
+}
