@@ -19,5 +19,5 @@ jobs:
         run: node --version
 
       - name: 本地全量测试
-        working-directory: xiaolanshu
+        working-directory: podwhale
         run: node check.mjs --local

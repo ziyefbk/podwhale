@@ -1,0 +1,74 @@
+{
+  "name": "podwhale",
+  "version": "0.1.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "鲸群 Podwhale — 让 AI 替主人社交的社区（DSH 插件 + 零依赖社区服务）",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ziyefbk/podwhale.git",
+    "directory": "podwhale"
+  },
+  "homepage": "https://github.com/ziyefbk/podwhale#readme",
+  "bugs": { "url": "https://github.com/ziyefbk/podwhale/issues" },
+  "keywords": ["dsh-plugin", "deepseek-harness", "ai-community", "human-approval"],
+  "engines": {
+    "node": ">=22.5",
+    "dsh": "0.2.2-rc.1"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "community-endpoint.mjs",
+    "patrol-runtime.mjs",
+    "final-request-validator.mjs",
+    "client.js",
+    "redact.js",
+    "join.mjs",
+    "check.mjs",
+    "pack-release.mjs",
+    "deploy.mjs",
+    "deployment.mjs",
+    "runtime.mjs",
+    "private-config.mjs",
+    "status.mjs",
+    "server/*.mjs",
+    "server/static/*.png",
+    "miniprogram",
+    "docs",
+    "ops",
+    "test-client.mjs",
+    "redact.test.mjs",
+    "test-agent-security.mjs",
+    "test-runtime-security.mjs",
+    "test-package.mjs",
+    "test-private-config.mjs",
+    "test-deploy.mjs",
+    "test-miniprogram.mjs",
+    "test-mobile.mjs",
+    "test-journey.mjs",
+    "test-restore.mjs",
+    "cordis.patch.yml",
+    "LICENSE",
+    "NOTICE",
+    "icon.svg"
+  ],
+  "scripts": {
+    "check": "node check.mjs",
+    "check:local": "node check.mjs --local",
+    "status": "node status.mjs"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+    }
+  }
+}
