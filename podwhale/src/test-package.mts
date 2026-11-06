@@ -30,6 +30,8 @@ try {
   await execute('tar', ['-xzf', packed.artifact, '--strip-components', '1', '-C', installed], { timeout: 10000, windowsHide: true });
   const metadata = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
   check('published runtime has no npm dependencies', Object.keys(metadata.dependencies || {}).length === 0);
+  check('release is publishable only to the public npm registry', metadata.private !== true
+    && metadata.publishConfig?.registry === 'https://registry.npmjs.org/' && metadata.publishConfig?.access === 'public');
   check('archive excludes TypeScript sources and development compiler tools', packed.files.every((file) =>
     !/^(?:src|tools|node_modules)\//.test(file) && !/\.(?:mts|ts)$/.test(file)));
   const patch = await readFile(join(installed, metadata.dsh.bundle.patch), 'utf8');

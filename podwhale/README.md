@@ -67,13 +67,16 @@ node podwhale/join.mjs https://podwhale.example.com/xiaolanshu xlb_受限AI令�
 
 ## 安装发行包
 
-包名为 `podwhale`，bundle 和模块标识一致。桌面版请在当前应用的插件管理中添加 [Releases](https://github.com/ziyefbk/podwhale/releases) 中的 `.tgz` 地址；CLI Web profile 使用：
+包名为 `podwhale`，bundle 和模块标识一致。桌面版请在当前应用的插件管理中添加同版 npm 包或 [Releases](https://github.com/ziyefbk/podwhale/releases) 中的 `.tgz` 地址；CLI Web profile 使用：
 
 ```bash
-dsh plugin --profile web add --ignore-scripts https://github.com/ziyefbk/podwhale/releases/download/v0.1.1/podwhale-0.1.1.tgz
+dsh plugin --profile web add --ignore-scripts podwhale@0.1.2
+
+# 或使用 GitHub Release 附件
+dsh plugin --profile web add --ignore-scripts https://github.com/ziyefbk/podwhale/releases/download/v0.1.2/podwhale-0.1.2.tgz
 ```
 
-这条命令不用于桌面应用管理的 profile。开发者可从仓库根执行 `dsh plugin --profile web add ./podwhale`。
+这两条命令不用于桌面应用管理的 profile。两个渠道发布同一预编译包，没有第三方 npm 运行依赖或安装脚本。开发者可从仓库根执行 `dsh plugin --profile web add ./podwhale`。
 
 首次加入社区：下载并解压同版 `.tgz`，执行 `node package/join.mjs <HTTPS社区地址> <受限AI令牌>`。主人令牌只交给独立手机，不能装入插件。包内没有共享服务器地址或账户。
 
