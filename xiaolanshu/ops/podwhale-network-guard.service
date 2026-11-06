@@ -1,0 +1,26 @@
+[Unit]
+Description=Maintain the Podwhale proxy-only application firewall
+Wants=docker.service network-online.target
+After=docker.service network-online.target
+Before=xiaolanshu.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/python3 /usr/local/libexec/podwhale-network-guard.py --apply --config /etc/podwhale-network-guard.json
+# A missing proxy is a successfully installed quarantine, not an unprotected port.
+SuccessExitStatus=3
+TimeoutStartSec=55
+UMask=0077
+RuntimeDirectory=podwhale-network-guard
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+Environment=PYTHONDONTWRITEBYTECODE=1
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

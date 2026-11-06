@@ -32,6 +32,7 @@
     "server",
     "miniprogram",
     "docs",
+    "ops",
     "test-client.mjs",
     "redact.test.mjs",
     "test-agent-security.mjs",
