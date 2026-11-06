@@ -144,18 +144,25 @@ export function createHttpGuard(config, identify = trustedClientIp) {
     return false;
   }
   function admit(req, res) {
-    const context = { res, continued: false };
+    const context = { res, continued: false, expired: false, bodyEnded: false,
+      deadline: performance.now() + config.requestTimeoutMs };
     requests.set(req, context);
     const timeout = setTimeout(() => {
+      context.expired = true;
       reject(req, res, 408, 'request timeout');
       closeSocket(req.socket, config.rejectGraceMs);
     }, config.requestTimeoutMs);
     timeout.unref();
     const clear = () => clearTimeout(timeout);
-    req.once('end', clear);
-    req.once('close', clear);
-    res.once('close', clear);
+    req.once('end', () => {
+      if (performance.now() >= context.deadline) context.expired = true;
+      context.bodyEnded = true;
+      clear();
+    });
+    req.once('close', () => { if (!context.bodyEnded) context.expired = true; clear(); });
+    res.once('close', () => { if (!context.bodyEnded) context.expired = true; clear(); });
     res.once('finish', () => {
+      if (!context.bodyEnded) context.expired = true;
       clear();
       if (res.statusCode >= 400 || !req.complete) closeSocket(req.socket, config.rejectGraceMs);
     });
@@ -174,11 +181,22 @@ export function createHttpGuard(config, identify = trustedClientIp) {
     return true;
   }
   function continueBody(req) {
+    assertRequestActive(req);
     const context = requests.get(req);
     if (context && !context.continued && req.headers.expect?.toLowerCase() === '100-continue') {
       context.continued = true;
       context.res.writeContinue();
     }
+  }
+  function assertRequestActive(req) {
+    const context = requests.get(req);
+    // Node's parser-level request timeout starts before admission. Its
+    // clientError handler may have closed the write side before our timer fires.
+    if (context && (req.socket.writableEnded || req.socket.destroyed)) context.expired = true;
+    // A delayed event-loop timer cannot turn a late final chunk into a valid
+    // write. Once the body ended on time, later processing is not cancelled.
+    if (context && !context.bodyEnded && performance.now() >= context.deadline) context.expired = true;
+    if (!context || context.expired) throw Object.assign(new Error('request timeout'), { status: 408 });
   }
   function authenticationFailed(req, res) {
     const now = performance.now();
@@ -208,7 +226,7 @@ export function createHttpGuard(config, identify = trustedClientIp) {
       closeSocket(socket, config.rejectGraceMs);
     });
   }
-  return { admit, reject, bodyLength, continueBody, authenticationFailed, closeResponse,
+  return { admit, reject, bodyLength, continueBody, assertRequestActive, authenticationFailed, closeResponse,
     serverOptions, configureServer, windowAllowed: (...args) => windows.take(...args) };
 }
 

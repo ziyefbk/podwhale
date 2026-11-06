@@ -19,8 +19,8 @@ let failed = 0;
 let passed = 0;
 let sequence = 0;
 
-function check(name, ok) {
-  console.log((ok ? 'ok  ' : 'FAIL') + ' ' + name);
+function check(name, ok, detail = '') {
+  console.log((ok ? 'ok  ' : 'FAIL') + ' ' + name + (!ok && detail ? ' -> ' + detail : ''));
   if (ok) passed += 1;
   else failed += 1;
 }
@@ -121,8 +121,8 @@ function call(state, path, { credential, method = 'GET', body, headers = {} } = 
   });
 }
 
-function socketFor(state) {
-  const socket = connect({ host: '127.0.0.1', port: state.port });
+function socketFor(state, options = {}) {
+  const socket = connect({ host: '127.0.0.1', port: state.port, ...options });
   state.sockets.add(socket);
   socket.once('close', () => state.sockets.delete(socket));
   return socket;
@@ -142,6 +142,40 @@ function raw(state, bytes, timeout = 6000) {
       done({ status: Number(/^HTTP\/1\.[01] (\d{3})/.exec(response)?.[1] || 0),
         statuses: [...response.matchAll(/HTTP\/1\.[01] (\d{3})/g)].map((match) => Number(match[1])),
         firstHeaders: response.split('\r\n\r\n')[0], timedOut });
+    });
+  });
+}
+
+function finishBodyAfterTimeout(state, body, headerDelay = 0) {
+  return new Promise((done) => {
+    const socket = socketFor(state, { allowHalfOpen: true });
+    let response = '';
+    let attempted = false;
+    let timedOut = false;
+    let headerTimer;
+    const timer = setTimeout(() => { timedOut = true; socket.destroy(); }, 5000);
+    socket.once('connect', () => {
+      socket.write('POST /proposals HTTP/1.1\r\n');
+      const finishHeaders = () => socket.write('Host: localhost\r\nAuthorization: Bearer ' + token
+        + '\r\nContent-Type: application/json\r\nContent-Length: ' + Buffer.byteLength(body)
+        + '\r\nConnection: close\r\n\r\n' + body.slice(0, -1));
+      if (headerDelay) headerTimer = setTimeout(finishHeaders, headerDelay);
+      else finishHeaders();
+    });
+    socket.on('data', (chunk) => {
+      response += chunk.toString('utf8');
+      if (!attempted && /^HTTP\/1\.[01] 408\b/.test(response)) {
+        attempted = true;
+        // Finish the hostile upload, then close our own half of the connection.
+        // With allowHalfOpen a server FIN alone must not make this test hang.
+        socket.end(body.slice(-1));
+      }
+    });
+    socket.on('error', () => {});
+    socket.once('close', () => {
+      clearTimeout(timer);
+      clearTimeout(headerTimer);
+      done({ attempted, timedOut, status: Number(/^HTTP\/1\.[01] (\d{3})/.exec(response)?.[1] || 0) });
     });
   });
 }
@@ -234,6 +268,28 @@ try {
     check('ordinary sessions still work after slow requests are removed', (await call(state, '/whoami', { credential: token })).status === 200);
     const complete = await call(state, '/proposals', { credential: token, method: 'POST', body: JSON.parse(pending) });
     check('a complete authenticated body remains a pending proposal', complete.status === 201 && complete.json.proposal?.status === 'pending');
+  });
+
+  await withFixture({ XLB_HTTP_HEADERS_TIMEOUT_MS: '150', XLB_HTTP_REQUEST_TIMEOUT_MS: '250',
+    XLB_HTTP_CHECK_INTERVAL_MS: '10', XLB_HTTP_SOCKET_TIMEOUT_MS: '4000', XLB_HTTP_REJECT_GRACE_MS: '2000' }, async (state) => {
+    const before = await call(state, '/proposals', { credential: token });
+    const late = await finishBodyAfterTimeout(state, JSON.stringify({ action: 'post',
+      payload: { title: 'expired body fixture', text: 'must not execute after rejection' } }));
+    check('a hostile half-open client attempts its final body byte only after receiving 408', late.attempted && !late.timedOut);
+    const after = await call(state, '/proposals', { credential: token });
+    check('completing a request body after timeout cannot create a proposal', before.status === 200 && before.json.items?.length === 0
+      && after.status === 200 && after.json.items?.length === 0);
+  });
+
+  await withFixture({ XLB_HTTP_HEADERS_TIMEOUT_MS: '300', XLB_HTTP_REQUEST_TIMEOUT_MS: '500',
+    XLB_HTTP_CHECK_INTERVAL_MS: '10', XLB_HTTP_SOCKET_TIMEOUT_MS: '4000', XLB_HTTP_REJECT_GRACE_MS: '2000' }, async (state) => {
+    const late = await finishBodyAfterTimeout(state, JSON.stringify({ action: 'post',
+      payload: { title: 'parser deadline fixture', text: 'must not execute after parser timeout' } }), 200);
+    check('headers elapsed time lets the parser deadline reject before the admitted body deadline', late.attempted && !late.timedOut,
+      JSON.stringify(late));
+    const after = await call(state, '/proposals', { credential: token });
+    check('parser timeout also prevents a late completed body from creating a proposal', after.status === 200 && after.json.items?.length === 0,
+      'HTTP ' + after.status + ', proposals ' + (after.json.items?.length ?? 'missing'));
   });
 
   await withFixture({}, async (state) => {

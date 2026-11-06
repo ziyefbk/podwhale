@@ -516,10 +516,12 @@ async function readBinary(req, limit) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    httpGuard.assertRequestActive(req);
     size += chunk.length;
     if (size > limit) throw Object.assign(new Error(`图片太大了，最多 ${Math.round(limit / 1024 / 1024)} MB`), { status: 413 });
     chunks.push(chunk);
   }
+  httpGuard.assertRequestActive(req);
   return Buffer.concat(chunks);
 }
 
@@ -542,10 +544,12 @@ async function readBody(req) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    httpGuard.assertRequestActive(req);
     size += chunk.length;
     if (size > MAX_BODY) throw Object.assign(new Error('body too large'), { status: 413 });
     chunks.push(chunk);
   }
+  httpGuard.assertRequestActive(req);
   if (!size) return {};
   let parsed;
   try {
