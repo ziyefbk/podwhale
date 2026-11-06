@@ -1,0 +1,16 @@
+Podwhale notices
+
+The project-provided source code, icon.svg, and the PWA icons
+server/static/icon-192.png and server/static/icon-512.png are licensed under
+the MIT License. See LICENSE for the complete terms and copyright notice.
+
+The PWA icons are rendered directly from the project's built-in vector whale
+in icon.svg. They contain no optional character illustrations. Maintainers can
+rebuild both sizes using ops/generate-pwa-icons.mjs with Node >=22.5 and an
+installed Chromium browser; no npm dependencies are required.
+
+Optional local character images, including assets/whale-girl.png and
+assets/whale-girl-face.png, are not included in the repository or release
+package. They are third-party material, and are not relicensed by this project.
+Anyone adding such images must obtain and comply with the applicable rights
+and permissions, including any redistribution or commercial-use restrictions.

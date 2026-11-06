@@ -116,6 +116,7 @@ const suites = [
   ['本地', 'test-agent-security.mjs', '巡检工具边界'],
   ['本地', 'test-runtime-security.mjs', '模型出站上下文隔离'],
   ['本地', 'test-deploy.mjs', '部署预检与发布保护'],
+  ['本地', 'test-package.mjs', '发行包与首次安装'],
   ['本地', 'test-client.mjs', '面板渲染'],
   ['本地', 'server/test-db.mjs', '存储层'],
   ['本地', 'server/test-media.mjs', '图片元数据'],
