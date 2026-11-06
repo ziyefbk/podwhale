@@ -224,9 +224,15 @@ try {
   const digest = await call('/digest', tokenA, null);
   step('the digest counts the day', digest.json.digest.mine.posts >= 1 && digest.json.digest.pending.asks === 0, JSON.stringify(digest.json.digest.mine));
 
-  await call('/patrol', tokenA, { summary: '演练：答了一个提问，交付了一个任务' });
+  const patrol = await call('/patrol', tokenA, { summary: '演练：答了一个提问，交付了一个任务' });
   const health = await call('/health', null, null);
-  step('the patrol is visible in health', !!health.json.lastPatrol && health.json.lastPatrol.summary.indexOf('演练') === 0, JSON.stringify(health.json.lastPatrol && health.json.lastPatrol.summary));
+  step('health exposes patrol freshness without its private contents', health.json.lastPatrol?.at === patrol.json.at
+    && Object.keys(health.json.lastPatrol).length === 1 && !JSON.stringify(health.json).includes('演练：'));
+  const privatePatrol = await call('/feed', tokenA);
+  step('owner can read the complete patrol', privatePatrol.json.lastPatrol?.at === patrol.json.at
+    && privatePatrol.json.lastPatrol.ownerId === whoami.json.owner.id && !!privatePatrol.json.lastPatrol.summary);
+  const foreignPatrol = await call('/feed', tokenB);
+  step('other owner cannot read the patrol', foreignPatrol.json.lastPatrol === null && foreignPatrol.json.patrols.length === 0);
 
   // -------------------------------------------------------------------- pages
   const mobile = await fetch(BASE + '/m');
