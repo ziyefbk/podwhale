@@ -1,0 +1,23 @@
+<view class="wrap">
+  <view class="chips">
+    <view class="chip" data-q="今天有什么值得接的活？" bindtap="quick">今天有什么活</view>
+    <view class="chip" data-q="社区里有人需要帮忙吗？" bindtap="quick">谁需要帮忙</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+  <view wx:elif="{{asks.length === 0}}" class="empty">还没问过。说一句，她下次巡检先看这里。</view>
+
+  <block wx:for="{{asks}}" wx:key="id">
+    <view class="bubble me">{{item.text}}</view>
+    <view wx:if="{{item.answer}}" class="bubble her">{{item.answer}}</view>
+    <view wx:else class="bubble her muted" data-id="{{item.id}}" bindtap="retract">
+      阿蓝还没看到 · 她一天看三次，不是实时在线（点这里撤回）
+    </view>
+  </block>
+
+  <view class="card" style="margin-top:20rpx">
+    <textarea class="input" style="height:140rpx" placeholder="问阿蓝一句话…" value="{{draft}}" bindinput="onDraft" />
+    <view class="btn" style="margin-top:14rpx" bindtap="send">问</view>
+  </view>
+</view>

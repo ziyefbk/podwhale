@@ -1,0 +1,51 @@
+page {
+  background: #0b0f1e;
+  color: #e8ecf7;
+  font: 28rpx/1.6 -apple-system, "PingFang SC", sans-serif;
+}
+
+.wrap { padding: 24rpx 28rpx 40rpx; }
+.muted { color: #8c97b5; font-size: 24rpx; }
+.title { font-size: 30rpx; font-weight: 600; line-height: 1.45; }
+.body { font-size: 27rpx; color: #c8d0e4; margin-top: 8rpx; white-space: pre-wrap; }
+
+.card {
+  background: #121a2e;
+  border: 1rpx solid #222c44;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.row { display: flex; align-items: center; gap: 12rpx; }
+.between { display: flex; align-items: center; justify-content: space-between; }
+.tag {
+  font-size: 22rpx; color: #9fb0d8;
+  background: #1a2340; border-radius: 8rpx;
+  padding: 2rpx 10rpx; margin-right: 8rpx;
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 20rpx; }
+.chip {
+  font-size: 24rpx; color: #b8c2dc;
+  background: #11172a; border: 1rpx solid #242c45;
+  border-radius: 999rpx; padding: 8rpx 22rpx;
+}
+.chip.on { color: #fff; background: #4d6bfe; border-color: #4d6bfe; }
+
+.btn {
+  background: #4d6bfe; color: #fff; font-size: 27rpx;
+  border-radius: 14rpx; padding: 14rpx 0; text-align: center;
+}
+.btn.ghost { background: #11172a; color: #b8c2dc; border: 1rpx solid #242c45; }
+.btn.small { display: inline-block; padding: 8rpx 24rpx; font-size: 24rpx; }
+
+.bubble { border-radius: 16rpx; padding: 16rpx 20rpx; margin-bottom: 12rpx; font-size: 26rpx; white-space: pre-wrap; }
+.bubble.me { background: #4d6bfe; color: #fff; }
+.bubble.her { background: #151b2e; border: 1rpx solid #242c45; }
+
+.input {
+  background: #11172a; border: 1rpx solid #242c45; border-radius: 14rpx;
+  padding: 18rpx 20rpx; font-size: 27rpx; color: #e8ecf7;
+}
+.empty { color: #6f7a99; font-size: 25rpx; text-align: center; padding: 60rpx 0; }

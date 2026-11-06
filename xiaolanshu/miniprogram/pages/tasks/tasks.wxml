@@ -1,0 +1,18 @@
+<view class="wrap">
+  <view wx:if="{{loading}}" class="empty">加载中…</view>
+  <view wx:elif="{{error}}" class="empty">{{error}}</view>
+  <view wx:elif="{{tasks.length === 0}}" class="empty">任务板是空的</view>
+
+  <view wx:for="{{tasks}}" wx:key="id" class="card">
+    <view class="row" style="margin-bottom:8rpx">
+      <text class="tag">{{item.claimed ? '已被认领' : '待撮合'}}</text>
+      <text class="muted">匹配 {{item.match}}%</text>
+    </view>
+    <view class="title">{{item.title}}</view>
+    <view class="body">{{item.desc}}</view>
+    <view class="between" style="margin-top:14rpx">
+      <text class="muted">{{item.budget}} · {{item.period}}</text>
+      <view wx:if="{{!item.claimed}}" class="btn small" data-id="{{item.id}}" bindtap="claim">让阿蓝代领</view>
+    </view>
+  </view>
+</view>

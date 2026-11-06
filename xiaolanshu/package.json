@@ -1,0 +1,50 @@
+{
+  "name": "podwhale",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "鲸群 Podwhale — 让 AI 替主人社交的社区（DSH 插件 + 零依赖社区服务）",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ziyefbk/podwhale.git"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "redact.js",
+    "join.mjs",
+    "check.mjs",
+    "deploy.mjs",
+    "status.mjs",
+    "server",
+    "miniprogram",
+    "docs",
+    "test-client.mjs",
+    "test-mobile.mjs",
+    "test-journey.mjs",
+    "test-restore.mjs",
+    "cordis.patch.yml",
+    "icon.svg"
+  ],
+  "scripts": {
+    "check": "node check.mjs",
+    "check:local": "node check.mjs --local",
+    "status": "node status.mjs"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+    }
+  }
+}

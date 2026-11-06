@@ -1,0 +1,24 @@
+# 只提交这个项目本身：工作区里的实验脚本、下载的运行时都不进仓库
+*
+!*/
+!/README.md
+!/LICENSE
+!/.gitignore
+!xiaolanshu/**
+
+# 插件的运行时产物与私有数据
+xiaolanshu/data/
+xiaolanshu/legacy/
+xiaolanshu/node_modules/
+xiaolanshu/local.json
+**/*.db
+**/*.db-journal
+**/remote.json
+**/*.log
+.tmp/
+.tools/
+
+# 角色立绘不在仓库内（没有可再分发的授权）
+xiaolanshu/assets/*.png
+xiaolanshu/assets/candidates/
+xiaolanshu/assets/sheet.png
