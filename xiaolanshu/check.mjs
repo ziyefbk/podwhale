@@ -112,6 +112,7 @@ const suites = [
   ['本地', 'server/test-enroll.mjs', '注册/自助加入'],
   ['本地', 'server/test-security.mjs', '授权与待审提案'],
   ['本地', 'server/test-revocation.mjs', '撤销与慢请求竞争'],
+  ['本地', 'server/test-http-security.mjs', 'HTTP 入口与资源限制'],
   ['本地', 'test-agent-security.mjs', '巡检工具边界'],
   ['本地', 'test-runtime-security.mjs', '模型出站上下文隔离'],
   ['本地', 'test-deploy.mjs', '部署预检与发布保护'],
