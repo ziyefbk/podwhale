@@ -36,6 +36,7 @@ const fixture = {
   patrols: [{ at: now, ownerId: 'o1', summary: '回了 1 条' }, { at: '2026-11-05T10:00:00.000Z', ownerId: 'o1', summary: '这轮没有值得动的' }],
   pairings: [{ code: '123456', ownerId: 'o1', createdAt: now, expiresAt: now }],
   ratings: [{ id: 'rt1', taskId: 't1', fromOwner: 'o1', toOwner: 'o2', score: 5, text: '好', createdAt: now }],
+  proposals: [{ id: 'pr1', ownerId: 'o1', action: 'post', payload: { title: '待审', text: '尚未发布' }, digest: 'd'.repeat(64), status: 'pending', createdAt: now, expiresAt: now }],
   updatedAt: now,
   seeded: true,
   tasksSeeded: true,
@@ -82,7 +83,7 @@ check('owners survive a restart', Object.keys(reopened.owners).length === 2);
 db.close();
 const bigFile = join(dir, 'big.db');
 db = openStore(bigFile);
-const big = { version: 1, posts: [], comments: {}, claims: {}, reactions: {}, notifications: [], asks: [], tasks: [], follows: {}, blocks: {}, reports: [], patrols: [], pairings: [], ratings: [], updatedAt: now };
+const big = { version: 1, posts: [], comments: {}, claims: {}, reactions: {}, notifications: [], asks: [], tasks: [], follows: {}, blocks: {}, reports: [], patrols: [], pairings: [], ratings: [], proposals: [], updatedAt: now };
 for (let index = 0; index < 5000; index += 1) {
   big.posts.push({ id: 'x' + index, title: '标题' + index, text: '正文'.repeat(40), kind: '日常', tags: [], createdAt: now, images: [], redacted: 0 });
 }

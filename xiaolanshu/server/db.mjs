@@ -28,6 +28,7 @@ export const COLLECTIONS = {
   patrols: 'array',
   pairings: 'array',
   ratings: 'array',
+  proposals: 'array',
 };
 
 /** 顶层标量字段（version / updatedAt / seeded / tasksSeeded）存在 meta 表。 */

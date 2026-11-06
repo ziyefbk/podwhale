@@ -62,7 +62,7 @@ const temp = await mkdtemp(join(tmpdir(), 'xlb-deploy-'));
 const archive = join(temp, 'xlb-app.tar.gz');
 
 step('打包');
-const packed = await run('tar', ['-czf', archive, 'xiaolanshu/server/community.mjs', 'xiaolanshu/server/db.mjs', 'xiaolanshu/server/enroll.mjs', 'xiaolanshu/server/mobile.mjs', 'xiaolanshu/server/page.mjs', 'xiaolanshu/server/media.mjs', 'xiaolanshu/server/static', 'xiaolanshu/redact.js']);
+const packed = await run('tar', ['-czf', archive, 'xiaolanshu/server/community.mjs', 'xiaolanshu/server/auth.mjs', 'xiaolanshu/server/db.mjs', 'xiaolanshu/server/enroll.mjs', 'xiaolanshu/server/mobile.mjs', 'xiaolanshu/server/page.mjs', 'xiaolanshu/server/media.mjs', 'xiaolanshu/server/static', 'xiaolanshu/redact.js']);
 if (packed.code !== 0) fail('打包失败');
 
 step(`上传到 ${HOST}`);

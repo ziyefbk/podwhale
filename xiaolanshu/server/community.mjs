@@ -8,7 +8,7 @@
  * Run:  node community.mjs            (defaults: 127.0.0.1:8790, ./data)
  * Env:  XLB_HOST, XLB_PORT, XLB_DATA
  */
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -18,6 +18,7 @@ import { MOBILE } from './mobile.mjs';
 import { PAGE } from './page.mjs';
 import { sniff, stripMetadata, extensionOf, mimeOf } from './media.mjs';
 import { openStore, loadState, loadOwners, saveState, saveOwners as saveOwnersTo, isEmpty, stats as dbStats, buildRows } from './db.mjs';
+import { credentialOf, credentialActive, isHuman, newCredential, withCredential, clearBindings, AGENT_TTL_MS, MAX_AGENT_TTL_MS } from './auth.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const HOST = process.env.XLB_HOST || '127.0.0.1';
@@ -37,7 +38,6 @@ const PATROL_MAX_HOURS = Number(process.env.XLB_PATROL_MAX_HOURS || 26);
 const ENROLL_PER_HOUR = Number(process.env.XLB_ENROLL_PER_HOUR || 3);
 const INVITE = process.env.XLB_INVITE || '';
 const WECHAT_TOKEN = process.env.XLB_WECHAT_TOKEN || '';
-const WECHAT_OWNER = process.env.XLB_WECHAT_OWNER || '';
 // 公众号（或企业微信）网页授权：配了 appid/secret 才能"点开即登录"。
 const WECHAT_APPID = process.env.XLB_WECHAT_APPID || '';
 const WECHAT_SECRET = process.env.XLB_WECHAT_SECRET || '';
@@ -206,7 +206,7 @@ function clean(value, max) {
 }
 
 function emptyFeed() {
-  return { version: 1, posts: [], comments: {}, claims: {}, reactions: {}, notifications: [], asks: [], tasks: [], follows: {}, blocks: {}, reports: [], patrols: [], pairings: [], ratings: [], updatedAt: null };
+  return { version: 1, posts: [], comments: {}, claims: {}, reactions: {}, notifications: [], asks: [], tasks: [], follows: {}, blocks: {}, reports: [], patrols: [], pairings: [], ratings: [], proposals: [], updatedAt: null };
 }
 
 let feedCache = null;
@@ -254,6 +254,7 @@ async function feed() {
     if (!Array.isArray(feedCache.patrols)) feedCache.patrols = [];
     if (!Array.isArray(feedCache.pairings)) feedCache.pairings = [];
     if (!Array.isArray(feedCache.ratings)) feedCache.ratings = [];
+    if (!Array.isArray(feedCache.proposals)) feedCache.proposals = [];
     if (typeof feedCache.comments !== 'object' || feedCache.comments === null) feedCache.comments = {};
     if (typeof feedCache.claims !== 'object' || feedCache.claims === null) feedCache.claims = {};
     persistCache = snapshotCollections(feedCache);
@@ -270,12 +271,31 @@ async function owners() {
   return ownersCache.data;
 }
 
-async function saveOwners(registry) {
-  await withWriteLock('owners', async () => {
-    saveOwnersTo(db, ownersPrev, registry);
-    ownersPrev = JSON.parse(JSON.stringify(registry));
+function recordForHash(hash) {
+  const row = db.prepare('SELECT data FROM owners WHERE token_hash = ?').get(hash);
+  return row ? JSON.parse(row.data) : null;
+}
+
+function requireHumanHash(registry, hash, ownerId) {
+  const record = registry ? registry[hash] : recordForHash(hash);
+  if (!isHuman(record) || record.id !== ownerId) {
+    throw Object.assign(new Error('human credential is expired or revoked'), { status: 403 });
+  }
+  return record;
+}
+
+/** Serialize the read/change/write too, so issuance cannot restore revoked tokens. */
+async function mutateOwners(change) {
+  return withWriteLock('owners', async () => {
+    const registry = loadOwners(db);
+    const before = structuredClone(registry);
+    const result = change(registry);
+    saveOwnersTo(db, before, registry);
+    ownersPrev = structuredClone(registry);
+    loadedState.owners = registry;
+    ownersCache = { at: nowMs(), data: registry };
+    return result;
   });
-  ownersCache = { at: nowMs(), data: registry };
 }
 
 const enrollBuckets = new Map();
@@ -316,10 +336,10 @@ async function initStore() {
   return dbStats(db);
 }
 
-/** The proxy in front of us reports the caller; fall back to the socket. */
+/** Only trust forwarded addresses when the operator explicitly trusts the proxy. */
 function clientIp(req) {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  if (forwarded) return forwarded;
+  if (process.env.XLB_TRUST_PROXY === '1' && forwarded) return forwarded;
   return String(req.socket.remoteAddress || 'unknown');
 }
 
@@ -336,16 +356,19 @@ function enrollAllowed(ip) {
 }
 
 /** Issue a fresh token and drop every hash that belongs to this owner. */
-async function rotateToken(ownerId) {
-  const registry = await owners();
-  const keys = Object.keys(registry).filter((key) => registry[key] && registry[key].id === ownerId);
-  if (keys.length === 0) throw Object.assign(new Error('找不到这个主人'), { status: 404 });
-  const owner = registry[keys[0]];
-  const token = 'xlb_' + randomBytes(24).toString('hex');
-  // Every device token for this owner dies here, not just the one used to ask.
-  for (const key of keys) delete registry[key];
-  registry[hashToken(token)] = owner;
-  await saveOwners(registry);
+async function rotateToken(ownerId, authorizerHash) {
+  const token = await mutateOwners((registry) => {
+    const currentHuman = requireHumanHash(registry, authorizerHash, ownerId);
+    const keys = Object.keys(registry).filter((key) => registry[key] && registry[key].id === ownerId);
+    if (keys.length === 0) throw Object.assign(new Error('找不到这个主人'), { status: 404 });
+    const owner = clearBindings(withCredential(currentHuman, 'human'));
+    const value = 'xlb_' + randomBytes(24).toString('hex');
+    // A compromised device must not recover through an old identity binding.
+    for (const key of keys) delete registry[key];
+    registry[hashToken(value)] = owner;
+    return value;
+  });
+  await mutate((state) => { state.pairings = state.pairings.filter((item) => item.ownerId !== ownerId); });
   return token;
 }
 
@@ -362,13 +385,18 @@ function pairAllowed(ip) {
 }
 
 /** A six-digit code the owner can type on a phone instead of a 50-char token. */
-function createPairing(state, owner) {
+function createPairing(state, owner, authorizerHash) {
+  if (!isHuman(owner)) throw Object.assign(new Error('human credential required'), { status: 403 });
   const now = Date.now();
   state.pairings = (state.pairings || []).filter((item) => Date.parse(item.expiresAt) > now && item.ownerId !== owner.id);
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  let code;
+  do { code = String(randomInt(100000, 1000000)); } while (state.pairings.some((item) => item.code === code));
   const entry = {
     code: code,
     ownerId: owner.id,
+    role: 'human',
+    credentialVersion: 1,
+    authorizerHash,
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + PAIR_TTL_MS).toISOString(),
   };
@@ -381,34 +409,38 @@ function takePairing(state, code) {
   const now = Date.now();
   const entry = (state.pairings || []).find((item) => item.code === code && Date.parse(item.expiresAt) > now);
   if (!entry) throw Object.assign(new Error('配对码不对，或者已经过期'), { status: 400 });
+  requirePairAuthorizer(loadOwners(db), entry);
   state.pairings = state.pairings.filter((item) => item !== entry);
   return entry;
 }
 
-/** Add one more valid token for an existing owner; old tokens keep working. */
-async function issueDeviceToken(ownerId) {
-  const registry = await owners();
-  const owner = Object.keys(registry).map((key) => registry[key]).find((item) => item && item.id === ownerId);
-  if (!owner) throw Object.assign(new Error('找不到这个主人'), { status: 404 });
-  const token = 'xlb_' + randomBytes(24).toString('hex');
-  registry[hashToken(token)] = owner;
-  await saveOwners(registry);
-  return token;
-}
-
-/** Exchange the OAuth code for the WeChat openid. Injected base for tests. */
-async function wechatOpenid(code) {
-  const url = `${WECHAT_OAUTH_BASE}/sns/oauth2/access_token?appid=${encodeURIComponent(WECHAT_APPID)}`
-    + `&secret=${encodeURIComponent(WECHAT_SECRET)}&code=${encodeURIComponent(code)}&grant_type=authorization_code`;
-  const response = await fetch(url);
-  const data = await response.json().catch(() => ({}));
-  if (!data || !data.openid) {
-    throw Object.assign(new Error(`微信没有返回 openid：${(data && (data.errmsg || data.errcode)) || 'unknown'}`), { status: 502 });
+function requirePairAuthorizer(registry, entry) {
+  const authorizer = registry[entry.authorizerHash];
+  if (entry.credentialVersion !== 1 || entry.role !== 'human'
+    || !isHuman(authorizer) || authorizer.id !== entry.ownerId) {
+    throw Object.assign(new Error('请主人使用新版本凭据重新生成配对码'), { status: 403 });
   }
-  return String(data.openid);
 }
 
-/** 小程序登录：wx.login 的 code 换 openid（和公众号的 OAuth 不是同一个接口）。 */
+/** Add one more valid token for an existing owner; old tokens keep working. */
+async function issueDeviceToken(ownerId, role = 'human', ttl, authorization) {
+  return mutateOwners((registry) => {
+    if (authorization && authorization.pairing) requirePairAuthorizer(registry, authorization.pairing);
+    else if (authorization && authorization.humanHash) requireHumanHash(registry, authorization.humanHash, ownerId);
+    else if (authorization && authorization.miniappOpenid) {
+      if (!Object.values(registry).some((item) => item && !item.revoked && item.id === ownerId
+        && item.miniappBindingVersion === 1 && item.miniappOpenid === authorization.miniappOpenid)) {
+        throw Object.assign(new Error('mini-program binding is revoked'), { status: 403 });
+      }
+    } else throw Object.assign(new Error('credential issuance requires current authorization'), { status: 403 });
+    const owner = Object.values(registry).find((item) => item && !item.revoked && item.id === ownerId);
+    if (!owner) throw Object.assign(new Error('找不到这个主人'), { status: 404 });
+    const token = 'xlb_' + randomBytes(24).toString('hex');
+    registry[hashToken(token)] = withCredential(owner, role, ttl);
+    return token;
+  });
+}
+
 async function miniappOpenid(code) {
   const url = `${WECHAT_OAUTH_BASE}/sns/jscode2session?appid=${encodeURIComponent(WECHAT_APPID)}`
     + `&secret=${encodeURIComponent(WECHAT_SECRET)}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`;
@@ -421,43 +453,30 @@ async function miniappOpenid(code) {
 }
 
 async function ownerByMiniappOpenid(openid) {
-  const registry = await owners();
+  const registry = loadOwners(db);
   return Object.keys(registry)
     .map((key) => registry[key])
-    .find((owner) => owner && !owner.revoked && owner.miniappOpenid === openid) || null;
+    .find((owner) => owner && !owner.revoked && owner.miniappBindingVersion === 1 && owner.miniappOpenid === openid) || null;
 }
 
-async function bindMiniappOpenid(ownerId, openid) {
-  const registry = await owners();
-  for (const key of Object.keys(registry)) {
-    const owner = registry[key];
-    if (owner && owner.id === ownerId) {
-      owner.miniappOpenid = openid;
-      owner.miniappBoundAt = new Date().toISOString();
+async function bindMiniappOpenid(ownerId, openid, pairing) {
+  await mutateOwners((registry) => {
+    requirePairAuthorizer(registry, pairing);
+    for (const owner of Object.values(registry)) {
+      if (!owner) continue;
+      // An identity belongs to exactly one account.
+      if (owner.miniappOpenid === openid && owner.id !== ownerId) {
+        delete owner.miniappOpenid;
+        delete owner.miniappBoundAt;
+        delete owner.miniappBindingVersion;
+      }
+      if (owner.id === ownerId) {
+        owner.miniappOpenid = openid;
+        owner.miniappBoundAt = new Date().toISOString();
+        owner.miniappBindingVersion = 1;
+      }
     }
-  }
-  await saveOwners(registry);
-}
-
-/** Find the owner already bound to this openid, if any. */
-async function ownerByOpenid(openid) {
-  const registry = await owners();
-  return Object.keys(registry)
-    .map((key) => registry[key])
-    .find((owner) => owner && !owner.revoked && owner.wechatOpenid === openid) || null;
-}
-
-/** Bind an openid to an owner. The pairing code is the authorisation to do it. */
-async function bindOpenid(ownerId, openid) {
-  const registry = await owners();
-  for (const key of Object.keys(registry)) {
-    const owner = registry[key];
-    if (owner && owner.id === ownerId) {
-      owner.wechatOpenid = openid;
-      owner.wechatBoundAt = new Date().toISOString();
-    }
-  }
-  await saveOwners(registry);
+  });
 }
 
 /** One owner can hold several device tokens; count people, not hashes. */
@@ -487,9 +506,12 @@ async function enrollOwner(input, ip) {
     appearance: cleanAppearance(input.appearance),
     createdAt: new Date().toISOString(),
     revoked: false,
+    credential: newCredential('agent'),
   };
-  registry[hashToken(token)] = owner;
-  await saveOwners(registry);
+  await mutateOwners((current) => {
+    if (distinctOwners(current) >= MAX_OWNERS) throw Object.assign(new Error('社区满了，暂时不再收新主人'), { status: 503 });
+    current[hashToken(token)] = owner;
+  });
   return { token, owner };
 }
 
@@ -555,9 +577,10 @@ async function authenticate(req) {
   if (!header.toLowerCase().startsWith('bearer ')) return null;
   const token = header.slice(7).trim();
   if (token.length < 20) return null;
-  const registered = await owners();
-  const owner = registered[hashToken(token)];
-  if (!owner || owner.revoked) return null;
+  // Authentication cannot use the profile cache: CLI recovery must revoke now.
+  const owner = recordForHash(hashToken(token));
+  if (!credentialActive(owner)) return null;
+  req.credentialHash = hashToken(token);
   return owner;
 }
 
@@ -786,16 +809,7 @@ function removeContent(state, input, owner) {
   for (const ask of state.asks) {
     if (ask.answerPostId === postId) ask.answerPostId = null;
   }
-  // 帖子没了，它独占的图片也不该留在盘上（多帖共用的保留）。
-  const removedImages = (post && Array.isArray(post.images) ? post.images : []);
-  const stillUsed = new Set();
-  for (const item of state.posts) for (const url of item.images || []) stillUsed.add(url);
-  for (const url of removedImages) {
-    if (!stillUsed.has(url)) {
-      const name = mediaNameOf(url);
-      if (name) unlink(join(MEDIA_DIR, name)).catch(() => {});
-    }
-  }
+  // File cleanup belongs after SQLite commit, never in domain validation.
   return { postId, deleted: true };
 }
 
@@ -916,7 +930,7 @@ function createTask(state, input, owner) {
   return task;
 }
 
-/** The claimer reports what was delivered. Community-seeded jobs have nobody to confirm them. */
+/** Delivery records work, never the publisher's approval (including seed jobs). */
 function deliverTask(state, input, owner) {
   const taskId = clean(input.taskId, 40);
   const claim = state.claims[taskId];
@@ -929,7 +943,6 @@ function deliverTask(state, input, owner) {
   claim.deliveredAt = new Date().toISOString();
   const task = state.tasks.find((item) => item.id === taskId);
   if (task) {
-    if (task.source === 'seed') claim.confirmedAt = claim.deliveredAt;
     pushNotification(state, { ownerId: task.ownerId, taskId: task.id, title: task.title }, owner, 'deliver', textField.text);
   }
   return { claim, repeated: false };
@@ -1140,23 +1153,23 @@ function ratedByMe(state, taskId, ownerId) {
 }
 
 /** 改名字/称呼/简介；空字符串表示"不改这一项"。 */
-async function updateOwnerProfile(ownerId, input) {
-  const registry = await owners();
-  let changed = null;
-  for (const key of Object.keys(registry)) {
-    const owner = registry[key];
-    if (!owner || owner.id !== ownerId) continue;
-    const name = clean(input.name, 40);
-    const handle = clean(input.handle, 16);
-    const bio = clean(input.bio, 80);
-    if (name) owner.name = name;
-    if (handle) owner.handle = handle;
-    owner.bio = bio;
-    changed = { id: owner.id, name: owner.name, handle: owner.handle || '阿蓝', bio: owner.bio };
-  }
-  if (!changed) throw Object.assign(new Error('找不到这个主人'), { status: 404 });
-  await saveOwners(registry);
-  return changed;
+async function updateOwnerProfile(ownerId, input, authorizerHash) {
+  return mutateOwners((registry) => {
+    requireHumanHash(registry, authorizerHash, ownerId);
+    let changed = null;
+    for (const owner of Object.values(registry)) {
+      if (!owner || owner.id !== ownerId) continue;
+      const name = clean(input.name, 40);
+      const handle = clean(input.handle, 16);
+      const bio = field(input.bio, 80).text;
+      if (name) owner.name = name;
+      if (handle) owner.handle = handle;
+      owner.bio = bio;
+      changed = { id: owner.id, name: owner.name, handle: owner.handle || '阿蓝', bio: owner.bio };
+    }
+    if (!changed) throw Object.assign(new Error('找不到这个主人'), { status: 404 });
+    return changed;
+  });
 }
 
 /** 署名是写在每条内容上的，改名之后要把旧内容一起改，否则列表里会出现两个名字。 */
@@ -1196,15 +1209,164 @@ function claimTask(state, input, owner) {
   return { claim, repeated: false, task };
 }
 
+const PROPOSAL_TTL_MS = 15 * 60 * 1000;
+const PROPOSAL_ACTIONS = ['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'task', 'delete', 'patrol'];
+
+/** Select fields explicitly. Identity and approval fields can never enter a proposal. */
+function normalizeProposal(action, input) {
+  if (!PROPOSAL_ACTIONS.includes(action)) throw Object.assign(new Error('unsupported proposal action'), { status: 400 });
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw Object.assign(new Error('payload must be an object'), { status: 400 });
+  }
+  const text = (key, limit) => field(input[key], limit).text;
+  const tags = () => Array.isArray(input.tags) ? input.tags.map((tag) => field(tag, 20).text).filter(Boolean).slice(0, 5) : [];
+  if (action === 'post') return {
+    title: text('title', 120), text: text('text', 4000), tags: tags(),
+    images: Array.isArray(input.images) ? input.images.map(mediaNameOf).filter(Boolean).slice(0, MAX_IMAGES).map((name) => '/media/' + name) : [],
+    kind: normalKind(input.kind), via: 'agent', emoji: text('emoji', 8) || '🐳',
+  };
+  if (action === 'reply') return { postId: clean(input.postId, 80), text: text('text', 1000) };
+  if (action === 'claim') return { taskId: clean(input.taskId, 40), note: text('note', 300) };
+  if (action === 'deliver') return { taskId: clean(input.taskId, 40), text: text('text', 2000) };
+  if (action === 'confirm') return { taskId: clean(input.taskId, 40) };
+  if (action === 'answer') return { id: clean(input.id || input.askId, 40), text: text('text', 4000) };
+  if (action === 'delete') return { postId: clean(input.postId, 80), replyId: clean(input.replyId, 80) };
+  if (action === 'patrol') return { summary: text('summary', 500) };
+  const match = Number(input.match);
+  return {
+    title: text('title', 120), desc: field(input.desc || input.description, 1000).text,
+    budget: text('budget', 24) || '面议', period: text('period', 16) || '待定', tags: tags(),
+    match: Number.isFinite(match) ? Math.min(100, Math.max(0, Math.round(match))) : 70,
+  };
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map((key) => JSON.stringify(key) + ':' + canonical(value[key])).join(',') + '}';
+  return JSON.stringify(value);
+}
+
+function digestOf(value) {
+  return createHash('sha256').update(canonical(value)).digest('hex');
+}
+
+/** Bind approval to the exact target, not unrelated traffic elsewhere in the feed. */
+function proposalTarget(state, action, payload) {
+  if (['claim', 'deliver', 'confirm'].includes(action)) return {
+    task: state.tasks.find((item) => item.id === payload.taskId) || null,
+    claim: state.claims[payload.taskId] || null,
+  };
+  if (action === 'answer') return { ask: state.asks.find((item) => item.id === payload.id) || null };
+  if (action === 'reply' || action === 'delete') {
+    const target = { post: state.posts.find((item) => item.id === payload.postId) || null };
+    if (action === 'delete') target.replies = payload.replyId
+      ? (state.comments[payload.postId] || []).filter((item) => item.id === payload.replyId)
+      : (state.comments[payload.postId] || []);
+    return target;
+  }
+  return null;
+}
+
+function executeProposal(state, action, payload, owner) {
+  switch (action) {
+    case 'post': return { post: createPost(state, payload, owner) };
+    case 'reply': return { reply: addReply(state, payload, owner), postId: payload.postId };
+    case 'claim': return claimTask(state, payload, owner);
+    case 'deliver': return deliverTask(state, payload, owner);
+    case 'confirm': return confirmTask(state, payload, owner);
+    case 'answer': return answerAsk(state, payload, owner);
+    case 'task': return { task: createTask(state, payload, owner) };
+    case 'delete': return removeContent(state, payload, owner);
+    case 'patrol': return addPatrol(state, payload, owner);
+    default: throw Object.assign(new Error('unsupported proposal action'), { status: 400 });
+  }
+}
+
+function proposalDigest(proposal) {
+  const { id, ownerId, action, payload, targetDigest, createdAt, expiresAt } = proposal;
+  return digestOf({ id, ownerId, action, payload, targetDigest, createdAt, expiresAt });
+}
+
+function proposalView(proposal) {
+  const { id, ownerId, action, payload, target, digest, createdAt, expiresAt, status, decidedAt } = proposal;
+  return {
+    id, ownerId, action, payload, target, digest, createdAt, expiresAt,
+    status: status === 'pending' && !(Date.parse(expiresAt) > Date.now()) ? 'expired' : status,
+    ...(decidedAt ? { decidedAt } : {}),
+  };
+}
+
+function createProposal(state, input, owner) {
+  const action = clean(input.action, 20);
+  const payload = normalizeProposal(action, input.payload);
+  const active = state.proposals.filter((item) => item.ownerId === owner.id && item.status === 'pending' && Date.parse(item.expiresAt) > Date.now());
+  if (active.length >= 20) throw Object.assign(new Error('待确认操作太多，请主人先处理'), { status: 429 });
+  // Validate ownership and domain preconditions without changing the working state.
+  executeProposal(structuredClone(state), action, payload, owner);
+  const now = Date.now();
+  const target = structuredClone(proposalTarget(state, action, payload));
+  const proposal = {
+    id: newId('proposal'), ownerId: owner.id, action, payload, target,
+    targetDigest: digestOf(target),
+    createdAt: new Date(now).toISOString(), expiresAt: new Date(now + PROPOSAL_TTL_MS).toISOString(), status: 'pending',
+  };
+  proposal.digest = proposalDigest(proposal);
+  // Keep every live proposal and the owner's last 80 decisions.
+  const mine = state.proposals.filter((item) => item.ownerId === owner.id);
+  const old = [
+    ...mine.filter((item) => item.status === 'pending' && Date.parse(item.expiresAt) > now),
+    ...mine.filter((item) => item.status !== 'pending' || Date.parse(item.expiresAt) <= now).slice(0, 80),
+  ];
+  state.proposals = [proposal, ...old, ...state.proposals.filter((item) => item.ownerId !== owner.id)];
+  return proposalView(proposal);
+}
+
+function decideProposal(state, input, owner, approve) {
+  if (!isHuman(owner)) throw Object.assign(new Error('human credential required'), { status: 403 });
+  if (Object.keys(input).some((key) => !['id', 'digest'].includes(key))) {
+    throw Object.assign(new Error('approval accepts only id and digest; payload is immutable'), { status: 400 });
+  }
+  const proposal = state.proposals.find((item) => item.id === input.id && item.ownerId === owner.id);
+  if (!proposal) throw Object.assign(new Error('proposal not found'), { status: 404 });
+  if (proposal.status !== 'pending') throw Object.assign(new Error('proposal has already been decided'), { status: 409 });
+  if (!(Date.parse(proposal.expiresAt) > Date.now())) throw Object.assign(new Error('proposal expired'), { status: 409 });
+  if (!input.digest || input.digest !== proposal.digest || proposal.digest !== proposalDigest(proposal)
+    || proposal.targetDigest !== digestOf(proposal.target)) {
+    throw Object.assign(new Error('proposal digest mismatch'), { status: 409 });
+  }
+  if (approve && proposal.targetDigest !== digestOf(proposalTarget(state, proposal.action, proposal.payload))) {
+    throw Object.assign(new Error('target changed; create a new proposal'), { status: 409 });
+  }
+  const result = approve ? executeProposal(state, proposal.action, proposal.payload, owner) : null;
+  proposal.status = approve ? 'approved' : 'rejected';
+  proposal.decidedAt = new Date().toISOString();
+  return { proposal: proposalView(proposal), result };
+}
+
 /**
  * 所有写操作都走这里：内存里改，然后把**变化的行**写进 SQLite。
  * 不做整文件重写，也不再需要担心写一半崩掉。
  */
-async function mutate(change) {
+async function mutate(change, isolated = false) {
   return withWriteLock('feed', async () => {
-    const state = await feed();
+    // Approval gets an isolated draft: failed validation or persistence cannot
+    // leave a consumed proposal or an uncommitted side effect in memory.
+    const current = await feed();
+    const previousImages = new Set(current.posts.flatMap((item) => item.images || []));
+    const state = isolated ? structuredClone(current) : current;
     const result = change(state);
     await persist(state);
+    if (isolated) feedCache = state;
+    const retainedImages = new Set(state.posts.flatMap((item) => item.images || []));
+    for (const item of state.proposals) {
+      if (item.status === 'pending' && Date.parse(item.expiresAt) > Date.now()) {
+        for (const url of item.payload.images || []) retainedImages.add(url);
+      }
+    }
+    for (const url of previousImages) {
+      const name = mediaNameOf(url);
+      if (name && !retainedImages.has(url)) await unlink(join(MEDIA_DIR, name)).catch(() => {});
+    }
     return result;
   });
 }
@@ -1255,127 +1417,6 @@ function sendMobile(res) {
 /** WeChat signs every push: sha1 of the sorted token/timestamp/nonce. */
 function wechatSignature(timestamp, nonce) {
   return createHash('sha1').update([WECHAT_TOKEN, timestamp, nonce].sort().join('')).digest('hex');
-}
-
-/** Minimal XML field reader. No DOM, no entity expansion: only what WeChat sends. */
-function xmlField(xml, name) {
-  const cdata = new RegExp(`<${name}>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*</${name}>`).exec(xml);
-  if (cdata) return cdata[1];
-  const plain = new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(xml);
-  return plain ? plain[1] : '';
-}
-
-/** A reply carries user text, and `]]>` inside it would end the CDATA early. */
-function cdata(value) {
-  return String(value === undefined || value === null ? '' : value).replace(/]]>/g, ']]]]><![CDATA[>');
-}
-
-function wechatText(to, from, text) {
-  return `<xml><ToUserName><![CDATA[${cdata(to)}]]></ToUserName>`
-    + `<FromUserName><![CDATA[${cdata(from)}]]></FromUserName>`
-    + `<CreateTime>${Math.floor(Date.now() / 1000)}</CreateTime>`
-    + '<MsgType><![CDATA[text]]></MsgType>'
-    + `<Content><![CDATA[${cdata(text)}]]></Content></xml>`;
-}
-
-/** The single owner this deployment speaks for, unless one is named explicitly. */
-async function wechatOwner() {
-  const registry = await owners();
-  // One person can hold several tokens (phone pairing). De-duplicate by id or a
-  // paired phone turns "one owner" into "two" and WeChat loses its owner.
-  const byId = new Map();
-  for (const key of Object.keys(registry)) {
-    const owner = registry[key];
-    if (!owner || owner.revoked) continue;
-    if (!byId.has(owner.id)) byId.set(owner.id, owner);
-  }
-  const live = [...byId.values()];
-  if (WECHAT_OWNER) {
-    const match = live.find((owner) => owner.id === WECHAT_OWNER || owner.name === WECHAT_OWNER);
-    if (match) return match;
-  }
-  return live.length === 1 ? live[0] : null;
-}
-
-async function readRaw(req, max) {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += chunk.length;
-    if (size > max) throw Object.assign(new Error('body too large'), { status: 413 });
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks).toString('utf8');
-}
-
-/** Text message protocol: 看 · 领 <taskId> · 回 [postId] <text> · 删 <postId> · 撤 · anything else = a new note. */
-async function wechatAction(text, owner) {
-  if (/^(看|列表|最近)$/.test(text)) {
-    const state = await feed();
-    const latest = state.posts.slice(0, 5).map((post, index) => `${index + 1}. ${post.id} ${post.title}`);
-    return latest.length ? `最近五条：\n${latest.join('\n')}\n\n回帖直接发「回 内容」，要指定就「回 ${'<'}id> 内容」。` : '社区还没有笔记。';
-  }
-  const askText = /^问\s+([\s\S]+)/.exec(text);
-  if (askText) {
-    const created = await mutate((state) => createAsk(state, { text: askText[1] }, owner));
-    return `记下了（${created.id}），她下次巡检会先答这个。回来看用「查」。`;
-  }
-  if (/^(查|问答)$/.test(text)) {
-    const state = await feed();
-    const mine = state.asks.filter((item) => item.ownerId === owner.id).slice(0, 5);
-    if (!mine.length) return '还没问过。发「问 内容」来问一句。';
-    return mine.map((item) => `· ${item.text}\n  ${item.answer ? '→ ' + item.answer : '→ 还没答'}`).join('\n\n');
-  }
-  const removePost = /^删\s+(\S+)/.exec(text);
-  if (removePost) {
-    const target = clean(removePost[1], 80);
-    const state = await feed();
-    const post = state.posts.find((item) => item.id === target);
-    if (!post) return `找不到 ${target}。发「看」拿最新的编号。`;
-    if (post.ownerId !== owner.id) return '只能删自己发的。';
-    await mutate((draft) => removeContent(draft, { postId: target }, owner));
-    return `删掉了「${post.title.slice(0, 20)}」。`;
-  }
-  if (/^(撤|撤回)$/.test(text)) {
-    const state = await feed();
-    const pending = state.asks.filter((item) => item.ownerId === owner.id && !item.answer);
-    if (!pending.length) return '没有待回答的问题可撤。';
-    const target = pending[0];
-    await mutate((draft) => removeAsk(draft, { id: target.id }, owner));
-    return `撤回了「${target.text.slice(0, 24)}」。`;
-  }
-  const claim = /^领\s+(\S+)/.exec(text);
-  if (claim) {
-    const result = await mutate((state) => claimTask(state, { taskId: claim[1], note: '微信代领' }, owner));
-    return result.repeated ? `「${result.task.title}」已经领过了` : `已代领「${result.task.title}」，等你点头`;
-  }
-  const reply = /^回\s+([\s\S]+)/.exec(text);
-  if (reply) {
-    const rest = reply[1].trim();
-    const state = await feed();
-    const head = /^(\S+)\s+([\s\S]+)/.exec(rest);
-    let postId = null;
-    let body = rest;
-    if (head && state.posts.some((post) => post.id === head[1])) {
-      postId = head[1];
-      body = head[2];
-    } else {
-      // No id given: answer the newest note that is not mine.
-      const target = state.posts.find((post) => post.ownerId !== owner.id) || state.posts[0];
-      postId = target ? target.id : null;
-    }
-    if (!postId) return '没有可以回的帖子。';
-    await mutate((inner) => addReply(inner, { postId, text: body }, owner));
-    const target = state.posts.find((post) => post.id === postId);
-    return `已回在《${target ? target.title : postId}》下面`;
-  }
-  // `#吐槽 今天真的累了` picks the category; otherwise the server derives the
-  // title from the first sentence and files it under 日常.
-  const tagged = /^#(技术|科研|求帮忙|生活|吐槽|搞钱|职场|日常)\s*([\s\S]+)/.exec(text);
-  const post = await mutate((state) => createPost(state, tagged
-    ? { title: '', text: tagged[2].trim(), tags: ['微信'], kind: tagged[1], via: 'wechat' }
-    : { title: '', text: text, tags: ['微信'], via: 'wechat' }, owner));
-  return `已发出《${post.title}》· ${post.kind}${post.redacted ? `，脱敏 ${post.redacted} 处` : ''}`;
 }
 
 /** How fresh the last snapshot is. A backup nobody checks is a rumour. */
@@ -1501,29 +1542,9 @@ async function handle(req, res) {
       res.end(query.get('echostr') || '');
       return;
     }
-    const xml = await readRaw(req, 64 * 1024);
-    const toUser = xmlField(xml, 'FromUserName');
-    const fromUser = xmlField(xml, 'ToUserName');
-    const owner = await wechatOwner();
-    let answer = '';
-    if (!owner) {
-      answer = '这台机器还没绑定主人：在服务端设 XLB_WECHAT_OWNER，或者只保留一个 owner。';
-    } else if (rateLimited(owner, 'wechat', 20)) {
-      answer = '太快了，歇一分钟再来。';
-    } else if (xmlField(xml, 'MsgType') === 'event' && xmlField(xml, 'Event') === 'subscribe') {
-      answer = '欢迎来到小蓝书。发文字就记一条笔记；「问 内容」让我替你问；「看」看最近五条；「领 t4」代领任务。';
-    } else if (xmlField(xml, 'MsgType') !== 'text') {
-      answer = '现在只认文字消息。';
-    } else {
-      const text = xmlField(xml, 'Content').trim();
-      try {
-        answer = text ? await wechatAction(text, owner) : '空消息。';
-      } catch (error) {
-        answer = '没做成：' + String(error && error.message ? error.message : error);
-      }
-    }
-    res.writeHead(200, { 'content-type': 'application/xml; charset=utf-8' });
-    res.end(wechatText(toUser, fromUser, answer));
+    // This legacy signature does not authenticate the body or its sender.
+    // Grant no rights until a verified encrypted callback is implemented.
+    send(res, 403, { ok: false, error: 'WeChat commands are disabled; use a separate human session' });
     return;
   }
 
@@ -1568,6 +1589,7 @@ async function handle(req, res) {
       ok: true,
       token: result.token,
       owner: { id: result.owner.id, name: result.owner.name, handle: result.owner.handle },
+      credential: credentialOf(result.owner),
     });
     return;
   }
@@ -1580,14 +1602,19 @@ async function handle(req, res) {
     }
     const body = await readBody(req);
     const code = clean(body.code, 12);
+    await owners();
     const entry = await mutate((state) => takePairing(state, code));
-    const token = await issueDeviceToken(entry.ownerId);
-    send(res, 200, { ok: true, token, note: '这台手机已配对；令牌只出现这一次' });
+    const token = await issueDeviceToken(entry.ownerId, 'human', undefined, { pairing: entry });
+    send(res, 200, { ok: true, token, credential: credentialOf((await owners())[hashToken(token)]), note: '主人会话已配对；请只保存在独立设备上' });
     return;
   }
 
   // ---- 小程序：wx.login 的 code 换令牌；未绑定先报错，由绑定接口认领 ----
   if (req.method === 'POST' && (path === '/wxapp/login' || path === '/wxapp/bind')) {
+    if (!pairAllowed(clientIp(req))) {
+      send(res, 429, { ok: false, error: 'too many login attempts' });
+      return;
+    }
     if (!WECHAT_APPID || !WECHAT_SECRET) {
       send(res, 503, { ok: false, error: '还没配置小程序：设置 XLB_WECHAT_APPID / XLB_WECHAT_SECRET' });
       return;
@@ -1596,10 +1623,11 @@ async function handle(req, res) {
       const body = await readBody(req);
       const openid = await miniappOpenid(clean(body.code, 200));
       if (path === '/wxapp/bind') {
+        await owners();
         const entry = await mutate((draft) => takePairing(draft, clean(body.pair, 12)));
-        await bindMiniappOpenid(entry.ownerId, openid);
-        const token = await issueDeviceToken(entry.ownerId);
-        send(res, 200, { ok: true, token: token, bound: true });
+        await bindMiniappOpenid(entry.ownerId, openid, entry);
+        const token = await issueDeviceToken(entry.ownerId, 'human', undefined, { pairing: entry });
+        send(res, 200, { ok: true, token: token, bound: true, credential: credentialOf((await owners())[hashToken(token)]) });
         return;
       }
       const owner = await ownerByMiniappOpenid(openid);
@@ -1607,71 +1635,19 @@ async function handle(req, res) {
         send(res, 409, { ok: false, error: '这台微信还没绑定', needBind: true });
         return;
       }
-      const token = await issueDeviceToken(owner.id);
-      send(res, 200, { ok: true, token: token, owner: { id: owner.id, handle: owner.handle || '阿蓝' } });
+      const token = await issueDeviceToken(owner.id, 'human', undefined, { miniappOpenid: openid });
+      send(res, 200, { ok: true, token: token, owner: { id: owner.id, handle: owner.handle || '阿蓝' }, credential: credentialOf((await owners())[hashToken(token)]) });
     } catch (error) {
       send(res, error && error.status ? error.status : 500, { ok: false, error: String(error && error.message ? error.message : error) });
     }
     return;
   }
 
-  // ---- 公众号/企微网页授权：在微信里点开就是登录态，不用输配对码 ----
+  // ---- Legacy public-account OAuth is closed until secure login is available. ----
+  // The old flow exposed a bearer token in URLs and used an unbound state.
+  // Old identity bindings must not become human credentials automatically.
   if (req.method === 'GET' && (path === '/wx' || path === '/wx/callback')) {
-    const query = new URL(req.url, 'http://localhost').searchParams;
-    if (!WECHAT_APPID || !WECHAT_SECRET) {
-      res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8' });
-      res.end('还没配置公众号：设置 XLB_WECHAT_APPID / XLB_WECHAT_SECRET 后这条链接才可用。现在请用配对码登录 /m。');
-      return;
-    }
-    const publicBase = (process.env.XLB_PUBLIC_URL || `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host || 'localhost'}${PREFIX}`).replace(/\/+$/, '');
-
-    if (path === '/wx') {
-      const state = clean(query.get('bind'), 12) || 'login';
-      const target = 'https://open.weixin.qq.com/connect/oauth2/authorize'
-        + `?appid=${encodeURIComponent(WECHAT_APPID)}`
-        + `&redirect_uri=${encodeURIComponent(publicBase + '/wx/callback')}`
-        + '&response_type=code&scope=snsapi_base'
-        + `&state=${encodeURIComponent(state)}#wechat_redirect`;
-      res.writeHead(302, { location: target, 'cache-control': 'no-store' });
-      res.end();
-      return;
-    }
-
-    const code = clean(query.get('code'), 200);
-    const state = clean(query.get('state'), 12);
-    if (!code) {
-      res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-      res.end('微信没有给授权码，请在微信里重新打开。');
-      return;
-    }
-    try {
-      const openid = await wechatOpenid(code);
-      let ownerId = null;
-      if (/^[0-9]{6}$/.test(state)) {
-        // The pairing code is what authorises binding this WeChat to that owner.
-        const entry = await mutate((draft) => takePairing(draft, state));
-        ownerId = entry.ownerId;
-        await bindOpenid(ownerId, openid);
-      } else {
-        const owner = await ownerByOpenid(openid);
-        ownerId = owner ? owner.id : null;
-      }
-      if (!ownerId) {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-        res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-          + '<body style="background:#0b0f1e;color:#e8ecf7;font:15px/1.7 -apple-system,sans-serif;padding:28px">'
-          + '<h2 style="font-size:17px">这台微信还没绑定</h2>'
-          + '<p style="color:#9aa6c6;font-size:13.5px">先在电脑面板「我的 AI → 手机配对」生成配对码，'
-          + '然后打开 <code>' + PREFIX + '/wx?bind=123456</code>（把 123456 换成那个码）。</p></body>');
-        return;
-      }
-      const token = await issueDeviceToken(ownerId);
-      res.writeHead(302, { location: `${PREFIX}/m?t=${encodeURIComponent(token)}`, 'cache-control': 'no-store' });
-      res.end();
-    } catch (error) {
-      res.writeHead(error && error.status ? error.status : 500, { 'content-type': 'text/plain; charset=utf-8' });
-      res.end(String(error && error.message ? error.message : error));
-    }
+    send(res, 410, { ok: false, error: 'Legacy OAuth login is disabled; use a human credential or a new human-issued pairing code' });
     return;
   }
 
@@ -1682,9 +1658,65 @@ async function handle(req, res) {
     return;
   }
 
+  // Recheck after acquiring the feed lock, not only before awaiting the body.
+  const mutateForActor = (change, isolated = false) => mutate((state) => {
+    const current = recordForHash(req.credentialHash);
+    if (!credentialActive(current) || current.id !== owner.id
+      || credentialOf(current).role !== credentialOf(owner).role) {
+      throw Object.assign(new Error('credential is expired or revoked'), { status: 403 });
+    }
+    return change(state);
+  }, isolated);
+
+  // This check precedes every privileged route, including local-panel proxies.
+  // A flag in JSON, a tool name, or a claimed UI source never grants human rights.
+  if (!isHuman(owner) && ((req.method !== 'GET' && req.method !== 'HEAD'
+    && !(req.method === 'POST' && path === '/proposals')) || path === '/reports')) {
+    send(res, 403, { ok: false, error: 'human credential required; agents may only read and create proposals' });
+    return;
+  }
+
+  if (req.method === 'GET' && path === '/proposals') {
+    const state = await feed();
+    send(res, 200, { ok: true, items: state.proposals.filter((item) => item.ownerId === owner.id).map(proposalView) });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/proposals') {
+    if (rateLimited(owner, 'proposal', WRITES_PER_MINUTE)) {
+      send(res, 429, { ok: false, error: 'too many proposals' });
+      return;
+    }
+    const body = await readBody(req);
+    const proposal = await mutateForActor((state) => createProposal(state, body, owner));
+    send(res, 201, { ok: true, proposal });
+    return;
+  }
+
+  if (req.method === 'POST' && ['/proposals/approve', '/proposals/reject'].includes(path)) {
+    const body = await readBody(req);
+    const decision = await mutateForActor((state) => decideProposal(state, body, owner, path === '/proposals/approve'), true);
+    send(res, 200, { ok: true, ...decision });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/credentials/agent') {
+    const body = await readBody(req);
+    const seconds = body.expiresInSeconds === undefined ? AGENT_TTL_MS / 1000 : Number(body.expiresInSeconds);
+    if (!Number.isFinite(seconds) || seconds < 60 || seconds * 1000 > MAX_AGENT_TTL_MS) {
+      send(res, 400, { ok: false, error: 'expiresInSeconds must be between 60 and 604800' });
+      return;
+    }
+    const token = await issueDeviceToken(owner.id, 'agent', seconds * 1000, { humanHash: req.credentialHash });
+    const credential = credentialOf((await owners())[hashToken(token)]);
+    send(res, 201, { ok: true, token, credential, owner: { id: owner.id, name: owner.name, handle: owner.handle } });
+    return;
+  }
+
   if (req.method === 'GET' && path === '/whoami') {
     send(res, 200, {
       ok: true,
+      credential: credentialOf(owner),
       owner: {
         id: owner.id,
         name: owner.name,
@@ -1702,8 +1734,10 @@ async function handle(req, res) {
     }
     const body = await readBody(req);
     const look = cleanAppearance(body.appearance || body);
-    owner.appearance = look;
-    await saveOwners(await owners());
+    await mutateOwners((registry) => {
+      requireHumanHash(registry, req.credentialHash, owner.id);
+      for (const item of Object.values(registry)) if (item && item.id === owner.id) item.appearance = look;
+    });
     send(res, 200, { ok: true, appearance: look });
     return;
   }
@@ -1782,7 +1816,7 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const result = await mutate((state) => reactTo(state, body, owner));
+    const result = await mutateForActor((state) => reactTo(state, body, owner));
     const state = await feed();
     const counts = tally(state, result.postId);
     const mine = (state.reactions[result.postId] || {})[owner.id] || {};
@@ -1803,15 +1837,15 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const result = await mutate((state) => removeContent(state, body, owner));
+    const result = await mutateForActor((state) => removeContent(state, body, owner));
     send(res, 200, { ok: true, ...result });
     return;
   }
 
   if (req.method === 'POST' && path === '/profile') {
     const body = await readBody(req);
-    const updated = await updateOwnerProfile(owner.id, body);
-    await mutate((state) => renameOwnedContent(state, owner.id, updated.handle));
+    const updated = await updateOwnerProfile(owner.id, body, req.credentialHash);
+    await mutateForActor((state) => renameOwnedContent(state, owner.id, updated.handle));
     send(res, 200, { ok: true, owner: updated });
     return;
   }
@@ -1842,7 +1876,7 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const rating = await mutate((state) => rateClaim(state, body, owner));
+    const rating = await mutateForActor((state) => rateClaim(state, body, owner));
     send(res, 201, { ok: true, rating: { id: rating.id, score: rating.score, to: rating.toOwner } });
     return;
   }
@@ -1853,7 +1887,7 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const result = await mutate((state) => deliverTask(state, body, owner));
+    const result = await mutateForActor((state) => deliverTask(state, body, owner));
     send(res, 200, { ok: true, repeated: result.repeated, confirmed: !!result.claim.confirmedAt });
     return;
   }
@@ -1864,7 +1898,7 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const result = await mutate((state) => confirmTask(state, body, owner));
+    const result = await mutateForActor((state) => confirmTask(state, body, owner));
     send(res, 200, { ok: true, repeated: result.repeated });
     return;
   }
@@ -1875,7 +1909,7 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const task = await mutate((state) => createTask(state, body, owner));
+    const task = await mutateForActor((state) => createTask(state, body, owner));
     send(res, 201, { ok: true, task });
     return;
   }
@@ -1886,14 +1920,14 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const ask = await mutate((state) => createAsk(state, body, owner));
+    const ask = await mutateForActor((state) => createAsk(state, body, owner));
     send(res, 201, { ok: true, ask });
     return;
   }
 
   if (req.method === 'POST' && path === '/ask/delete') {
     const body = await readBody(req);
-    const result = await mutate((state) => removeAsk(state, body, owner));
+    const result = await mutateForActor((state) => removeAsk(state, body, owner));
     send(res, 200, { ok: true, id: result.id });
     return;
   }
@@ -1910,7 +1944,7 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const result = await mutate((state) => answerAsk(state, body, owner));
+    const result = await mutateForActor((state) => answerAsk(state, body, owner));
     send(res, 200, {
       ok: true,
       repeated: result.repeated,
@@ -1922,20 +1956,24 @@ async function handle(req, res) {
 
   if (req.method === 'POST' && path === '/block') {
     const body = await readBody(req);
-    const result = await mutate((state) => setBlock(state, body, owner));
+    const result = await mutateForActor((state) => setBlock(state, body, owner));
     send(res, 200, { ok: true, ownerId: result.targetId, on: result.on });
     return;
   }
 
   if (req.method === 'POST' && path === '/patrol') {
     const body = await readBody(req);
-    const entry = await mutate((state) => addPatrol(state, body, owner));
+    const entry = await mutateForActor((state) => addPatrol(state, body, owner));
     send(res, 201, { ok: true, at: entry.at });
     return;
   }
 
   if (req.method === 'POST' && path === '/pair') {
-    const entry = await mutate((state) => createPairing(state, owner));
+    if (rateLimited(owner, 'pair', 10)) {
+      send(res, 429, { ok: false, error: 'too many pairing requests' });
+      return;
+    }
+    const entry = await mutateForActor((state) => createPairing(state, owner, req.credentialHash));
     send(res, 201, {
       ok: true,
       code: entry.code,
@@ -1947,11 +1985,13 @@ async function handle(req, res) {
   }
 
   if (req.method === 'POST' && path === '/rotate') {
-    const token = await rotateToken(owner.id);
+    await readBody(req);
+    const token = await rotateToken(owner.id, req.credentialHash);
     send(res, 200, {
       ok: true,
       token: token,
-      note: '旧令牌已失效。更新本机 remote.json，手机端重新填一次令牌。',
+      credential: credentialOf((await owners())[hashToken(token)]),
+      note: '旧令牌与身份绑定已撤销。主人凭据只保存在独立设备；重新签发 AI 凭据。',
     });
     return;
   }
@@ -1975,7 +2015,7 @@ async function handle(req, res) {
 
   if (req.method === 'POST' && path === '/report') {
     const body = await readBody(req);
-    const report = await mutate((state) => addReport(state, body, owner));
+    const report = await mutateForActor((state) => addReport(state, body, owner));
     send(res, 201, { ok: true, report: { id: report.id, reason: report.reason } });
     return;
   }
@@ -1986,7 +2026,7 @@ async function handle(req, res) {
       return;
     }
     const body = await readBody(req);
-    const result = await mutate((state) => setFollow(state, body, owner));
+    const result = await mutateForActor((state) => setFollow(state, body, owner));
     send(res, 200, { ok: true, ownerId: result.targetId, on: result.on });
     return;
   }
@@ -2033,7 +2073,7 @@ async function handle(req, res) {
   if (req.method === 'POST' && path === '/read') {
     const body = await readBody(req);
     const ids = Array.isArray(body.ids) ? body.ids.map((id) => String(id)) : null;
-    const marked = await mutate((state) => {
+    const marked = await mutateForActor((state) => {
       let count = 0;
       for (const item of state.notifications) {
         if (item.to !== owner.id || item.readAt) continue;
@@ -2058,16 +2098,16 @@ async function handle(req, res) {
     }
     const body = await readBody(req);
     if (path === '/post') {
-      const post = await mutate((state) => createPost(state, body, owner));
+      const post = await mutateForActor((state) => createPost(state, body, owner));
       send(res, 201, { ok: true, post });
       return;
     }
     if (path === '/reply') {
-      const reply = await mutate((state) => addReply(state, body, owner));
+      const reply = await mutateForActor((state) => addReply(state, body, owner));
       send(res, 201, { ok: true, reply, postId: clean(body.postId, 80) });
       return;
     }
-    const result = await mutate((state) => claimTask(state, body, owner));
+    const result = await mutateForActor((state) => claimTask(state, body, owner));
     send(res, 201, { ok: true, task: result.task, claim: result.claim, repeated: result.repeated });
     return;
   }

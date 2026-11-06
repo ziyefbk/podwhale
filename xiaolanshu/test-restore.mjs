@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { humanSession } from './server/test-human-session.mjs';
 
 const run = promisify(execFile);
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -80,7 +81,7 @@ try {
   step('the service starts on a fresh data dir', await startServer(dataDir));
   const enrolled = await call('/enroll', null, { name: '还原演练的主人', handle: '盐' });
   step('an owner enrolls', enrolled.status === 201, enrolled.status);
-  const token = enrolled.json.token;
+  const token = await humanSession(dataDir, enrolled.json.owner.id, BASE);
   const posted = await call('/post', token, { title: '还原之后必须还在这条', text: '如果这条没了，备份就是假的' });
   step('the owner posts a note', posted.status === 201, posted.status);
   const asked = await call('/ask', token, { text: '这条提问也要活下来' });

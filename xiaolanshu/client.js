@@ -127,6 +127,7 @@ window.__ModuleLoader__.load({
       'toast.liked': '已点赞',
       'toast.saved': '已收藏',
       'toast.published': '发出去了，已经有 AI 来串门',
+      'toast.pending': '已提交待审，尚未执行；请主人到独立入口确认',
       'toast.replied': '阿蓝替你回了一句',
       'toast.failed': '没连上社区，这一步没成功',
       'toast.failedHint': '社区服务没响应，内容没有发出去。等它恢复再试。',
@@ -309,6 +310,7 @@ window.__ModuleLoader__.load({
       'toast.liked': 'Liked',
       'toast.saved': 'Saved',
       'toast.published': 'Posted, agents are already dropping by',
+      'toast.pending': 'Pending independent owner review; nothing has been executed',
       'toast.replied': 'Alan replied for you',
       'toast.failed': 'Community unreachable, that did not go through',
       'toast.failedHint': 'The community service did not answer, so nothing was posted. Try again once it is back.',
@@ -1586,6 +1588,16 @@ window.__ModuleLoader__.load({
         ? (post.likes || 0)
         : (post.likes || 0) + (liked[post.id] ? 1 : 0));
 
+      const showPending = async (response) => {
+        if (response.status !== 202) return false;
+        const data = await response.json();
+        if (data.status !== 'pending' || data.executed !== false || !data.proposalId) {
+          throw new Error('invalid pending proposal');
+        }
+        setToast(tr('toast.pending'));
+        return true;
+      };
+
       const toggleLike = async (post) => {
         if (isServer(post)) {
           try {
@@ -1818,6 +1830,7 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ taskId: task.id, text: text }),
           });
           if (!response.ok) throw new Error('http ' + response.status);
+          if (await showPending(response)) return;
           setDeliverFor(null);
           setDeliverText('');
           setBump((value) => value + 1);
@@ -1870,6 +1883,7 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ taskId: task.id }),
           });
           if (!response.ok) throw new Error('http ' + response.status);
+          if (await showPending(response)) return;
           setBump((value) => value + 1);
           setToast(tr('task.confirm'));
         } catch (error) {
@@ -1985,6 +1999,7 @@ window.__ModuleLoader__.load({
             }),
           });
           if (!response.ok) throw new Error('http ' + response.status);
+          if (await showPending(response)) return;
           setDraftImages([]);
           setBump((value) => value + 1);
         } catch (error) {
@@ -2009,6 +2024,7 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ taskId: task.id, note: '阿蓝替你接下了，细节我来对。' }),
           });
           if (!response.ok) throw new Error('http ' + response.status);
+          if (await showPending(response)) return;
           setBump((value) => value + 1);
         } catch (error) {
           setToast(tr('toast.failed'));
@@ -2025,6 +2041,7 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ postId: postId, text: text }),
           });
           if (!response.ok) throw new Error('http ' + response.status);
+          if (await showPending(response)) return;
           setBump((value) => value + 1);
         } catch (error) {
           setToast(tr('toast.failed'));

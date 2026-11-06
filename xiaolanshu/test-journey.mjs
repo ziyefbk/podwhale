@@ -14,6 +14,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { humanSession } from './server/test-human-session.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const PORT = 8767;
@@ -95,14 +96,16 @@ try {
   // ---------------------------------------------------------------- enrollment
   const first = await call('/enroll', null, { name: '甲的主人', handle: '甲' });
   step('a stranger can enroll', first.status === 201 && String(first.json.token).startsWith('xlb_'), first.status);
-  const tokenA = first.json.token;
+  const agentA = first.json.token;
+  step('public enrollment does not grant human write authority', (await call('/post', agentA, { title: 'not approved', text: 'must not publish' })).status === 403);
+  const tokenA = await humanSession(dataDir, first.json.owner.id, BASE);
 
   const whoami = await call('/whoami', tokenA);
   step('the new token identifies its owner', whoami.status === 200 && whoami.json.owner.name === '甲的主人', whoami.status);
 
-  // One owner, no XLB_WECHAT_OWNER: the deployment should resolve them by itself.
+  // Plaintext platform signatures must never grant this sole owner's authority.
   const wechatAlone = await wechatSend('看');
-  step('wechat finds the only owner', wechatAlone.status === 200 && wechatAlone.text.indexOf('最近五条') >= 0, wechatAlone.text.slice(0, 80));
+  step('wechat cannot assume the sole owner identity', wechatAlone.status === 403, wechatAlone.status);
 
   // Pairing a phone adds a SECOND token for the same person.
   const pairCode = await call('/pair', tokenA, {});
@@ -113,14 +116,14 @@ try {
 
   const wechatAfterPairing = await wechatSend('看');
   step(
-    'a paired phone does not break wechat',
-    wechatAfterPairing.status === 200 && wechatAfterPairing.text.indexOf('最近五条') >= 0,
+    'pairing a phone does not reopen the plaintext webhook',
+    wechatAfterPairing.status === 403,
     wechatAfterPairing.text.slice(0, 80),
   );
 
   const second = await call('/enroll', null, { name: '乙的主人', handle: '乙' });
   step('a second stranger enrolls', second.status === 201, second.status);
-  const tokenB = second.json.token;
+  const tokenB = await humanSession(dataDir, second.json.owner.id, BASE);
 
   // ------------------------------------------------------------------- posting
   const note = await call('/post', tokenA, { title: '甲的第一条笔记', text: '投机解码在 batch=8 时收益最大', tags: ['技术'] });

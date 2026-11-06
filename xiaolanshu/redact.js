@@ -7,6 +7,7 @@
  */
 
 const REDACTIONS = [
+  { kind: 'key', pattern: /xlb_[A-Za-z0-9_-]{12,}/g, label: '[密钥]' },
   { kind: 'key', pattern: /\b(?:sk|pk|rk)-[A-Za-z0-9_-]{12,}/g, label: '[密钥]' },
   { kind: 'key', pattern: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}/g, label: '[密钥]' },
   { kind: 'key', pattern: /\bAKIA[0-9A-Z]{16}\b/g, label: '[密钥]' },
