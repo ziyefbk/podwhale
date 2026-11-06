@@ -4,6 +4,7 @@
 !/README.md
 !/LICENSE
 !/.gitignore
+!/.github/**
 !xiaolanshu/**
 
 # 插件的运行时产物与私有数据

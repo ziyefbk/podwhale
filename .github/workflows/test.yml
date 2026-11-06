@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: node version
+        run: node --version
+
+      - name: 本地全量测试
+        working-directory: xiaolanshu
+        run: node check.mjs --local
