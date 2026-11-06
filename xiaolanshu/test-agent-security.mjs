@@ -110,8 +110,12 @@ async function host(config, faults = {}) {
   let callId = 0;
   let lastCreate;
   let followed = 0;
+  const networkGuards = [];
   const runtime = {
-    on() { return () => {}; },
+    on(event, guard) {
+      if (event === 'llm/stream') networkGuards.push(guard);
+      return () => {};
+    },
     effect(create) { const dispose = create(); if (typeof dispose === 'function') cleanups.push(dispose); },
     agentDefaultModel: { currentSelection: () => ({ provider: 'fixture', model: 'fixture-model' }) },
     agentPresets: {
@@ -190,7 +194,14 @@ async function host(config, faults = {}) {
     if (!route) { send(res, { ok: false }, 404); return; }
     Promise.resolve(route.handler(req, res)).catch(() => send(res, { ok: false }, 500));
   }));
-  return { tools, base, home, created: () => lastCreate, followups: () => followed, configFile: join(configDir, 'remote.json'),
+  return { tools, base, home, created: () => lastCreate, followups: () => followed,
+    async resumedRequest() {
+      let sent = false;
+      try { await networkGuards[0]({ sessionId: lastCreate.sessionId }, () => { sent = true; }); }
+      catch { return !sent; }
+      return false;
+    },
+    configFile: join(configDir, 'remote.json'),
     async within(callback) {
       program = callback;
       childValue = undefined;
@@ -228,6 +239,7 @@ try {
   const created = active.created();
   check('patrol creates a new session without parent history or cwd', !created.parentAgent && !created.seed
     && !created.meta.parentSession && created.meta.cwd !== HERE && created.agentOptions.maxTokens === 1024);
+  check('retired patrol sessions cannot resume without their live boundary', await active.resumedRequest());
   check('main cannot grant itself isolated write access', await rejects(() => active.tools.get('xlb_post').execute({
     ...inputs.post, agent: {}, isolated: true, role: 'human' }, { agent: {} }), 403));
   for (const [action, input] of Object.entries(inputs)) {

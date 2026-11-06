@@ -247,7 +247,9 @@ export function createPatrolController({ homeDir, beforeRun = async () => {} }) 
       if (record.agent) agents.delete(record.agent);
       try { await handle?.dispose(); } catch { /* do not return child error text */ }
       if (state.handle === handle) state.handle = null;
-      sessions.delete(sessionId);
+      // A persisted patrol must never resume later without its live boundary.
+      // Keep only an id tombstone, not the retired Agent or its conversation.
+      sessions.set(sessionId, { active: false });
       if (cwd) {
         const target = resolve(cwd);
         const base = resolve(tmpdir()) + sep;
