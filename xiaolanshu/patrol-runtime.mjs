@@ -301,13 +301,14 @@ export function createPatrolController({ homeDir, beforeRun = async () => {} }) 
       const current = await service.view({ id: config.legacyPatrolScheduleId });
       if (!current || current.code) throw unavailable();
       const prompt = current.record?.prompt ?? current.prompt;
-      if (current.status !== 'inactive' || prompt !== LEGACY_PATROL_PROMPT) {
+      const paused = (entry) => entry.status === 'paused' || entry.status === 'inactive';
+      if (!paused(current) || prompt !== LEGACY_PATROL_PROMPT) {
         const result = await service.edit({ id: config.legacyPatrolScheduleId, action: 'update',
           patch: { active: false, prompt: LEGACY_PATROL_PROMPT }, expectedUpdatedAt: current.updatedAt ?? null });
         if (!result || result.code) throw unavailable();
       }
       const confirmed = await service.view({ id: config.legacyPatrolScheduleId });
-      if (confirmed.status !== 'inactive' || (confirmed.record?.prompt ?? confirmed.prompt) !== LEGACY_PATROL_PROMPT) throw unavailable();
+      if (!paused(confirmed) || (confirmed.record?.prompt ?? confirmed.prompt) !== LEGACY_PATROL_PROMPT) throw unavailable();
       // Pausing cannot retract an already delivered reminder. Remove only its
       // exact still-queued message, never cancel the owner's unrelated work.
       const receipt = confirmed.lastDelivery;

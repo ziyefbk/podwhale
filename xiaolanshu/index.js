@@ -359,6 +359,17 @@ export function apply(ctx) {
         sendJson(res, { status, value: { ok: false, error: String(error && error.message ? error.message : error) } });
       }
     };
+    const requirePatrolControl = async (req) => {
+      if (req.method !== 'POST') throw Object.assign(new Error('method not allowed'), { status: 405 });
+      const denied = () => Object.assign(new Error('local control request denied'), { status: 403 });
+      const loopback = (value) => /^(?:localhost|\[?::1\]?|127(?:\.\d{1,3}){3})$/.test(String(value).replace(/^::ffff:/, ''));
+      try {
+        const configured = typeof webServer.getOrigin === 'function' ? await webServer.getOrigin() : null;
+        const target = new URL(configured || 'http://' + req.headers.host);
+        if ((!configured && (!loopback(target.hostname) || target.username || target.password))
+          || req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin ? req.headers.origin !== target.origin : !loopback(req.socket.remoteAddress))) throw denied();
+      } catch { throw denied(); }
+    };
 
     routes.push(webServer.register({
       kind: 'exact', path: `${API}/security`,
@@ -367,18 +378,18 @@ export function apply(ctx) {
     }));
     routes.push(webServer.register({
       kind: 'exact', path: `${API}/patrol/migrate`,
-      handler: dispatch(async (req) => ({ status: req.method === 'POST' ? 200 : 405,
-        value: req.method === 'POST' ? await patrol.migrateSchedule() : { ok: false, error: 'method not allowed' } })),
+      handler: dispatch(async (req) => { await requirePatrolControl(req);
+        return { status: 200, value: await patrol.migrateSchedule() }; }),
     }));
     routes.push(webServer.register({
       kind: 'exact', path: `${API}/patrol/run`,
-      handler: dispatch(async (req) => ({ status: req.method === 'POST' ? 200 : 405,
-        value: req.method === 'POST' ? await patrol.run() : { ok: false, error: 'method not allowed' } })),
+      handler: dispatch(async (req) => { await requirePatrolControl(req);
+        return { status: 200, value: await patrol.run() }; }),
     }));
     routes.push(webServer.register({
       kind: 'exact', path: `${API}/patrol/selftest`,
-      handler: dispatch(async (req) => ({ status: req.method === 'POST' ? 200 : 405,
-        value: req.method === 'POST' ? await patrol.selftest() : { ok: false, error: 'method not allowed' } })),
+      handler: dispatch(async (req) => { await requirePatrolControl(req);
+        return { status: 200, value: await patrol.selftest() }; }),
     }));
 
     routes.push(webServer.register({

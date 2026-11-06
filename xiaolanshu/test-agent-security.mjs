@@ -349,7 +349,7 @@ try {
     return { row, edits, async view() { return structuredClone(row); }, async edit(request) {
       edits.push(request);
       if (conflict) return { code: 'schedule_conflict' };
-      row.status = request.patch.active ? 'active' : 'inactive'; row.prompt = request.patch.prompt; row.updatedAt = 'v2';
+      row.status = request.patch.active ? 'active' : 'paused'; row.prompt = request.patch.prompt; row.updatedAt = 'v2';
       return structuredClone(row);
     } };
   }
@@ -361,11 +361,13 @@ try {
   const scheduleStatus = await (await fetch(scheduled.base + '/xiaolanshu/api/security')).json();
   check('migration pauses only the configured unsafe reminder with CAS', preserved.edits.length === 1
     && preserved.edits[0].id === scheduleConfig.legacyPatrolScheduleId && preserved.edits[0].expectedUpdatedAt === 'v1'
-    && Object.keys(preserved.edits[0].patch).sort().join(',') === 'active,prompt' && preserved.row.status === 'inactive');
+    && Object.keys(preserved.edits[0].patch).sort().join(',') === 'active,prompt' && preserved.row.status === 'paused');
   check('migration preserves frequency and original target without restoring it', preserved.row.rrule === 'unchanged-rule'
     && preserved.row.target.sessionId === 'old-main' && removed.join(',') === 'old-reminder');
   check('status contains only Host metadata and timer starts after confirmed pause', scheduleStatus.timerEnabled
     && scheduleStatus.scheduleMigration.status === 'migrated' && !JSON.stringify(scheduleStatus).includes(attack));
+  check('actual DSH flat entry with paused status passes migration confirmation', !preserved.row.record
+    && preserved.row.status === 'paused' && scheduleStatus.scheduleMigration.status === 'migrated');
   const reloadedTimers = [];
   const reloaded = await host(config, { home: scheduled.home, security: scheduleConfig, schedule: preserved, timers: reloadedTimers });
   timerCallbacks[0]();
@@ -381,12 +383,31 @@ try {
   const busySchedule = scheduleFixture({ activeDelivery: true });
   const busyHost = await host(config, { security: scheduleConfig, schedule: busySchedule, timers: [] });
   const busyStatus = await (await fetch(busyHost.base + '/xiaolanshu/api/security')).json();
-  check('already executing legacy delivery pauses but blocks timer activation', busySchedule.row.status === 'inactive'
+  check('already executing legacy delivery pauses but blocks timer activation', busySchedule.row.status === 'paused'
     && !busyStatus.timerEnabled && busyStatus.scheduleMigration.code === 'legacy_delivery_active');
-
-
-
   const run = promisify(execFile);
+  const controlHost = await host(config);
+  const controlPaths = ['run', 'migrate', 'selftest'].map((name) => '/xiaolanshu/api/patrol/' + name);
+  const foreignControls = await Promise.all(controlPaths.map((path) => fetch(controlHost.base + path, {
+    method: 'POST', headers: { origin: 'https://foreign.invalid' }, body: 'ignored=form',
+  })));
+  check('all patrol controls reject foreign Origin without echoing it', (await Promise.all(foreignControls.map(async (response) =>
+    response.status === 403 && (await response.json()).error === 'local control request denied'))).every(Boolean));
+  const crossSiteControls = await Promise.all(controlPaths.map((path) => fetch(controlHost.base + path, {
+    method: 'POST', headers: { 'sec-fetch-site': 'cross-site' },
+  })));
+  check('all patrol controls reject cross-site browser requests without Origin', crossSiteControls.every((response) => response.status === 403));
+  const wrongMethodControls = await Promise.all(controlPaths.map((path) => fetch(controlHost.base + path)));
+  check('all patrol controls reject non-POST methods', wrongMethodControls.every((response) => response.status === 405));
+  const { request: controlRequest } = await import('node:http');
+  const reboundControls = await Promise.all(controlPaths.map((path) => new Promise((done, reject) => {
+    const request = controlRequest(controlHost.base + path, { method: 'POST', headers: { host: 'rebinding.invalid' } }, (response) => {
+      response.resume(); response.on('end', () => done(response.statusCode));
+    });
+    request.on('error', reject); request.end();
+  })));
+  check('fallback patrol controls reject non-loopback Host without invoking a model', reboundControls.every((status) => status === 403)
+    && controlHost.followups() === 0);
   for (const [name, token, success] of [['agent', agentToken, true], ['human', humanToken, false]]) {
     const home = await tempHome();
     let exit = 0;
