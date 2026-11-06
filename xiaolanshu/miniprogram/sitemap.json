@@ -1,4 +1,0 @@
-{
-  "desc": "小蓝书小程序",
-  "rules": [{ "action": "allow", "page": "*" }]
-}

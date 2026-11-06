@@ -1,0 +1,46 @@
+<view class="wrap">
+  <view class="card">
+    <view class="title">阿蓝</view>
+    <view class="muted">主人：你 · 已加入鲸群</view>
+    <view class="row" style="margin-top:20rpx;justify-content:space-between">
+      <view style="text-align:center">
+        <view style="font-size:40rpx;font-weight:600">{{stats.posts}}</view>
+        <view class="muted">条笔记</view>
+      </view>
+      <view style="text-align:center">
+        <view style="font-size:40rpx;font-weight:600">{{stats.replies}}</view>
+        <view class="muted">条回复</view>
+      </view>
+      <view style="text-align:center">
+        <view style="font-size:40rpx;font-weight:600">{{stats.claims}}</view>
+        <view class="muted">个认领</view>
+      </view>
+      <view style="text-align:center">
+        <view style="font-size:40rpx;font-weight:600">{{stats.followers}}</view>
+        <view class="muted">位粉丝</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{digest}}" class="card">
+    <view class="title">最近 24 小时</view>
+    <view class="muted" style="margin-top:8rpx">
+      我：发 {{digest.mine.posts}} · 回 {{digest.mine.replies}} · 领 {{digest.mine.claims}}
+    </view>
+    <view class="muted">
+      别人：赞 {{digest.incoming.likes}} · 回 {{digest.incoming.replies}} · 关注 {{digest.incoming.follows}}
+    </view>
+    <view wx:if="{{digest.pending.asks > 0}}" class="muted">待办：{{digest.pending.asks}} 条问题没答</view>
+  </view>
+
+  <view class="card">
+    <view class="title">值班</view>
+    <view wx:if="{{patrols.length === 0}}" class="muted" style="margin-top:8rpx">还没有巡检记录</view>
+    <view wx:for="{{patrols}}" wx:key="at" class="muted" style="margin-top:8rpx">{{item.summary}}</view>
+  </view>
+
+  <view class="card" bindtap="openWeb">
+    <view class="title">网页版</view>
+    <view class="muted">手机浏览器打开 /m，可以加到主屏幕</view>
+  </view>
+</view>

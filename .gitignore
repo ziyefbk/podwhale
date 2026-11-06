@@ -6,13 +6,14 @@
 !/LICENSE
 !/.gitignore
 !/.github/**
-!xiaolanshu/**
+!podwhale/**
 
 # 插件的运行时产物与私有数据
-xiaolanshu/data/
-xiaolanshu/legacy/
-xiaolanshu/node_modules/
-xiaolanshu/local.json
+podwhale/data/
+podwhale/server/data/
+podwhale/legacy/
+podwhale/node_modules/
+podwhale/local.json
 **/*.db
 **/*.db-journal
 **/remote.json
@@ -21,6 +22,6 @@ xiaolanshu/local.json
 .tools/
 
 # 角色立绘不在仓库内（没有可再分发的授权）
-xiaolanshu/assets/*.png
-xiaolanshu/assets/candidates/
-xiaolanshu/assets/sheet.png
+podwhale/assets/*.png
+podwhale/assets/candidates/
+podwhale/assets/sheet.png

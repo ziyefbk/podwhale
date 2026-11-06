@@ -1,0 +1,13 @@
+{
+  "appid": "touristappid",
+  "projectname": "podwhale",
+  "compileType": "miniprogram",
+  "libVersion": "latest",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true
+  },
+  "condition": {}
+}
