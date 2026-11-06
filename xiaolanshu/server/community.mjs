@@ -19,6 +19,7 @@ import { PAGE } from './page.mjs';
 import { sniff, stripMetadata, extensionOf, mimeOf } from './media.mjs';
 import { openStore, loadState, loadOwners, saveState, saveOwners as saveOwnersTo, isEmpty, stats as dbStats, buildRows } from './db.mjs';
 import { credentialOf, credentialActive, isHuman, newCredential, withCredential, clearBindings, AGENT_TTL_MS, MAX_AGENT_TTL_MS } from './auth.mjs';
+import { httpGuardConfig, createHttpGuard, trustedClientIp, createHealthCache } from './http-guard.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const HOST = process.env.XLB_HOST || '127.0.0.1';
@@ -42,6 +43,9 @@ const WECHAT_TOKEN = process.env.XLB_WECHAT_TOKEN || '';
 const WECHAT_APPID = process.env.XLB_WECHAT_APPID || '';
 const WECHAT_SECRET = process.env.XLB_WECHAT_SECRET || '';
 const WECHAT_OAUTH_BASE = process.env.XLB_WECHAT_OAUTH_BASE || 'https://api.weixin.qq.com';
+const HTTP_CONFIG = httpGuardConfig();
+const httpGuard = createHttpGuard(HTTP_CONFIG, clientIp);
+const healthCache = createHealthCache(HTTP_CONFIG.healthCacheMs);
 
 /** Appearance is a closed vocabulary: the client renders it, the server only stores it. */
 const SHAPES = ['girl', 'whale', 'cat', 'bird', 'bot'];
@@ -187,8 +191,6 @@ const SEED_TASKS = [
   },
 ];
 
-const buckets = new Map();
-
 function nowMs() {
   return Date.now();
 }
@@ -294,11 +296,10 @@ async function mutateOwners(change) {
     ownersPrev = structuredClone(registry);
     loadedState.owners = registry;
     ownersCache = { at: nowMs(), data: registry };
+    healthCache.invalidate();
     return result;
   });
 }
-
-const enrollBuckets = new Map();
 
 // ---- 存储：SQLite 是权威，内存只是工作副本 ----
 let db = null;
@@ -338,21 +339,11 @@ async function initStore() {
 
 /** Only trust forwarded addresses when the operator explicitly trusts the proxy. */
 function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  if (process.env.XLB_TRUST_PROXY === '1' && forwarded) return forwarded;
-  return String(req.socket.remoteAddress || 'unknown');
+  return trustedClientIp(req);
 }
 
 function enrollAllowed(ip) {
-  const time = nowMs();
-  const recent = (enrollBuckets.get(ip) || []).filter((stamp) => time - stamp < 3600000);
-  if (recent.length >= ENROLL_PER_HOUR) {
-    enrollBuckets.set(ip, recent);
-    return false;
-  }
-  recent.push(time);
-  enrollBuckets.set(ip, recent);
-  return true;
+  return httpGuard.windowAllowed('enroll', ip, ENROLL_PER_HOUR, 3600000);
 }
 
 /** Issue a fresh token and drop every hash that belongs to this owner. */
@@ -373,15 +364,8 @@ async function rotateToken(ownerId, authorizerHash) {
 }
 
 const PAIR_TTL_MS = 10 * 60 * 1000;
-const pairBuckets = new Map();
-
 function pairAllowed(ip) {
-  const now = Date.now();
-  const recent = (pairBuckets.get(ip) || []).filter((time) => now - time < 3600 * 1000);
-  if (recent.length >= 10) return false;
-  recent.push(now);
-  pairBuckets.set(ip, recent);
-  return true;
+  return httpGuard.windowAllowed('pair', ip, 10, 3600000);
 }
 
 /** A six-digit code the owner can type on a phone instead of a 50-char token. */
@@ -517,6 +501,7 @@ async function enrollOwner(input, ip) {
 
 function send(res, status, body) {
   const text = JSON.stringify(body);
+  if (status >= 400) httpGuard.closeResponse(res);
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'content-length': Buffer.byteLength(text),
@@ -527,13 +512,16 @@ function send(res, status, body) {
 
 /** 读原始字节（图片上传用），限长。 */
 async function readBinary(req, limit) {
+  httpGuard.continueBody(req);
   const chunks = [];
   let size = 0;
-  for await (const chunk of req) {
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    httpGuard.assertRequestActive(req);
     size += chunk.length;
     if (size > limit) throw Object.assign(new Error(`图片太大了，最多 ${Math.round(limit / 1024 / 1024)} MB`), { status: 413 });
     chunks.push(chunk);
   }
+  httpGuard.assertRequestActive(req);
   return Buffer.concat(chunks);
 }
 
@@ -552,13 +540,16 @@ async function saveMedia(buffer, kind) {
 }
 
 async function readBody(req) {
+  httpGuard.continueBody(req);
   const chunks = [];
   let size = 0;
-  for await (const chunk of req) {
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    httpGuard.assertRequestActive(req);
     size += chunk.length;
     if (size > MAX_BODY) throw Object.assign(new Error('body too large'), { status: 413 });
     chunks.push(chunk);
   }
+  httpGuard.assertRequestActive(req);
   if (!size) return {};
   let parsed;
   try {
@@ -585,16 +576,7 @@ async function authenticate(req) {
 }
 
 function rateLimited(owner, name, limit) {
-  const key = `${owner.id}:${name}`;
-  const time = nowMs();
-  const recent = (buckets.get(key) || []).filter((stamp) => time - stamp < 60000);
-  if (recent.length >= limit) {
-    buckets.set(key, recent);
-    return true;
-  }
-  recent.push(time);
-  buckets.set(key, recent);
-  return false;
+  return !httpGuard.windowAllowed('owner', `${owner.id}:${name}`, limit, 60000);
 }
 
 /** Real counters for the owner's own page; nothing here is a placeholder. */
@@ -1376,6 +1358,7 @@ async function persist(state) {
   state.updatedAt = new Date().toISOString();
   const written = saveState(db, persistCache || {}, state);
   persistCache = snapshotCollections(state);
+  healthCache.invalidate();
   lastWrite = { at: new Date().toISOString(), ...written };
   return written;
 }
@@ -1482,6 +1465,8 @@ async function handle(req, res) {
   let path = url.pathname;
   if (path === PREFIX) path = '/';
   else if (path.startsWith(`${PREFIX}/`)) path = path.slice(PREFIX.length);
+  // Reject declared oversized bodies before authentication or reading a byte.
+  if (!httpGuard.bodyLength(req, res, path === '/upload' ? MAX_IMAGE : MAX_BODY)) return;
 
   // 图片是公开读的（<img> 带不了 Authorization），但文件名是随机串，猜不到。
   if (req.method === 'GET' && path.indexOf('/media/') === 0) {
@@ -1507,7 +1492,11 @@ async function handle(req, res) {
   }
 
   if (path === '/health') {
-    send(res, 200, await healthReport());
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      httpGuard.reject(req, res, 405, 'method not allowed');
+      return;
+    }
+    send(res, 200, await healthCache.get(healthReport));
     return;
   }
 
@@ -1654,8 +1643,7 @@ async function handle(req, res) {
 
   const owner = await authenticate(req);
   if (!owner) {
-    res.setHeader('www-authenticate', 'Bearer');
-    send(res, 401, { ok: false, error: 'unauthorized' });
+    httpGuard.authenticationFailed(req, res);
     return;
   }
 
@@ -2117,13 +2105,23 @@ async function handle(req, res) {
   send(res, 404, { ok: false, error: 'not found' });
 }
 
-const server = createServer((req, res) => {
+const dispatchHttp = (req, res) => {
+  if (!httpGuard.admit(req, res)) return;
   handle(req, res).catch((error) => {
+    if (req.aborted || res.destroyed) return;
     const status = error && error.status ? error.status : 500;
     if (status === 500) console.error('[xiaolanshu]', error);
-    if (!res.headersSent) send(res, status, { ok: false, error: String(error && error.message ? error.message : error) });
+    if (!res.headersSent) send(res, status, { ok: false, error: status === 500 ? 'internal error' : String(error && error.message ? error.message : error) });
     else res.end();
   });
+};
+const server = createServer(httpGuard.serverOptions(), dispatchHttp);
+httpGuard.configureServer(server);
+// Node otherwise sends 100 Continue before the application's admission checks.
+// Body readers emit it only after the route/authentication accepts the upload.
+server.on('checkContinue', dispatchHttp);
+server.on('checkExpectation', (req, res) => {
+  if (httpGuard.admit(req, res)) httpGuard.reject(req, res, 417, 'expectation failed');
 });
 
 await mkdir(DATA, { recursive: true });

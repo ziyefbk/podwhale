@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the Podwhale proxy-only firewall after container changes
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=podwhale-network-guard.service
+
+[Install]
+WantedBy=timers.target

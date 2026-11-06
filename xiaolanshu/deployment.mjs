@@ -8,6 +8,7 @@ import { isIP } from 'node:net';
 export const SOURCE_FILES = [
   'xiaolanshu/server/community.mjs', 'xiaolanshu/server/auth.mjs',
   'xiaolanshu/server/db.mjs', 'xiaolanshu/server/enroll.mjs',
+  'xiaolanshu/server/http-guard.mjs',
   'xiaolanshu/server/mobile.mjs', 'xiaolanshu/server/page.mjs',
   'xiaolanshu/server/media.mjs', 'xiaolanshu/redact.js',
   'xiaolanshu/server/static/icon-192.png', 'xiaolanshu/server/static/icon-512.png',

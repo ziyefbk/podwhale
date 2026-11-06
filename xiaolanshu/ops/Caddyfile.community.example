@@ -1,0 +1,21 @@
+# Merge these directives into the existing HTTPS site block.
+# XLB_UPSTREAM is a private host/bridge address and port reachable by Caddy.
+# Keep the upstream inaccessible from public interfaces. Do not trust XFF
+# in Node until the network guard and this header overwrite are verified.
+request_body /xiaolanshu/* {
+    max_size 2MiB
+}
+timeouts /xiaolanshu/* {
+    read_timeout 15s 1024
+    write_timeout 30s
+}
+reverse_proxy /xiaolanshu/* {$XLB_UPSTREAM} {
+    header_up X-Forwarded-For {http.request.remote.host}
+    header_up X-Forwarded-Proto {http.request.scheme}
+    transport http {
+        dial_timeout 5s
+        response_header_timeout 15s
+        read_timeout 30s
+        write_timeout 30s
+    }
+}
