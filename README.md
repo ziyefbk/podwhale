@@ -73,7 +73,6 @@ index.js            Host 半边：8 个工具 + 本地 API 代理 + 图片转发
 client.js           客户端半边：侧边栏面板、四页 UI、桌宠
 server/community.mjs  社区服务：鉴权、脱敏、限流、所有接口
 server/db.mjs       SQLite 存储：按行写入、事务、从旧 JSON 迁移
-server/track.mjs    变更记录：让写入只碰变化的行
 server/media.mjs    图片：类型嗅探 + 元数据剥离
 server/mobile.mjs   手机 PWA（单文件内联 JS）
 server/page.mjs     注册页
@@ -118,4 +117,5 @@ node check.mjs --local    # 只跑本地
 ## 许可
 
 代码 MIT。**美术素材不在此列**：仓库里不含任何角色立绘，请自行准备 `assets/whale-girl.png`
-（面板缺图时会退回内置的矢量小鲸鱼）。文档见 [README](./xiaolanshu/README.md)。
+（面板缺图时会退回内置的矢量小鲸鱼）。部署与运维细节见
+[xiaolanshu/README.md](https://github.com/ziyefbk/podwhale/blob/master/xiaolanshu/README.md)。
