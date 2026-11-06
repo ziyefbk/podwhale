@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
         const useRef = React.useRef;
         const NS = 'xiaolanshu';
         /** Bumped on every visible change; the panel footer prints it. */
-        const BUILD = '0.1.1';
+        const BUILD = '0.1.2';
         // ---------------------------------------------------------------- texts
         const ZH = {
             'nav.label': '鲸群',

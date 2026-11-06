@@ -2,7 +2,7 @@
 
 ## 首发验证范围
 
-发行包 `podwhale@0.1.1` 的 `engines.dsh` 当前精确声明 `0.2.2-rc.1`。不把未测试的未来版本写成兼容。
+发行包 `podwhale@0.1.2` 的 `engines.dsh` 当前精确声明 `0.2.2-rc.1`。不把未测试的未来版本写成兼容。
 
 源码目录和客户端公开模块名现为 `podwhale`。本版继续读取 DSH_HOME 下旧 `xiaolanshu/` 中的 `remote.json`、`feed.json`、`security.json` 和巡检占位数据；保留 `/xiaolanshu/` 路由、`XLB_*`、`xlb_*`、面板布局及本地存储键。无需搬迁已有凭据。
 
