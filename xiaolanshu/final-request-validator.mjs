@@ -15,6 +15,7 @@ const TOOL_NAMES = Object.freeze([
   'xlb_confirm', 'xlb_answer', 'xlb_patrol',
 ]);
 const TOOL_SET = new Set(TOOL_NAMES);
+const MAX_TOOL_ARGUMENT_BYTES = 64 * 1024;
 const REJECTION = 'Podwhale isolation rejected an unexpected model request';
 const POLICY_STAGES = new Set(['policy_config', 'request_route', 'tool_schemas', 'tool_history',
   'message_structure', 'system_message', 'user_message', 'assistant_message', 'tool_message']);
@@ -36,6 +37,12 @@ function textOnly(content) {
 }
 function singleText(content, expected) {
   return textOnly(content) && content.length === 1 && content[0].text === expected;
+}
+function toolCallArguments(raw) {
+  // DSH BlockAssembler retains the model's JSON string in history. Only its
+  // execution pipeline parses that string; an empty input maps to {} there.
+  if (typeof raw !== 'string' || Buffer.byteLength(raw, 'utf8') > MAX_TOOL_ARGUMENT_BYTES) return false;
+  try { return record(raw ? JSON.parse(raw) : {}); } catch { return false; }
 }
 
 function schemaMap(schemas) {
@@ -123,7 +130,7 @@ export function assertPatrolRequest(request, policy) {
             continue;
           }
           requireCondition(block.type === 'tool-call' && nonempty(block.id) && block.id.length <= 512
-            && TOOL_SET.has(block.name) && !calls.has(block.id) && record(block.arguments));
+            && TOOL_SET.has(block.name) && !calls.has(block.id) && toolCallArguments(block.arguments));
           calls.set(block.id, block.name);
           pending.add(block.id);
           if (block.name !== 'xlb_feed') writes += 1;
