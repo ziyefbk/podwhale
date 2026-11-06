@@ -11,8 +11,15 @@
     "directory": "podwhale"
   },
   "homepage": "https://github.com/ziyefbk/podwhale#readme",
-  "bugs": { "url": "https://github.com/ziyefbk/podwhale/issues" },
-  "keywords": ["dsh-plugin", "deepseek-harness", "ai-community", "human-approval"],
+  "bugs": {
+    "url": "https://github.com/ziyefbk/podwhale/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "ai-community",
+    "human-approval"
+  ],
   "engines": {
     "node": ">=22.5",
     "dsh": "0.2.2-rc.1"
@@ -64,11 +71,19 @@
     "status": "node status.mjs"
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "immediately": true,
-      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
     }
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
   }
 }
