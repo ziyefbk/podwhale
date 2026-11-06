@@ -24,6 +24,8 @@ export const LEGACY_PATROL_PROMPT = 'This reminder is disabled. Podwhale patrols
   + 'the community, or perform any actions in this session.';
 
 const TOOL_SET = new Set(PATROL_TOOLS);
+const POLICY_STAGES = new Set(['policy_config', 'request_route', 'tool_schemas', 'tool_history',
+  'message_structure', 'system_message', 'user_message', 'assistant_message', 'tool_message']);
 const DENIED = '此操作只允许在宿主创建的隔离巡检中执行';
 const unavailable = () => Object.assign(new Error('隔离巡检不可用；未读取社区内容'), { status: 503 });
 const fixedFailure = () => ({ type: 'patrol_summary', status: 'blocked', code: 'isolation_unavailable',
@@ -41,6 +43,16 @@ function safeRoute(selection) {
     maxTokens: 1024 };
 }
 
+/** DSH followup() accepts an already identified UserMessage, not message input. */
+function patrolInputMessage() {
+  return Object.freeze({
+    id: randomUUID(),
+    role: 'user',
+    source: Object.freeze({ kind: 'podwhale-patrol' }),
+    content: Object.freeze([Object.freeze({ type: 'text', text: PATROL_INPUT })]),
+  });
+}
+
 export function createPatrolController({ homeDir, beforeRun = async () => {} }) {
   const agents = new WeakMap();
   const sessions = new Map();
@@ -52,6 +64,7 @@ export function createPatrolController({ homeDir, beforeRun = async () => {} }) 
   let lastRunStatus = 'idle';
   let runtimeSelfTest = 'not_run';
   let lastFailureStage = null;
+  let networkPolicyFailure = null;
 
   function isIsolated(exec) {
     return !!(exec && exec.agent && agents.get(exec.agent)?.active);
@@ -73,7 +86,8 @@ export function createPatrolController({ homeDir, beforeRun = async () => {} }) 
   function status() {
     return { isolationReady: !!runtime?.ready, presetRegistered: !!runtime?.ready,
       executor: runtime?.ready ? 'native' : 'unavailable', rawFeedInMain: false,
-      scheduleMigration: { ...migration }, timerEnabled: !!timer, lastRunStatus, runtimeSelfTest, lastFailureStage };
+      scheduleMigration: { ...migration }, timerEnabled: !!timer, lastRunStatus, runtimeSelfTest,
+      lastFailureStage, networkPolicyFailure };
   }
 
   function auditTools(agentCtx, agent, record = agents.get(agent)) {
@@ -149,9 +163,10 @@ export function createPatrolController({ homeDir, beforeRun = async () => {} }) 
             toolSchemas: record.toolSchemas, sessionId: request.sessionId,
             provider: record.route.provider, model: record.route.model, executedCalls: record.executedCalls });
           if (++record.requests > 9) throw unavailable();
-        } catch {
+        } catch (error) {
           record.violation = true;
           record.failureStage = 'network_policy';
+          networkPolicyFailure = POLICY_STAGES.has(error?.policyStage) ? error.policyStage : 'request_budget';
           throw unavailable();
         }
         return next();
@@ -177,6 +192,7 @@ export function createPatrolController({ homeDir, beforeRun = async () => {} }) 
   async function execute(requester, probe = false) {
     const state = runtime;
     if (!state?.ready) return fixedFailure();
+    networkPolicyFailure = null;
     let handle;
     let cwd;
     let deadline;
@@ -226,7 +242,7 @@ export function createPatrolController({ homeDir, beforeRun = async () => {} }) 
         return { type: 'patrol_summary', status: 'ready', executed: false, feedReads: 0, proposals: [] };
       }
       stage = 'patrol';
-      handle.agent.followup({ content: [{ type: 'text', text: PATROL_INPUT }], source: { kind: 'podwhale-patrol' } });
+      handle.agent.followup(patrolInputMessage());
       await handle.agent.whenIdle();
       control.signal.throwIfAborted();
       if (record.violation || record.feedReads === 0) throw unavailable();
