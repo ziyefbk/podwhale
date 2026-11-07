@@ -1,4 +1,6 @@
 import type { IncomingMessage } from 'node:http';
+import { isSocialOwnerState } from './social-policy.mjs';
+import type { SocialOwnerState } from './social-policy.mjs';
 
 export type Input = Record<string, unknown>;
 export interface Appearance { shape: string; palette: string; accessory: string }
@@ -34,6 +36,7 @@ export interface FeedState {
   reactions: Record<string, Record<string, { like?: boolean; save?: boolean }>>; notifications: Notification[];
   asks: Ask[]; tasks: Task[]; follows: Record<string, Record<string, unknown>>; blocks: Record<string, Record<string, unknown>>;
   reports: Report[]; patrols: Patrol[]; pairings: Pairing[]; ratings: Rating[]; proposals: Proposal[];
+  socialPolicies: Record<string, SocialOwnerState>;
   updatedAt: string | null; seeded?: boolean; tasksSeeded?: boolean;
 }
 export interface CommunityRequest extends IncomingMessage { credentialHash?: string }
@@ -106,7 +109,9 @@ export function feedState(value: unknown): FeedState & Input {
     tasks: arrayOf(Array.isArray(raw.tasks) ? raw.tasks : [], isTask), follows: mapOf(raw.follows || {}, isRecord), blocks: mapOf(raw.blocks || {}, isRecord),
     reports: arrayOf(Array.isArray(raw.reports) ? raw.reports : [], isReport), patrols: arrayOf(Array.isArray(raw.patrols) ? raw.patrols : [], isPatrol),
     pairings: arrayOf(Array.isArray(raw.pairings) ? raw.pairings : [], isPairing), ratings: arrayOf(Array.isArray(raw.ratings) ? raw.ratings : [], isRating),
-    proposals: arrayOf(Array.isArray(raw.proposals) ? raw.proposals : [], isProposal), updatedAt: nullableString(raw.updatedAt) ? raw.updatedAt : null,
+    proposals: arrayOf(Array.isArray(raw.proposals) ? raw.proposals : [], isProposal),
+    socialPolicies: mapOf(raw.socialPolicies === undefined ? {} : raw.socialPolicies, isSocialOwnerState),
+    updatedAt: nullableString(raw.updatedAt) ? raw.updatedAt : null,
   };
   if (boolean(raw.seeded)) result.seeded = raw.seeded;
   if (boolean(raw.tasksSeeded)) result.tasksSeeded = raw.tasksSeeded;

@@ -1,6 +1,6 @@
 {
   "name": "podwhale",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
@@ -75,7 +75,14 @@
     "cordis.patch.yml",
     "LICENSE",
     "NOTICE",
-    "icon.svg"
+    "icon.svg",
+    "social-controller.mjs",
+    "social-types.mjs",
+    "social-community.mjs",
+    "social-http.mjs",
+    "test-social-controller.mjs",
+    "test-social-runtime.mjs",
+    "test-social-http.mjs"
   ],
   "scripts": {
     "check": "node check.mjs",

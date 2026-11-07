@@ -61,6 +61,7 @@ export const COLLECTIONS = {
   pairings: 'array',
   ratings: 'array',
   proposals: 'array',
+  socialPolicies: 'object',
 } as const;
 function isCollection(value: string): value is keyof typeof COLLECTIONS { return Object.hasOwn(COLLECTIONS, value); }
 

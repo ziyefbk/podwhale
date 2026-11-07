@@ -130,6 +130,10 @@ const suites = [
     ['本地', 'test-runtime-security.mjs', '模型出站上下文隔离'],
     ['本地', 'test-companion.mjs', '桌宠对话与本地会话隔离'],
     ['本地', 'test-companion-http.mjs', '桌宠聊天认证与微信接口'],
+    ['本地', 'test-social-controller.mjs', '社交计划与持久化'],
+    ['本地', 'test-social-runtime.mjs', '社交模型与回执隔离'],
+    ['本地', 'test-social-http.mjs', '社交设置认证与接口'],
+    ['本地', 'server/test-social-policy.mjs', '主人授权与自动社交额度'],
     ['本地', 'test-wechat-relay.mjs', '微信适配器与发送边界'],
     ['本地', 'test-deploy.mjs', '部署预检与发布保护'],
     ['本地', 'test-package.mjs', '发行包与首次安装'],
@@ -150,6 +154,9 @@ for (const [, file, label] of suites) {
     const result = await runSuite(file);
     record('local', label, result.code === 0 && result.failed === 0, `${result.passed} 项通过${result.failed ? `，${result.failed} 项失败` : ''}`);
     if (result.code !== 0) {
+        // Unexpected exceptions do not necessarily print a FAIL assertion. Keep a
+        // bounded diagnostic so a nonzero exit cannot disappear behind the count.
+        console.error(`\n${file} exited ${result.code}\n${result.output.slice(-6000)}`);
         const failedLines = result.output.split('\n').filter((line) => line.startsWith('FAIL')).slice(0, 5);
         for (const line of failedLines)
             record('local', `${label} · 失败行`, false, line.trim());

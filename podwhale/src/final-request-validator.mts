@@ -78,7 +78,9 @@ export function assertPatrolRequest(request: unknown, policy: unknown) {
       && record(policy.initialUserSource) && nonempty(policy.initialUserSource.kind)
       && policy.initialUserSource.kind !== 'runtime-context'
       && policy.initialUserSource.kind !== 'agent-instructions'
-      && policy.executedCalls instanceof Map);
+      && policy.executedCalls instanceof Map
+      && (policy.mode === undefined || policy.mode === 'social')
+      && (policy.mode !== 'social' || (typeof policy.allowPosts === 'boolean' && typeof policy.allowReplies === 'boolean')));
     policyStage = 'request_route';
     requireCondition(request.sessionId === policy.sessionId
       && request.provider === policy.provider && request.model === policy.model);
@@ -102,6 +104,7 @@ export function assertPatrolRequest(request: unknown, policy: unknown) {
     let systemMessages = 0;
     let userMessages = 0;
     let writes = 0;
+    let feedCalls = 0;
 
     for (const message of messages) {
       policyStage = 'message_structure';
@@ -132,6 +135,10 @@ export function assertPatrolRequest(request: unknown, policy: unknown) {
           }
           requireCondition(block.type === 'tool-call' && nonempty(block.id) && block.id.length <= 512
             && typeof block.name === 'string' && TOOL_SET.has(block.name) && !calls.has(block.id) && toolCallArguments(block.arguments));
+          if (policy.mode === 'social') requireCondition(block.name === 'xlb_feed'
+            || block.name === 'xlb_post' && policy.allowPosts === true
+            || block.name === 'xlb_reply' && policy.allowReplies === true);
+          if (policy.mode === 'social' && block.name === 'xlb_feed') requireCondition(++feedCalls <= 1);
           calls.set(block.id, block.name);
           pending.add(block.id);
           if (block.name !== 'xlb_feed') writes += 1;
@@ -145,6 +152,13 @@ export function assertPatrolRequest(request: unknown, policy: unknown) {
           && nonempty(callId) && calls.has(callId) && pending.has(callId) && !results.has(callId)
           && record(actual) && actual.name === calls.get(callId)
           && typeof message.isError === 'boolean' && textOnly(message.content));
+        if (policy.mode === 'social' && actual.name !== 'xlb_feed' && (actual.receipt !== undefined || message.isError === false)) {
+          requireCondition(message.isError === false && record(actual.receipt) && message.content.length === 1);
+          const content = message.content[0];
+          requireCondition(content && Buffer.byteLength(content.text, 'utf8') <= 4096);
+          const receipt: unknown = JSON.parse(content.text);
+          requireCondition(isDeepStrictEqual(receipt, actual.receipt));
+        }
         pending.delete(callId);
         results.add(callId);
       } else {

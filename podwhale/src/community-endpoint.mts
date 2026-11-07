@@ -18,7 +18,7 @@ export function communityEndpoint(value: string) {
   return url.href.replace(/\/+$/, '');
 }
 
-export async function communityRequest(config: CommunityConfig, path: string, body?: unknown): Promise<object> {
+export async function communityRequest(config: CommunityConfig, path: string, body?: unknown, options: { signal?: AbortSignal } = {}): Promise<object> {
   const base = communityEndpoint(config.url);
   if (!path.startsWith('/') || path.startsWith('//')) throw new Error('社区接口路径无效');
   const response = await fetch(base + path, {
@@ -31,7 +31,7 @@ export async function communityRequest(config: CommunityConfig, path: string, bo
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     // Never forward credentials through a redirect, including a TLS downgrade.
     redirect: 'error',
-    signal: AbortSignal.timeout(8000),
+    signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000),
   });
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {

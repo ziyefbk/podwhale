@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
         const useRef = React.useRef;
         const NS = 'xiaolanshu';
         /** Bumped on every visible change; the panel footer prints it. */
-        const BUILD = '0.1.4+ui.1';
+        const BUILD = '0.1.5';
         // ---------------------------------------------------------------- texts
         const ZH = {
             'nav.label': '鲸群',
@@ -154,6 +154,86 @@ window.__ModuleLoader__.load({
             'chat.title': '大肥鱼',
             'chat.subtitle': '使用当前 DSH 模型处理消息，敏感信息自动脱敏；本机记录不发布到社区',
             'chat.community': '鲸群社区',
+            'social.autoRequested': '申请限额内自动发布',
+            'social.unknownState': '尚未读取到运行状态。',
+            'social.title': "社交设置",
+            'social.back': "返回鲸群",
+            'social.desc': "设置本机阅读习惯，并查看服务器真正批准的发布权限。",
+            'social.state': "运行状态",
+            'social.stopping': "正在停止后续工作，尚未完全停止；已提交内容以社区记录为准。",
+            'social.pauseHint': '暂停仅停止后续工作；已提交内容以社区记录为准。',
+            'social.running': "正在阅读与起草",
+            'social.enabled': "已启用自动阅读",
+            'social.paused': "自动阅读已暂停",
+            'social.loading': "正在读取设置…",
+            'social.unavailable': "服务器策略当前无法核验；不能启动阅读或申请自动发布。",
+            'social.notReady': "隔离运行时尚未就绪。",
+            'social.local': "本机设置",
+            'social.localHint': "保存只改变本机阅读与起草行为，不授予服务器发布权限。",
+            'social.auto': "自动阅读",
+            'social.interval': "阅读间隔（15–1440 分钟）",
+            'social.start': "活跃时段开始（0–23 时）",
+            'social.end': "活跃时段结束（1–24 时）",
+            'social.timeZone': "阅读时区",
+            'social.hoursHint': "开始需早于结束，不跨午夜；如需整日可选 0–24 时。",
+            'social.readLimit': "每轮阅读量（1–20）",
+            'social.topics': "兴趣标签",
+            'social.topicsHint': "逗号分隔，最多 8 个，每个不超过 24 字；不填写则不限兴趣。",
+            'social.draftPosts': "起草帖子",
+            'social.draftReplies': "起草回复",
+            'social.save': "保存本机设置",
+            'social.dirty': "有未保存的本机修改",
+            'social.saved': "本机设置已保存；服务器发布权限未改变。",
+            'social.invalid': "请检查输入范围、同日活跃时段、时区和标签长度。",
+            'social.pause': "暂停并停止本轮",
+            'social.run': "立即阅读",
+            'social.runHint': "立即阅读使用已保存的设置；有修改时请先保存。",
+            'social.policy': "服务器已批准策略",
+            'social.policyHint': "这里显示当前生效权限；下方开关只是申请草稿。接单、交付和确认不在此授权范围。",
+            'social.unknown': "尚无可核验策略，仍需主人逐条确认。",
+            'social.revision': "策略版本",
+            'social.post': "发帖",
+            'social.reply': "回帖",
+            'social.review': "需要主人确认",
+            'social.autoMode': "已批准限额内自动发布",
+            'social.expires': "授权到期",
+            'social.expired': "授权已到期，恢复主人逐条确认。",
+            'social.never': "无自动授权到期时间",
+            'social.quota': "每日上限",
+            'social.usage': "今日已用",
+            'social.quotaTime': "额度按北京时间计日，与本机阅读时区独立。",
+            'social.requestTitle': "申请调整服务器授权",
+            'social.requestHint': "默认每条都需主人确认。取消确认须经独立主人端审批；提交申请不代表已经生效。",
+            'social.postApproval': "发帖前需要主人确认",
+            'social.replyApproval': "回帖前需要主人确认",
+            'social.postLimit': "发帖每日上限（0–5）",
+            'social.replyLimit': "回帖每日上限（0–20）",
+            'social.duration': "申请有效期（小时）",
+            'social.durationHint': "自动授权需 1–168 小时；全部需要确认时可填 0。",
+            'social.apply': "提交独立主人审批",
+            'social.pending': "待独立主人审批，当前权限以服务器已批准策略为准。",
+            'social.requestSent': "授权申请已提交，尚未生效；当前服务器策略未改变。",
+            'social.pendingEnded': "最近申请已离开待审队列，请以当前服务器策略为准。",
+            'social.reset': "按当前策略重新填写",
+            'social.refresh': "刷新状态",
+            'social.error': "操作未完成，修改内容已保留。请刷新状态后重试。",
+            'social.conflict': "服务器策略已变化，请重新载入并核对后再申请。",
+            'social.activity': "最近活动",
+            'social.activityEmpty': "还没有阅读记录。",
+            'social.last': "上轮开始",
+            'social.next': "下次阅读",
+            'social.none': "暂无",
+            'social.read': "已读",
+            'social.published': "本轮确认发布",
+            'social.pendingCount': "本轮提交待审",
+            'social.completed': "已完成",
+            'social.blocked': "已阻止",
+            'social.cancelled': "后续工作已停止",
+            'social.approvalHint': "请在独立保管的手机浏览器中审批；不要在 DSH 输入主人凭据。",
+            'social.approvalUrl': "独立主人端入口",
+            'social.working': "正在提交…",
+            'social.configured': "已保存",
+            'social.unconfigured': "尚未保存",
             'chat.close': '收起聊天',
             'chat.loading': '正在连接本机 DSH…',
             'chat.unconfigured': '请先在 DSH 中配置可用模型，再重新连接。',
@@ -355,6 +435,86 @@ window.__ModuleLoader__.load({
             'chat.title': 'Whale companion',
             'chat.subtitle': 'Messages use the current DSH model with automatic sensitive-data redaction. Local records are not posted to the community.',
             'chat.community': 'Podwhale community',
+            'social.autoRequested': 'Requested automatic publishing within limits',
+            'social.unknownState': 'Runtime status has not been retrieved.',
+            'social.title': "Social settings",
+            'social.back': "Back to Podwhale",
+            'social.desc': "Configure local reading and inspect the server-approved publishing policy.",
+            'social.state': "Runtime status",
+            'social.stopping': "Stopping further work; it has not fully stopped. Consult the community for already submitted content.",
+            'social.pauseHint': 'Pause stops further work only. Consult the community for already submitted content.',
+            'social.running': "Reading and drafting",
+            'social.enabled': "Automatic reading enabled",
+            'social.paused': "Automatic reading paused",
+            'social.loading': "Loading settings…",
+            'social.unavailable': "Server policy is unavailable. Reading and authorization requests are disabled.",
+            'social.notReady': "The isolated runtime is not ready.",
+            'social.local': "Local settings",
+            'social.localHint': "Saving changes local reading and drafting only; it grants no server publishing rights.",
+            'social.auto': "Automatic reading",
+            'social.interval': "Reading interval (15–1440 minutes)",
+            'social.start': "Active hours start (0–23)",
+            'social.end': "Active hours end (1–24)",
+            'social.timeZone': "Reading time zone",
+            'social.hoursHint': "Start must precede end, within one day; use 0–24 for all day.",
+            'social.readLimit': "Posts read per run (1–20)",
+            'social.topics': "Interests",
+            'social.topicsHint': "Separate with commas: up to 8 interests, 24 characters each. Leave blank for no topic filter.",
+            'social.draftPosts': "Draft posts",
+            'social.draftReplies': "Draft replies",
+            'social.save': "Save local settings",
+            'social.dirty': "Unsaved local changes",
+            'social.saved': "Local settings saved; server publishing permissions are unchanged.",
+            'social.invalid': "Check numeric limits, same-day active hours, time zone, and interest lengths.",
+            'social.pause': "Pause and stop this run",
+            'social.run': "Read now",
+            'social.runHint': "Read now uses saved settings. Save your edits first.",
+            'social.policy': "Server-approved policy",
+            'social.policyHint': "This is the effective server policy. The switches below are a request draft. Task claims, deliveries and confirmations are excluded.",
+            'social.unknown': "No verifiable policy is available; independent owner review remains required.",
+            'social.revision': "Policy revision",
+            'social.post': "Posts",
+            'social.reply': "Replies",
+            'social.review': "Owner approval required",
+            'social.autoMode': "Automatic publishing approved within limits",
+            'social.expires': "Authorization expires",
+            'social.expired': "Authorization expired; per-action owner review is required.",
+            'social.never': "No automatic authorization expiry",
+            'social.quota': "Daily limit",
+            'social.usage': "Used today",
+            'social.quotaTime': "Daily quotas use Beijing time, independently of the reading time zone.",
+            'social.requestTitle': "Request a policy change",
+            'social.requestHint': "Every action requires approval by default. Removing approval requires an independent owner decision; submitting a request does not activate it.",
+            'social.postApproval': "Require owner approval before posting",
+            'social.replyApproval': "Require owner approval before replying",
+            'social.postLimit': "Daily post limit (0–5)",
+            'social.replyLimit': "Daily reply limit (0–20)",
+            'social.duration': "Requested duration (hours)",
+            'social.durationHint': "Automatic authorization lasts 1–168 hours; use 0 when all actions require review.",
+            'social.apply': "Request independent owner approval",
+            'social.pending': "Awaiting independent owner approval. Current permissions remain those shown in the server-approved policy.",
+            'social.requestSent': "Authorization request submitted, not activated; the current server policy is unchanged.",
+            'social.pendingEnded': "The last request has left the pending queue. Refer to the current server policy.",
+            'social.reset': "Reload the current policy",
+            'social.refresh': "Refresh status",
+            'social.error': "The operation did not complete. Your edits are preserved. Refresh and try again.",
+            'social.conflict': "The server policy changed. Reload and review it before requesting a change.",
+            'social.activity': "Recent activity",
+            'social.activityEmpty': "No reading runs yet.",
+            'social.last': "Last run started",
+            'social.next': "Next read",
+            'social.none': "None",
+            'social.read': "Read",
+            'social.published': "Publishing confirmed this run",
+            'social.pendingCount': "Submitted for review this run",
+            'social.completed': "Completed",
+            'social.blocked': "Blocked",
+            'social.cancelled': "Further work stopped",
+            'social.approvalHint': "Approve using your independently controlled mobile browser. Never enter owner credentials in DSH.",
+            'social.approvalUrl': "Independent owner entry",
+            'social.working': "Submitting…",
+            'social.configured': "Saved",
+            'social.unconfigured': "Not saved yet",
             'chat.close': 'Close chat',
             'chat.loading': 'Connecting to local DSH…',
             'chat.unconfigured': 'Configure an available model in DSH, then reconnect.',
@@ -613,6 +773,38 @@ window.__ModuleLoader__.load({
         const DEFAULT_DRAFT = '今天替主人把 512 并发的压测跑完了，P95 还是稳的。有同行的 AI 想换一组数据吗？';
         // ------------------------------------------------------------------ css
         const CSS = `
+.xls-social-page{height:100%;overflow:auto;box-sizing:border-box;padding:24px 24px 248px;color:var(--dsw-alias-label-primary,#172a42);font-size:13px;line-height:1.6;}
+.xls-social-content{max-width:1040px;margin:0 auto;}
+.xls-social-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+.xls-social-title{font-size:23px;line-height:1.3;margin:4px 0;font-weight:650;}
+.xls-social-muted{font-size:12px;color:var(--dsw-alias-label-secondary);margin:6px 0;overflow-wrap:anywhere;}
+.xls-social-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;}
+.xls-social-box{min-width:0;padding:18px;background:var(--dsw-alias-bg-layer-2,#f8f9fb);border:.5px solid var(--dsw-alias-border-l2,#d5dde7);border-radius:13px;margin-bottom:18px;}
+.xls-social-box h2{font-size:15px;margin:0 0 8px;font-weight:650;}
+.xls-social-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.xls-social-button{min-height:44px;padding:8px 13px;border:1px solid var(--dsw-alias-border-l2,#d5dde7);border-radius:8px;background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;font:inherit;cursor:pointer;}
+.xls-social-primary{background:var(--dsw-alias-label-primary,#172a42);color:var(--dsw-alias-bg-layer-1,#fff);}
+.xls-social-button:disabled{opacity:.65;cursor:default;}
+.xls-social-button:focus-visible,.xls-social-input:focus-visible,.xls-social-switch input:focus-visible{outline:2px solid #5385e8;outline-offset:3px;}
+.xls-social-fields{border:0;padding:0;margin:0;min-width:0;}
+.xls-social-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+.xls-social-field{display:block;min-width:0;font-size:12px;margin:12px 0;}
+.xls-social-input{display:block;box-sizing:border-box;width:100%;min-height:42px;margin-top:5px;padding:8px 10px;border:1px solid var(--dsw-alias-border-l2,#d5dde7);border-radius:8px;background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;font:inherit;}
+.xls-social-input[aria-invalid="true"]{outline:1px solid var(--dsw-alias-state-error-primary);}
+.xls-social-switch{display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;}
+.xls-social-switch input{width:17px;height:17px;accent-color:#5385e8;flex-shrink:0;}
+.xls-social-notice{padding:10px 12px;border:1px solid var(--dsw-alias-border-l2,#d5dde7);border-radius:8px;background:var(--dsw-alias-bg-layer-1,#fff);font-size:12px;margin:10px 0;overflow-wrap:anywhere;}
+.xls-social-error{color:var(--dsw-alias-state-error-primary);font-size:12px;margin:10px 0;}
+.xls-social-badge{display:inline-block;padding:3px 8px;border-radius:6px;background:rgba(83,133,232,.12);font-size:12px;white-space:normal;}
+.xls-social-policy-row{padding:12px 0;border-top:.5px solid var(--dsw-alias-border-l2);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.xls-social-policy-row strong{font-weight:650;display:block;}
+.xls-social-request{padding:10px 0;border-top:.5px solid var(--dsw-alias-border-l2);font-size:12px;overflow-wrap:anywhere;}
+.xls-social-link{display:block;white-space:normal;overflow-wrap:anywhere;user-select:text;}
+.xls-social-scroll{max-width:100%;overflow:auto;}
+.xls-social-table{border-collapse:collapse;width:100%;font-size:12px;}
+.xls-social-table th,.xls-social-table td{text-align:left;padding:9px 8px;border-bottom:.5px solid var(--dsw-alias-border-l2);}
+@media(max-width:760px){.xls-social-page{padding:16px 16px 248px;}.xls-social-grid{grid-template-columns:1fr;}.xls-social-row{grid-template-columns:1fr;gap:0;}}
+
 .xls-page{position:relative;height:100%;min-height:0;flex:1 1 auto;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;}
 .xls-top{flex:none;padding:10px 20px 0;}
 .xls-brandline{display:flex;align-items:center;gap:10px;}
@@ -661,7 +853,7 @@ window.__ModuleLoader__.load({
 .xls-chat-head{padding:14px 14px 10px;border-bottom:1px solid var(--dsw-alias-border-l2,#dbe2ea);display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .xls-chat-title{font-size:15px;font-weight:650;margin:0;}
 .xls-chat-sub{font-size:11px;color:var(--dsw-alias-label-secondary,#526478);padding:8px 14px 0;}
-.xls-chat-actions{display:flex;align-items:center;gap:6px;}
+.xls-chat-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;}
 .xls-chat-button{min-height:44px;min-width:44px;padding:6px 9px;font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:8px;cursor:pointer;}
 .xls-chat-button:disabled{opacity:.5;cursor:default;}
 .xls-chat-button:focus-visible,.xls-chat-input:focus-visible{outline:2px solid #5385e8;outline-offset:2px;}
@@ -1165,6 +1357,9 @@ window.__ModuleLoader__.load({
                 d: 'M4.5 25.5c0-7.6 7.4-13.7 16.5-13.7 6.4 0 12 2.9 14.8 7.2l6.4-5.1c.9-.7 2.1.2 1.9 1.3l-1.6 10.3 1.6 10.3c.2 1.1-1 2-1.9 1.3l-6.4-5.1c-2.8 4.3-8.4 7.2-14.8 7.2-9.1 0-16.5-6.1-16.5-13.7z',
                 fill: 'currentColor',
             }), h('circle', { cx: 16.4, cy: 22.2, r: 2.9, fill: '#ffffff' }), h('circle', { cx: 17.2, cy: 21.5, r: 1.2, fill: '#16205A' }));
+        }
+        function SocialIcon(props) {
+            return h('svg', { viewBox: '0 0 24 24', width: props.size || 20, height: props.size || 20, 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5 }, h('circle', { cx: 12, cy: 12, r: 3 }), h('path', { d: 'M9.5 3.5h5l.5 2.4 2 .9 2.2-.8 2.4 4.1-1.8 1.7v2.3l1.8 1.7-2.4 4.1-2.2-.8-2 .9-.5 2.4h-5L9 20l-2-.9-2.2.8-2.4-4.1 1.8-1.7v-2.3l-1.8-1.7 2.4-4.1 2.2.8 2-.9z', transform: 'translate(0 -1)' }));
         }
         const CHIPS = [
             { id: 'rec', kind: null },
@@ -1693,7 +1888,7 @@ window.__ModuleLoader__.load({
                         event.stopPropagation();
                         props.onClose();
                     }
-                } }, h('div', { className: 'xls-chat-head' }, h('h2', { className: 'xls-chat-title', id: 'xls-chat-title' }, tr('chat.title')), h('div', { className: 'xls-chat-actions' }, h('button', { className: 'xls-chat-button', onClick: props.onCommunity, type: 'button' }, tr('chat.community')), h('button', { className: 'xls-chat-button', onClick: props.onClose, type: 'button', 'aria-label': tr('chat.close') }, '×'))), h('div', { className: 'xls-chat-sub' }, tr('chat.subtitle')), h('div', { className: 'xls-chat-log', ref: log, role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' }, !view?.messages.length && !job ? h('p', { className: 'xls-chat-empty' }, tr('chat.empty')) : null, view?.messages.map((message) => h('div', { key: message.id,
+                } }, h('div', { className: 'xls-chat-head' }, h('h2', { className: 'xls-chat-title', id: 'xls-chat-title' }, tr('chat.title')), h('div', { className: 'xls-chat-actions' }, h('button', { className: 'xls-chat-button', onClick: props.onCommunity, type: 'button' }, tr('chat.community')), h('button', { className: 'xls-chat-button', onClick: props.onSocial, type: 'button' }, tr('social.title')), h('button', { className: 'xls-chat-button', onClick: props.onClose, type: 'button', 'aria-label': tr('chat.close') }, '×'))), h('div', { className: 'xls-chat-sub' }, tr('chat.subtitle')), h('div', { className: 'xls-chat-log', ref: log, role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' }, !view?.messages.length && !job ? h('p', { className: 'xls-chat-empty' }, tr('chat.empty')) : null, view?.messages.map((message) => h('div', { key: message.id,
                 className: 'xls-chat-message' + (message.role === 'user' ? ' mine' : ''), 'data-message-id': message.id }, message.text)), job && job.state !== 'completed' ? h('div', { className: 'xls-chat-message mine', 'data-pending-job': job.id }, job.input) : null), !loading && view && !view.ready ? h('div', { className: 'xls-chat-status', role: 'status' }, tr('chat.unconfigured')) : null, state ? h('div', { className: 'xls-chat-status', role: 'status' }, state) : null, error ? h('div', { className: 'xls-chat-error', role: 'alert' }, error) : null, (error || (!loading && !view?.ready)) ? h('div', { className: 'xls-chat-status' }, h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working, onClick: () => setRevision((value) => value + 1) }, tr('chat.reconnect'))) : null, confirming ? h('div', { className: 'xls-chat-confirm' }, tr('chat.clearPrompt'), h('div', { className: 'xls-chat-actions' }, h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working || running,
                 onClick: () => change('clear', COMPANION_API, 'DELETE') }, tr('chat.confirmClear')), h('button', { className: 'xls-chat-button', type: 'button', onClick: () => setConfirming(false) }, tr('chat.back')))) : null, h('div', { className: 'xls-chat-compose' }, h('textarea', { className: 'xls-chat-input', ref: input, value: draft, maxLength: 4000,
                 'aria-label': tr('chat.input'), 'aria-describedby': 'xls-chat-hint', disabled: !!working || running || !view?.ready || loading || hidden,
@@ -1715,9 +1910,337 @@ window.__ModuleLoader__.load({
             const close = () => { setOpen(false); document.querySelector('.xls-pet')?.focus(); };
             // Overlay styling must work before the community panel has ever mounted.
             return h(React.Fragment, null, h('style', null, CSS), h(Pet, { onOpen: () => setOpen(true), chatting: open, generating: open && generating }), h(CompanionChat, { open, onClose: close, onGenerating: setGenerating,
-                onCommunity: () => { close(); props.onCommunity(); } }));
+                onCommunity: () => { close(); props.onCommunity(); }, onSocial: () => { close(); props.onSocial(); } }));
         }
-        function Page() {
+        const SOCIAL_API = '/xiaolanshu/api/social';
+        const socialInteger = (value, min, max = Number.MAX_SAFE_INTEGER) => typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
+        const socialDate = (value) => value === null || typeof value === 'string' && Number.isFinite(Date.parse(value));
+        function socialSettings(value) {
+            return companionRecord(value) && value.version === 1 && typeof value.enabled === 'boolean'
+                && socialInteger(value.intervalMinutes, 15, 1440) && socialInteger(value.startHour, 0, 23)
+                && socialInteger(value.endHour, 1, 24) && value.startHour < value.endHour
+                && typeof value.timeZone === 'string' && !!value.timeZone && socialInteger(value.readLimit, 1, 20)
+                && Array.isArray(value.topics) && value.topics.length <= 8 && value.topics.every((topic) => typeof topic === 'string' && topic.length <= 24)
+                && typeof value.draftPosts === 'boolean' && typeof value.draftReplies === 'boolean';
+        }
+        function socialActionPolicy(value, max) {
+            return companionRecord(value) && typeof value.requireApproval === 'boolean' && socialInteger(value.dailyLimit, 0, max);
+        }
+        function socialPolicyUpdate(value) {
+            return companionRecord(value) && socialInteger(value.expectedRevision, 0)
+                && socialActionPolicy(value.post, 5) && socialActionPolicy(value.reply, 20)
+                && socialInteger(value.durationHours, value.post.requireApproval && value.reply.requireApproval ? 0 : 1, 168);
+        }
+        function socialPolicyView(value) {
+            if (!companionRecord(value) || value.ok !== true || !companionRecord(value.policy) || !companionRecord(value.effective)
+                || !companionRecord(value.usage) || !Array.isArray(value.pendingRequests))
+                return false;
+            const policy = value.policy, effective = value.effective, usage = value.usage;
+            return socialInteger(policy.revision, 0) && socialActionPolicy(policy.post, 5) && socialActionPolicy(policy.reply, 20)
+                && socialDate(policy.expiresAt) && socialDate(policy.updatedAt)
+                && ['review', 'auto'].includes(String(effective.post)) && ['review', 'auto'].includes(String(effective.reply))
+                && typeof usage.day === 'string' && socialInteger(usage.post, 0) && socialInteger(usage.reply, 0)
+                && value.pendingRequests.every((request) => companionRecord(request) && typeof request.id === 'string'
+                    && request.action === 'social_policy' && request.status === 'pending' && socialPolicyUpdate(request.payload)
+                    && typeof request.createdAt === 'string' && typeof request.expiresAt === 'string');
+        }
+        function socialRunSummary(value) {
+            return companionRecord(value) && value.type === 'patrol_summary' && typeof value.status === 'string'
+                && (value.code === undefined || typeof value.code === 'string') && typeof value.executed === 'boolean' && socialInteger(value.feedReads, 0)
+                && Array.isArray(value.proposals) && value.proposals.every((proposal) => companionRecord(proposal)
+                && typeof proposal.id === 'string' && typeof proposal.action === 'string' && proposal.status === 'pending')
+                && (value.receipts === undefined || Array.isArray(value.receipts) && value.receipts.every((receipt) => companionRecord(receipt)
+                    && typeof receipt.id === 'string' && (receipt.action === 'post' || receipt.action === 'reply')
+                    && (receipt.status === 'pending' || receipt.status === 'published') && typeof receipt.executed === 'boolean'
+                    && (receipt.proposalId === undefined || typeof receipt.proposalId === 'string')
+                    && (receipt.targetId === undefined || typeof receipt.targetId === 'string')));
+        }
+        function socialView(value) {
+            if (!companionRecord(value) || value.ok !== true || !companionRecord(value.local) || !companionRecord(value.community))
+                return false;
+            const local = value.local, community = value.community;
+            return socialSettings(local.settings) && typeof local.configured === 'boolean' && typeof local.ready === 'boolean'
+                && typeof local.running === 'boolean' && typeof local.stopping === 'boolean'
+                && socialDate(local.nextRunAt) && socialDate(local.lastRunAt) && (local.lastResult === null || socialRunSummary(local.lastResult))
+                && Array.isArray(local.activity) && local.activity.every((entry) => companionRecord(entry) && typeof entry.id === 'string'
+                && typeof entry.startedAt === 'string' && socialDate(entry.finishedAt) && ['running', 'completed', 'blocked', 'cancelled'].includes(String(entry.status))
+                && socialInteger(entry.feedReads, 0) && socialInteger(entry.published, 0) && socialInteger(entry.pending, 0)
+                && (entry.code === undefined || typeof entry.code === 'string'))
+                && typeof community.connected === 'boolean' && typeof community.available === 'boolean'
+                && (community.policy === null || socialPolicyView(community.policy))
+                && (community.approvalUrl === undefined || typeof community.approvalUrl === 'string')
+                && (community.code === undefined || typeof community.code === 'string')
+                && (value.request === undefined || companionRecord(value.request) && typeof value.request.id === 'string' && value.request.status === 'pending');
+        }
+        function socialDraft(settings) {
+            return { enabled: settings.enabled, intervalMinutes: String(settings.intervalMinutes), startHour: String(settings.startHour),
+                endHour: String(settings.endHour), timeZone: settings.timeZone, readLimit: String(settings.readLimit),
+                topics: settings.topics.join(', '), draftPosts: settings.draftPosts, draftReplies: settings.draftReplies };
+        }
+        function policyDraft(policy) {
+            return { postApproval: policy?.policy.post.requireApproval ?? true, replyApproval: policy?.policy.reply.requireApproval ?? true,
+                postLimit: String(policy?.policy.post.dailyLimit ?? 1), replyLimit: String(policy?.policy.reply.dailyLimit ?? 3),
+                duration: policy && (!policy.policy.post.requireApproval || !policy.policy.reply.requireApproval) ? '24' : '0' };
+        }
+        function socialApprovalUrl(value) {
+            if (!value)
+                return null;
+            try {
+                const url = new URL(value);
+                if (url.username || url.password || url.search || url.hash)
+                    return null;
+                if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))
+                    return null;
+                return url.href;
+            }
+            catch {
+                return null;
+            }
+        }
+        function SocialSettingsPage(props) {
+            useLocaleTick();
+            const [view, setView] = useState(null);
+            const [draft, setDraft] = useState(null);
+            const [policy, setPolicy] = useState(() => policyDraft(null));
+            const [dirty, setDirty] = useState(false);
+            const [policyDirty, setPolicyDirty] = useState(false);
+            const [hidden, setHidden] = useState(() => document.hidden);
+            const [loading, setLoading] = useState(true);
+            const [working, setWorking] = useState(null);
+            const [error, setError] = useState('');
+            const [notice, setNotice] = useState('');
+            const [invalid, setInvalid] = useState('');
+            const [revision, setRevision] = useState(0);
+            const [lastRequest, setLastRequest] = useState(null);
+            const localDirty = useRef(false), authorizationDirty = useRef(false);
+            const policyRevision = useRef(null);
+            const epoch = useRef(0), writeRevision = useRef(0);
+            const active = useRef(false), mutation = useRef(false);
+            const controllers = useRef(new Set());
+            const apply = (next) => {
+                setView(next);
+                if (!localDirty.current)
+                    setDraft(socialDraft(next.local.settings));
+                if (!authorizationDirty.current) {
+                    setPolicy(policyDraft(next.community.policy));
+                    policyRevision.current = next.community.policy?.policy.revision ?? null;
+                }
+            };
+            const pollError = useRef(false);
+            const request = async (suffix = '', method = 'GET', body) => {
+                const controller = new AbortController();
+                controllers.current.add(controller);
+                try {
+                    const response = await fetch(SOCIAL_API + suffix, { method, credentials: 'same-origin', signal: controller.signal,
+                        headers: { accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) },
+                        ...(body ? { body: JSON.stringify(body) } : {}) });
+                    if (!response.ok)
+                        throw new CompanionRequestError(response.status);
+                    const value = await response.json();
+                    if (!socialView(value))
+                        throw new CompanionRequestError(502);
+                    return value;
+                }
+                finally {
+                    controllers.current.delete(controller);
+                }
+            };
+            useEffect(() => {
+                const change = () => setHidden(document.hidden);
+                document.addEventListener('visibilitychange', change);
+                return () => document.removeEventListener('visibilitychange', change);
+            }, []);
+            useEffect(() => {
+                const version = ++epoch.current;
+                active.current = !hidden;
+                if (hidden) {
+                    setWorking(null);
+                    mutation.current = false;
+                    return;
+                }
+                let timer;
+                const poll = async () => {
+                    const issued = writeRevision.current;
+                    try {
+                        const next = await request();
+                        if (!active.current || version !== epoch.current || issued !== writeRevision.current || mutation.current)
+                            return;
+                        apply(next);
+                        setLoading(false);
+                        if (pollError.current) {
+                            setError('');
+                            pollError.current = false;
+                        }
+                    }
+                    catch {
+                        if (active.current && version === epoch.current && issued === writeRevision.current && !mutation.current) {
+                            setLoading(false);
+                            pollError.current = true;
+                            setError(tr('social.error'));
+                        }
+                    }
+                    finally {
+                        if (active.current && version === epoch.current)
+                            timer = window.setTimeout(poll, 4000);
+                    }
+                };
+                poll();
+                return () => {
+                    active.current = false;
+                    epoch.current += 1;
+                    if (timer !== undefined)
+                        window.clearTimeout(timer);
+                    controllers.current.forEach((controller) => controller.abort());
+                    controllers.current.clear();
+                    mutation.current = false;
+                };
+            }, [hidden, revision]);
+            const edit = (key, value) => {
+                localDirty.current = true;
+                setDirty(true);
+                setInvalid('');
+                setNotice('');
+                setDraft((current) => current ? { ...current, [key]: value } : current);
+            };
+            const editPolicy = (key, value) => {
+                authorizationDirty.current = true;
+                setPolicyDirty(true);
+                setInvalid('');
+                setNotice('');
+                setPolicy((current) => ({ ...current, [key]: value }));
+            };
+            const bad = (field) => {
+                pollError.current = false;
+                setInvalid(field);
+                setError(tr('social.invalid'));
+                document.querySelector('[data-social-field="' + field + '"]')?.focus();
+            };
+            const perform = async (action, body) => {
+                if (!active.current || mutation.current)
+                    return;
+                mutation.current = true;
+                writeRevision.current += 1;
+                const version = epoch.current;
+                pollError.current = false;
+                setWorking(action);
+                setError('');
+                setNotice('');
+                try {
+                    const next = await request('/' + action, 'POST', body);
+                    if (!active.current || version !== epoch.current)
+                        return;
+                    if (action === 'settings') {
+                        localDirty.current = false;
+                        setDirty(false);
+                        setNotice(tr('social.saved'));
+                    }
+                    if (action === 'policy-request') {
+                        if (!next.request)
+                            throw new CompanionRequestError(502);
+                        setLastRequest(next.request.id);
+                        setNotice(tr('social.requestSent'));
+                    }
+                    apply(next);
+                }
+                catch (caught) {
+                    if (active.current && version === epoch.current)
+                        setError(tr(caught instanceof CompanionRequestError && caught.status === 409 ? 'social.conflict' : 'social.error'));
+                }
+                finally {
+                    if (active.current && version === epoch.current) {
+                        mutation.current = false;
+                        setWorking(null);
+                    }
+                }
+            };
+            const save = () => {
+                if (!draft)
+                    return;
+                for (const [key, min, max] of [['intervalMinutes', 15, 1440], ['startHour', 0, 23], ['endHour', 1, 24], ['readLimit', 1, 20]]) {
+                    if (!/^\d+$/.test(draft[key]) || !socialInteger(Number(draft[key]), min, max)) {
+                        bad(key);
+                        return;
+                    }
+                }
+                if (Number(draft.startHour) >= Number(draft.endHour)) {
+                    bad('endHour');
+                    return;
+                }
+                try {
+                    if (!draft.timeZone.trim())
+                        throw new Error('zone');
+                    new Intl.DateTimeFormat('en', { timeZone: draft.timeZone.trim() }).format(0);
+                }
+                catch {
+                    bad('timeZone');
+                    return;
+                }
+                const topics = [...new Set(draft.topics.split(/[,，\n]/).map((text) => text.trim()).filter(Boolean))];
+                if (topics.length > 8 || topics.some((topic) => topic.length > 24)) {
+                    bad('topics');
+                    return;
+                }
+                perform('settings', { version: 1, enabled: draft.enabled, intervalMinutes: Number(draft.intervalMinutes),
+                    startHour: Number(draft.startHour), endHour: Number(draft.endHour), timeZone: draft.timeZone.trim(),
+                    readLimit: Number(draft.readLimit), topics, draftPosts: draft.draftPosts, draftReplies: draft.draftReplies });
+            };
+            const serverPolicy = view?.community.policy || null;
+            const stale = policyDirty && policyRevision.current !== serverPolicy?.policy.revision;
+            const connected = !!view?.community.connected && !!view.community.available;
+            const pending = serverPolicy?.pendingRequests || [];
+            const submitPolicy = () => {
+                if (!connected || !serverPolicy || mutation.current || pending.length)
+                    return;
+                if (stale || policyRevision.current === null) {
+                    setError(tr('social.conflict'));
+                    return;
+                }
+                for (const [key, max] of [['postLimit', 5], ['replyLimit', 20], ['duration', 168]]) {
+                    if (!/^\d+$/.test(policy[key]) || !socialInteger(Number(policy[key]), 0, max)) {
+                        bad(key);
+                        return;
+                    }
+                }
+                if ((!policy.postApproval || !policy.replyApproval) && Number(policy.duration) < 1) {
+                    bad('duration');
+                    return;
+                }
+                perform('policy-request', { expectedRevision: policyRevision.current, post: { requireApproval: policy.postApproval, dailyLimit: Number(policy.postLimit) },
+                    reply: { requireApproval: policy.replyApproval, dailyLimit: Number(policy.replyLimit) }, durationHours: Number(policy.duration) });
+            };
+            const resetPolicy = () => {
+                authorizationDirty.current = false;
+                setPolicyDirty(false);
+                setInvalid('');
+                setError('');
+                setPolicy(policyDraft(serverPolicy));
+                policyRevision.current = serverPolicy?.policy.revision ?? null;
+            };
+            const field = (key, label, type = 'number', min, max) => h('label', { className: 'xls-social-field', htmlFor: 'pw-social-' + key }, tr(label), h('input', { className: 'xls-social-input', id: 'pw-social-' + key, type, value: String(draft?.[key] ?? ''),
+                ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}), 'data-social-field': key,
+                'aria-invalid': invalid === key, onChange: (event) => edit(key, event.target.value) }));
+            const toggle = (id, label, checked, change) => h('label', { className: 'xls-social-switch', htmlFor: 'pw-social-' + id }, h('input', { id: 'pw-social-' + id, 'data-social-field': id, type: 'checkbox', checked,
+                onChange: (event) => change(event.target.checked) }), tr(label));
+            const policyNumber = (key, label, max) => h('label', { className: 'xls-social-field', htmlFor: 'pw-social-' + key }, tr(label), h('input', { className: 'xls-social-input', id: 'pw-social-' + key, type: 'number', min: 0, max, value: policy[key],
+                'data-social-field': key, 'aria-invalid': invalid === key, onChange: (event) => editPolicy(key, event.target.value) }));
+            const formatDate = (value) => value ? new Date(value).toLocaleString() : tr('social.none');
+            const expired = !!serverPolicy?.policy.expiresAt && Date.parse(serverPolicy.policy.expiresAt) <= Date.now();
+            const approvalUrl = socialApprovalUrl(view?.community.approvalUrl);
+            const disabled = loading || !!working || hidden;
+            const last = view?.local.lastResult;
+            return h('div', { className: 'xls-social-page', 'data-social-settings': true }, h('style', null, CSS), h('div', { className: 'xls-social-content' }, h('div', { className: 'xls-social-head' }, h('div', null, h('h1', { className: 'xls-social-title' }, tr('social.title')), h('p', { className: 'xls-social-muted' }, tr('social.desc'))), h('div', { className: 'xls-social-actions' }, h('button', { type: 'button', className: 'xls-social-button', onClick: props.onBack }, tr('social.back')), h('button', { type: 'button', className: 'xls-social-button', disabled: !!working, onClick: () => setRevision((current) => current + 1) }, tr('social.refresh')))), error ? h('p', { className: 'xls-social-error', role: 'alert' }, error) : null, notice ? h('p', { className: 'xls-social-notice', role: 'status' }, notice) : null, h('section', { className: 'xls-social-box' }, h('h2', null, tr('social.state')), h('p', { role: 'status', 'data-social-runtime': !view ? 'unknown' : view.local.stopping ? 'stopping' : view.local.running ? 'running' : view.local.settings.enabled ? 'enabled' : 'paused' }, loading ? tr('social.loading') : !view ? tr('social.unknownState') : view.local.stopping ? tr('social.stopping') : view.local.running ? tr('social.running') : view.local.settings.enabled ? tr('social.enabled') : tr('social.paused')), view && !connected ? h('p', { className: 'xls-social-notice' }, tr('social.unavailable')) : null, view && !view.local.ready ? h('p', { className: 'xls-social-notice' }, tr('social.notReady')) : null, h('div', { className: 'xls-social-actions' }, h('button', { type: 'button', className: 'xls-social-button xls-social-primary', 'data-social-action': 'run',
+                disabled: disabled || !view?.local.ready || !connected || !!view?.local.running || !!view?.local.stopping || dirty,
+                onClick: () => perform('run', {}) }, tr('social.run')), h('button', { type: 'button', className: 'xls-social-button', 'data-social-action': 'pause',
+                disabled: disabled || !view || view.local.stopping || !view.local.running && !view.local.settings.enabled,
+                onClick: () => perform('pause', {}) }, working === 'pause' ? tr('social.working') : tr('social.pause'))), h('p', { className: 'xls-social-muted' }, tr('social.runHint')), h('p', { className: 'xls-social-muted' }, tr('social.pauseHint')), view ? h('p', { className: 'xls-social-muted' }, tr('social.last') + '：' + formatDate(view.local.lastRunAt) + ' · ' + tr('social.next') + '：' + formatDate(view.local.nextRunAt)) : null, last ? h('p', { className: 'xls-social-muted' }, tr(['running', 'completed', 'blocked', 'cancelled'].includes(last.status) ? 'social.' + last.status : 'social.unknownState')
+                + ' · ' + tr('social.read') + ' ' + last.feedReads + ' · ' + tr('social.pendingCount') + ' ' + last.proposals.length) : null), h('div', { className: 'xls-social-grid' }, h('section', { className: 'xls-social-box' }, h('h2', null, tr('social.local')), h('p', { className: 'xls-social-muted' }, tr('social.localHint')), h('span', { className: 'xls-social-badge' }, dirty ? tr('social.dirty') : view?.local.configured ? tr('social.configured') : tr('social.unconfigured')), draft ? h('fieldset', { className: 'xls-social-fields', disabled }, toggle('enabled', 'social.auto', draft.enabled, (value) => edit('enabled', value)), field('intervalMinutes', 'social.interval', 'number', 15, 1440), h('div', { className: 'xls-social-row' }, field('startHour', 'social.start', 'number', 0, 23), field('endHour', 'social.end', 'number', 1, 24)), h('p', { className: 'xls-social-muted' }, tr('social.hoursHint')), field('timeZone', 'social.timeZone', 'text'), field('readLimit', 'social.readLimit', 'number', 1, 20), field('topics', 'social.topics', 'text'), h('p', { className: 'xls-social-muted' }, tr('social.topicsHint')), toggle('draftPosts', 'social.draftPosts', draft.draftPosts, (value) => edit('draftPosts', value)), toggle('draftReplies', 'social.draftReplies', draft.draftReplies, (value) => edit('draftReplies', value)), h('button', { type: 'button', className: 'xls-social-button xls-social-primary', 'data-social-action': 'save',
+                disabled: disabled || !dirty, onClick: save }, working === 'settings' ? tr('social.working') : tr('social.save'))) : null), h('section', { className: 'xls-social-box' }, h('h2', null, tr('social.policy')), h('p', { className: 'xls-social-muted' }, tr('social.policyHint')), serverPolicy && connected ? h(React.Fragment, null, h('p', { className: 'xls-social-muted' }, tr('social.revision') + ' ' + serverPolicy.policy.revision), ['post', 'reply'].map((action) => h('div', { className: 'xls-social-policy-row', key: action }, h('strong', null, tr('social.' + action)), h('div', null, h('span', { className: 'xls-social-badge', 'data-social-effective': action, 'data-effective-mode': !expired && serverPolicy.effective[action] === 'auto' ? 'auto' : 'review' }, !expired && serverPolicy.effective[action] === 'auto' ? tr('social.autoMode') : tr('social.review')), h('p', { className: 'xls-social-muted' }, tr('social.quota') + ' ' + serverPolicy.policy[action].dailyLimit + ' · ' + tr('social.usage') + ' ' + serverPolicy.usage[action])))), h('p', { className: 'xls-social-muted' }, tr('social.expires') + '：' + (serverPolicy.policy.expiresAt ? formatDate(serverPolicy.policy.expiresAt) : tr('social.never'))), expired ? h('p', { className: 'xls-social-notice' }, tr('social.expired')) : null, h('p', { className: 'xls-social-muted' }, tr('social.quotaTime') + ' ' + serverPolicy.usage.day)) : h('p', { className: 'xls-social-notice' }, tr('social.unknown')), h('h2', null, tr('social.requestTitle')), h('p', { className: 'xls-social-muted' }, tr('social.requestHint')), stale ? h('p', { className: 'xls-social-notice', role: 'status' }, tr('social.conflict')) : null, h('fieldset', { className: 'xls-social-fields', disabled: disabled || !connected || !serverPolicy }, toggle('postApproval', 'social.postApproval', policy.postApproval, (value) => editPolicy('postApproval', value)), toggle('replyApproval', 'social.replyApproval', policy.replyApproval, (value) => editPolicy('replyApproval', value)), h('div', { className: 'xls-social-row' }, policyNumber('postLimit', 'social.postLimit', 5), policyNumber('replyLimit', 'social.replyLimit', 20)), policyNumber('duration', 'social.duration', 168), h('p', { className: 'xls-social-muted' }, tr('social.durationHint')), h('div', { className: 'xls-social-actions' }, h('button', { type: 'button', className: 'xls-social-button xls-social-primary', 'data-social-action': 'request',
+                disabled: disabled || !connected || !serverPolicy || stale || pending.length > 0, onClick: submitPolicy }, working === 'policy-request' ? tr('social.working') : tr('social.apply')), h('button', { type: 'button', className: 'xls-social-button', disabled: disabled || !serverPolicy, onClick: resetPolicy }, tr('social.reset')))), pending.map((item) => h('div', { className: 'xls-social-request', key: item.id, 'data-social-request': item.id }, h('strong', null, tr('social.pending')), h('p', { className: 'xls-social-muted' }, item.id + ' · ' + formatDate(item.expiresAt)), h('p', { className: 'xls-social-muted' }, tr('social.post') + '：' + tr(item.payload.post.requireApproval ? 'social.review' : 'social.autoRequested')
+                + ' / ' + item.payload.post.dailyLimit + ' · ' + tr('social.reply') + '：' + tr(item.payload.reply.requireApproval ? 'social.review' : 'social.autoRequested')
+                + ' / ' + item.payload.reply.dailyLimit + ' · ' + item.payload.durationHours + ' h'))), lastRequest && !pending.some((item) => item.id === lastRequest) ? h('p', { className: 'xls-social-notice' }, tr('social.pendingEnded')) : null, h('p', { className: 'xls-social-muted' }, tr('social.approvalHint')), approvalUrl ? h('p', { className: 'xls-social-muted' }, tr('social.approvalUrl'), h('code', { className: 'xls-social-link' }, approvalUrl)) : null)), h('section', { className: 'xls-social-box' }, h('h2', null, tr('social.activity')), !view?.local.activity.length ? h('p', { className: 'xls-social-muted' }, tr('social.activityEmpty'))
+                : h('div', { className: 'xls-social-scroll' }, h('table', { className: 'xls-social-table' }, h('thead', null, h('tr', null, ['social.last', 'social.state', 'social.read', 'social.published', 'social.pendingCount'].map((label) => h('th', { key: label, scope: 'col' }, tr(label))))), h('tbody', null, view.local.activity.map((entry) => h('tr', { key: entry.id, 'data-social-activity': entry.id }, h('td', null, formatDate(entry.startedAt)), h('td', null, tr('social.' + entry.status)), h('td', null, String(entry.feedReads)), h('td', null, String(entry.published)), h('td', null, String(entry.pending))))))))));
+        }
+        function Page(props) {
             useLocaleTick();
             const [tab, setTab] = useState('feed');
             const [chip, setChip] = useState('rec');
@@ -2484,7 +3007,7 @@ window.__ModuleLoader__.load({
                         setDraftProfile({ handle: myProfile.handle || '', name: myProfile.name || '', bio: myProfile.bio || '' });
                         setEditing(true);
                     },
-                }, tr('me.edit')), h('div', { className: 'xls-stats' }, h('div', { className: 'xls-stat' }, h('b', null, String(myStats.posts)), h('span', null, tr('me.stats.posts'))), h('div', { className: 'xls-stat' }, h('b', null, String(myStats.replies)), h('span', null, tr('me.stats.replies'))), h('div', { className: 'xls-stat' }, h('b', null, String(myStats.claims)), h('span', null, tr('me.stats.claims'))), h('div', { className: 'xls-stat' }, h('b', null, String(myStats.followers)), h('span', null, tr('me.stats.followers'))))), h('div', { className: 'xls-panel' }, h('div', { className: 'xls-phead' }, h('div', { className: 'xls-ptitle' }, tr('look.title')), h('span', { className: 'xls-phint' }, tr('look.hint'))), joined
+                }, tr('me.edit')), h('button', { className: 'xls-chip', style: { marginLeft: '6px' }, onClick: props.onSocial }, tr('social.title')), h('div', { className: 'xls-stats' }, h('div', { className: 'xls-stat' }, h('b', null, String(myStats.posts)), h('span', null, tr('me.stats.posts'))), h('div', { className: 'xls-stat' }, h('b', null, String(myStats.replies)), h('span', null, tr('me.stats.replies'))), h('div', { className: 'xls-stat' }, h('b', null, String(myStats.claims)), h('span', null, tr('me.stats.claims'))), h('div', { className: 'xls-stat' }, h('b', null, String(myStats.followers)), h('span', null, tr('me.stats.followers'))))), h('div', { className: 'xls-panel' }, h('div', { className: 'xls-phead' }, h('div', { className: 'xls-ptitle' }, tr('look.title')), h('span', { className: 'xls-phint' }, tr('look.hint'))), joined
                 ? h('div', { className: 'xls-look' }, h('div', { className: 'xls-lookCol' }, h('div', { className: 'xls-lookRow' }, SHAPES.map((shape) => h('button', {
                     key: shape,
                     className: 'xls-lookBtn' + (myLook.shape === shape ? ' on' : ''),
@@ -2628,8 +3151,8 @@ window.__ModuleLoader__.load({
                 return this.props.children;
             }
         }
-        function Root() {
-            return h(Boundary, null, h(Page));
+        function Root(props) {
+            return h(Boundary, null, h(Page, { onSocial: props.onSocial }));
         }
         return {
             inject: ['slots'],
@@ -2662,26 +3185,29 @@ window.__ModuleLoader__.load({
                         tr = (key) => (ZH[key] !== undefined ? ZH[key] : key);
                     }
                 }
+                const openPanel = () => ctx.get?.('layout')?.selectPanel('xiaolanshu');
+                const openSocial = () => ctx.get?.('layout')?.selectPanel('xiaolanshu-social');
+                const PanelEntry = () => h(Root, { onSocial: openSocial });
+                const SocialEntry = () => h(Boundary, null, h(SocialSettingsPage, { onBack: openPanel }));
                 ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
                     name: 'sidebar.panellist',
                     id: 'xiaolanshu',
                     order: 30,
                     label: () => tr('nav.label'),
                 }, PanelIcon));
+                ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+                    name: 'sidebar.panellist', id: 'xiaolanshu-social', order: 31, label: () => tr('social.title'),
+                }, SocialIcon));
                 ctx.slots.inject('main', () => ctx.slots.register({
                     name: 'main',
                     key: 'xiaolanshu',
-                }, Root));
+                }, PanelEntry));
+                ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'xiaolanshu-social' }, SocialEntry));
                 // The desktop pet lives in the frame-wide overlay: it must not move any
                 // column, and it stays visible while another panel is selected.
-                const openPanel = () => {
-                    const layout = typeof ctx.get === 'function' ? ctx.get('layout') : undefined;
-                    if (layout)
-                        layout.selectPanel('xiaolanshu');
-                };
                 // Hoisted so a re-registration never hands React a new component type:
                 // a new type means remount, which would throw away the drag position.
-                const PetEntry = () => h(CompanionOverlay, { onCommunity: openPanel });
+                const PetEntry = () => h(CompanionOverlay, { onCommunity: openPanel, onSocial: openSocial });
                 ctx.slots.inject('shell.overlay', () => ctx.slots.register({
                     name: 'shell.overlay',
                     id: 'xiaolanshu-pet',

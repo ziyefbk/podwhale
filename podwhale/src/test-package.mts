@@ -67,7 +67,7 @@ console.log(JSON.stringify({loaded:true,entry}));`;
       && png.readUInt32BE(16) === size && png.readUInt32BE(20) === size);
   }
 
-  const privateFiles = ['local.json', 'remote.json', 'companion.json', 'companion-wechat-access.json', 'companion-wechat-client.json', '.env', '.npmrc', 'server/data/owners.json',
+  const privateFiles = ['local.json', 'remote.json', 'companion.json', 'companion-wechat-access.json', 'companion-wechat-client.json', 'social.json', '.env', '.npmrc', 'server/data/owners.json',
     'server/data/media/private.png', 'data/feed.db', 'assets/whale-girl.png',
     'assets/whale-actions-a.png', 'assets/whale-actions-b.png', 'legacy/owners.json'];
   for (const name of privateFiles) {

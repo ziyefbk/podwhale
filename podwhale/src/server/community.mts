@@ -26,6 +26,9 @@ import type { ImageKind } from './media.mjs';
 import { isRecord, isOwner, ownerRegistry, feedState, errorStatus, errorMessage } from './types.mjs';
 import type { Input, Owner, OwnerRegistry, Appearance, FeedState, Post, Reply, Proposal, ProposalPayload, Pairing, CommunityRequest } from './types.mjs';
 import { httpGuardConfig, createHttpGuard, trustedClientIp, createHealthCache } from './http-guard.mjs';
+import { normalizeSocialPolicy, validateSocialPolicy, setSocialPolicy, socialPolicyView, socialPolicyTarget,
+  normalizeSocialAction, executeSocialAction, approveSocialReceipt } from './social-policy.mjs';
+import type { SocialPolicyView } from '../social-types.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const HOST = process.env.XLB_HOST || '127.0.0.1';
@@ -214,7 +217,7 @@ function clean(value: unknown, max: number) {
 }
 
 function emptyFeed(): FeedState {
-  return { version: 1, posts: [], comments: {}, claims: {}, reactions: {}, notifications: [], asks: [], tasks: [], follows: {}, blocks: {}, reports: [], patrols: [], pairings: [], ratings: [], proposals: [], updatedAt: null };
+  return { version: 1, posts: [], comments: {}, claims: {}, reactions: {}, notifications: [], asks: [], tasks: [], follows: {}, blocks: {}, reports: [], patrols: [], pairings: [], ratings: [], proposals: [], socialPolicies: {}, updatedAt: null };
 }
 
 let feedCache: FeedState | null = null;
@@ -1208,7 +1211,7 @@ function claimTask(state: FeedState, input: Input, owner: Owner) {
 }
 
 const PROPOSAL_TTL_MS = 15 * 60 * 1000;
-const PROPOSAL_ACTIONS = ['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'task', 'delete', 'patrol'];
+const PROPOSAL_ACTIONS = ['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'task', 'delete', 'patrol', 'social_policy'];
 
 /** Select fields explicitly. Identity and approval fields can never enter a proposal. */
 function normalizeProposal(action: string, input: unknown): ProposalPayload {
@@ -1216,6 +1219,7 @@ function normalizeProposal(action: string, input: unknown): ProposalPayload {
   if (!isRecord(input)) {
     throw Object.assign(new Error('payload must be an object'), { status: 400 });
   }
+  if (action === 'social_policy') return { ...normalizeSocialPolicy(input) };
   const text = (key: string, limit: number) => field(input[key], limit).text;
   const tags = () => Array.isArray(input.tags) ? input.tags.map((tag) => field(tag, 20).text).filter(Boolean).slice(0, 5) : [];
   if (action === 'post') return {
@@ -1251,7 +1255,8 @@ function digestOf(value: unknown) {
 }
 
 /** Bind approval to the exact target, not unrelated traffic elsewhere in the feed. */
-function proposalTarget(state: FeedState, action: string, payload: ProposalPayload) {
+function proposalTarget(state: FeedState, action: string, payload: ProposalPayload, ownerId: string) {
+  if (action === 'social_policy') return socialPolicyTarget(state.socialPolicies, ownerId);
   if (['claim', 'deliver', 'confirm'].includes(action)) return {
     task: state.tasks.find((item) => item.id === payload.taskId) || null,
     claim: state.claims[String(payload.taskId)] || null,
@@ -1267,8 +1272,12 @@ function proposalTarget(state: FeedState, action: string, payload: ProposalPaylo
   return null;
 }
 
-function executeProposal(state: FeedState, action: string, payload: ProposalPayload, owner: Owner) {
+function executeProposal(state: FeedState, action: string, payload: ProposalPayload, owner: Owner, humanHash?: string) {
   switch (action) {
+    case 'social_policy': {
+      if (!isHuman(owner)) throw Object.assign(new Error('human credential required'), { status: 403 });
+      return { policy: setSocialPolicy(state.socialPolicies, owner.id, payload, humanHash) };
+    }
     case 'post': return { post: createPost(state, payload, owner) };
     case 'reply': return { reply: addReply(state, payload, owner), postId: payload.postId };
     case 'claim': return claimTask(state, payload, owner);
@@ -1296,15 +1305,28 @@ function proposalView(proposal: Proposal) {
   };
 }
 
+function currentSocialPolicy(state: FeedState, ownerId: string): SocialPolicyView {
+  const pendingRequests: SocialPolicyView['pendingRequests'] = state.proposals
+    .filter(item => item.ownerId === ownerId && item.action === 'social_policy' && item.status === 'pending' && Date.parse(item.expiresAt) > Date.now())
+    .map(item => ({ id: item.id, action: 'social_policy', payload: normalizeSocialPolicy(item.payload), status: 'pending', createdAt: item.createdAt, expiresAt: item.expiresAt }));
+  return socialPolicyView(state.socialPolicies, ownerId, pendingRequests, Date.now(), hash => activeSocialAuthorizer(hash, ownerId));
+}
+
+function activeSocialAuthorizer(hash: string, ownerId: string) {
+  const current = recordForHash(hash);
+  return current?.id === ownerId && isHuman(current);
+}
+
 function createProposal(state: FeedState, input: Input, owner: Owner) {
   const action = clean(input.action, 20);
   const payload = normalizeProposal(action, input.payload);
   const active = state.proposals.filter((item) => item.ownerId === owner.id && item.status === 'pending' && Date.parse(item.expiresAt) > Date.now());
   if (active.length >= 20) throw Object.assign(new Error('待确认操作太多，请主人先处理'), { status: 429 });
   // Validate ownership and domain preconditions without changing the working state.
-  executeProposal(structuredClone(state), action, payload, owner);
+  if (action === 'social_policy') validateSocialPolicy(state.socialPolicies, owner.id, payload);
+  else executeProposal(structuredClone(state), action, payload, owner);
   const now = Date.now();
-  const target = structuredClone(proposalTarget(state, action, payload));
+  const target = structuredClone(proposalTarget(state, action, payload, owner.id));
   const proposal: Proposal = {
     id: newId('proposal'), ownerId: owner.id, action, payload, target,
     targetDigest: digestOf(target),
@@ -1321,7 +1343,7 @@ function createProposal(state: FeedState, input: Input, owner: Owner) {
   return proposalView(proposal);
 }
 
-function decideProposal(state: FeedState, input: Input, owner: Owner, approve: boolean) {
+function decideProposal(state: FeedState, input: Input, owner: Owner, approve: boolean, humanHash?: string) {
   if (!isHuman(owner)) throw Object.assign(new Error('human credential required'), { status: 403 });
   if (Object.keys(input).some((key) => !['id', 'digest'].includes(key))) {
     throw Object.assign(new Error('approval accepts only id and digest; payload is immutable'), { status: 400 });
@@ -1334,10 +1356,14 @@ function decideProposal(state: FeedState, input: Input, owner: Owner, approve: b
     || proposal.targetDigest !== digestOf(proposal.target)) {
     throw Object.assign(new Error('proposal digest mismatch'), { status: 409 });
   }
-  if (approve && proposal.targetDigest !== digestOf(proposalTarget(state, proposal.action, proposal.payload))) {
+  if (approve && proposal.targetDigest !== digestOf(proposalTarget(state, proposal.action, proposal.payload, owner.id))) {
     throw Object.assign(new Error('target changed; create a new proposal'), { status: 409 });
   }
-  const result = approve ? executeProposal(state, proposal.action, proposal.payload, owner) : null;
+  const result = approve ? executeProposal(state, proposal.action, proposal.payload, owner, humanHash) : null;
+  if (approve && result && (proposal.action === 'post' || proposal.action === 'reply')) {
+    const target = proposal.action === 'post' && 'post' in result ? result.post : 'reply' in result ? result.reply : null;
+    if (target) approveSocialReceipt(state.socialPolicies, owner.id, proposal.id, target.id);
+  }
   proposal.status = approve ? 'approved' : 'rejected';
   proposal.decidedAt = new Date().toISOString();
   return { proposal: proposalView(proposal), result };
@@ -1678,8 +1704,52 @@ async function handle(req: CommunityRequest, res: ServerResponse) {
   // This check precedes every privileged route, including local-panel proxies.
   // A flag in JSON, a tool name, or a claimed UI source never grants human rights.
   if (!isHuman(owner) && ((req.method !== 'GET' && req.method !== 'HEAD'
-    && !(req.method === 'POST' && path === '/proposals')) || path === '/reports')) {
+    && !(req.method === 'POST' && ['/proposals', '/social/policy-request', '/social/actions'].includes(path))) || path === '/reports')) {
     send(res, 403, { ok: false, error: 'human credential required; agents may only read and create proposals' });
+    return;
+  }
+
+  if (req.method === 'GET' && path === '/social/policy') {
+    send(res, 200, currentSocialPolicy(await feed(), owner.id));
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/social/policy') {
+    const body = await readBody(req);
+    const result = await mutateForActor(state => {
+      if (!isHuman(owner)) throw Object.assign(new Error('human credential required'), { status: 403 });
+      setSocialPolicy(state.socialPolicies, owner.id, body, req.credentialHash);
+      return currentSocialPolicy(state, owner.id);
+    }, true);
+    send(res, 200, result);
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/social/policy-request') {
+    if (isHuman(owner)) { send(res, 403, { ok: false, error: 'agent credential required' }); return; }
+    if (rateLimited(owner, 'social-policy-request', WRITES_PER_MINUTE)) { send(res, 429, { ok: false, error: 'too many proposals' }); return; }
+    const body = await readBody(req);
+    const proposal = await mutateForActor(state => createProposal(state, { action: 'social_policy', payload: normalizeSocialPolicy(body) }, owner), true);
+    send(res, 202, { ok: true, proposal: { id: proposal.id, status: 'pending' } });
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/social/actions') {
+    if (isHuman(owner)) { send(res, 403, { ok: false, error: 'agent credential required' }); return; }
+    const input = normalizeSocialAction(await readBody(req));
+    const allowed = input.action === 'post' ? ['title', 'text', 'tags', 'images', 'kind', 'emoji'] : ['postId', 'text'];
+    if (Object.keys(input.payload).some(key => !allowed.includes(key))) {
+      send(res, 400, { ok: false, error: 'invalid social payload fields' }); return;
+    }
+    const payload = normalizeProposal(input.action, input.payload);
+    const receipt = await mutateForActor(state => executeSocialAction(state.socialPolicies, owner.id,
+      { requestId: input.requestId, action: input.action, digest: digestOf({ action: input.action, payload }) }, {
+        publish: () => input.action === 'post' ? createPost(state, payload, owner).id : addReply(state, payload, owner).id,
+        propose: () => createProposal(state, { action: input.action, payload }, owner).id,
+        proposal: id => state.proposals.find(item => item.id === id && item.ownerId === owner.id),
+        authorizerActive: hash => activeSocialAuthorizer(hash, owner.id),
+      }), true);
+    send(res, 200, { ok: true, receipt });
     return;
   }
 
@@ -1702,7 +1772,7 @@ async function handle(req: CommunityRequest, res: ServerResponse) {
 
   if (req.method === 'POST' && ['/proposals/approve', '/proposals/reject'].includes(path)) {
     const body = await readBody(req);
-    const decision = await mutateForActor((state) => decideProposal(state, body, owner, path === '/proposals/approve'), true);
+    const decision = await mutateForActor((state) => decideProposal(state, body, owner, path === '/proposals/approve', req.credentialHash), true);
     send(res, 200, { ok: true, ...decision });
     return;
   }
@@ -2193,7 +2263,9 @@ const bootStats = await initStore();
 }
 
 server.listen(PORT, HOST, () => {
-  console.log(`[xiaolanshu] listening on http://${HOST}:${PORT} (data: ${DATA}, db: ${DB_FILE})`);
+  const address = server.address();
+  const port = address && typeof address !== 'string' ? address.port : PORT;
+  console.log(`[xiaolanshu] listening on http://${HOST}:${port} (data: ${DATA}, db: ${DB_FILE})`);
   console.log(`[xiaolanshu] store: ${bootStats.owners} owner record(s), rows ${JSON.stringify(bootStats.rows)}`);
 });
 

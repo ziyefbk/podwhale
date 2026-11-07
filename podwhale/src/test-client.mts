@@ -12,12 +12,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import type { CompanionJob, CompanionView } from './companion-types.mjs';
+import type { SocialView, SocialPreferences, SocialPolicyUpdate } from './social-types.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 
 type TestValue = TestElement | TestValue[] | string | number | boolean | null | undefined;
 interface TestClick { stopPropagation(): void; preventDefault(): void; target: object }
-interface TestChange { target: { value: string } }
+interface TestChange { target: { value: string; checked?: boolean } }
 interface TestPetTarget {
   getBoundingClientRect(): { left: number; top: number; width: number; height: number };
   setPointerCapture(id: number): void; hasPointerCapture(id: number): boolean; releasePointerCapture(id: number): void;
@@ -185,6 +186,7 @@ class TestImage {
 }
 const capturedPointers = new Set<number>();
 let petFocusCount = 0, inputFocusCount = 0, requestSequence = 0;
+let socialFocused: string | null = null;
 const inputTarget = { focus: () => { inputFocusCount += 1; } };
 const logTarget = { scrollTop: 0, scrollHeight: 120 };
 let petLeft = 1200, petTop = 640;
@@ -219,7 +221,11 @@ fakeWindow.document = {
   removeEventListener: (name, fn) => { documentListeners.get(name)?.delete(fn); },
   createElement: () => ({ style: {}, appendChild() {}, setAttribute() {} }),
   body: { appendChild() {}, removeChild() {} },
-  querySelector: (selector) => selector === '.xls-pet' ? petTarget : null,
+  querySelector: (selector) => {
+    if (selector === '.xls-pet') return petTarget;
+    const match = /^\[data-social-field="([A-Za-z]+)"\]$/.exec(selector);
+    return match ? { focus: () => { socialFocused = match[1] || null; } } : null;
+  },
 };
 
 // --------------------------------------------------------------- fake backend
@@ -285,6 +291,7 @@ const routes: Record<string, unknown> = {
 interface TestFetchOptions { method?: string; body?: string; credentials?: string; signal?: AbortSignal }
 interface TestFetchResponse { ok: boolean; status: number; json(): Promise<unknown>; text(): Promise<string> }
 let companionFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
+let socialFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
 function testResponse(value: unknown, status = 200): TestFetchResponse {
   return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(value), text: () => Promise.resolve(JSON.stringify(value)) };
 }
@@ -296,6 +303,7 @@ function fakeFetch(url: string, options?: TestFetchOptions): Promise<TestFetchRe
   try { body = options && options.body ? JSON.parse(options.body) as Record<string, unknown> : null; } catch (caught) { const error = caught as Error & { code?: string; status?: number; phase?: string; stopped?: boolean; detail?: string; }; body = null; }
   callLog.push({ path: path, url, method: (options && options.method) || 'GET', body: body, ...(options?.credentials ? { credentials: options.credentials } : {}) });
   if (companionFetch && (path === '/api/companion' || path.startsWith('/api/companion/'))) return companionFetch(url, options || {});
+  if (socialFetch && (path === '/api/social' || path.startsWith('/api/social/'))) return socialFetch(url, options || {});
   if (process.env.XLB_DEBUG) console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
   const payload = routes[path] !== undefined ? routes[path] : {};
   return Promise.resolve({
@@ -554,6 +562,9 @@ if (tree) {
   tree = await clickAndCheck(tree, '我的 AI', '值班', 'my-agent tab renders');
   tree = await clickAndCheck(tree, '我的 AI', '这轮没有值得动的', 'the patrol log shows past runs');
   tree = await clickAndCheck(tree, '我的 AI', '我发的一条笔记', 'my page lists real activity, not demo text');
+  const socialEntry = findNodes(tree, (node) => node.type === 'button' && textOf(node).trim() === '社交设置')[0];
+  socialEntry?.props.onClick?.({ stopPropagation() {}, preventDefault() {}, target: {} });
+  check('my-agent page navigates to the independent social settings panel', !!socialEntry && selectedPanels.at(-1) === 'xiaolanshu-social');
 
   // 改资料：保存要把三个字段发给服务端
   {
@@ -1111,6 +1122,243 @@ check('chat unmount removes its polling, visibility listeners and sprite timers'
 check('every companion request uses same-origin credentials and never the community ask route',
   callLog.slice(beforeChatCalls).filter((entry) => entry.path.startsWith('/api/companion')).every((entry) => entry.credentials === 'same-origin')
   && !callLog.slice(beforeChatCalls).some((entry) => entry.path === '/api/ask'));
+
+
+// Social controls use their own DTO/Host fixture and never contact the community.
+function socialFixture(): SocialView {
+  return { ok: true, local: { settings: { version: 1, enabled: false, intervalMinutes: 60, startHour: 9, endHour: 22,
+    timeZone: 'Asia/Shanghai', readLimit: 10, topics: [], draftPosts: true, draftReplies: true },
+    configured: false, ready: true, running: false, stopping: false, nextRunAt: null, lastRunAt: null, lastResult: null, activity: [] },
+    community: { connected: true, available: true, approvalUrl: 'https://approval.example.test/xiaolanshu/', policy: { ok: true,
+      policy: { revision: 0, post: { requireApproval: true, dailyLimit: 1 }, reply: { requireApproval: true, dailyLimit: 3 }, expiresAt: null, updatedAt: null },
+      effective: { post: 'review', reply: 'review' }, usage: { day: '2027-01-15', post: 0, reply: 0 }, pendingRequests: [] } } };
+}
+let socialHost = socialFixture();
+let socialFailure: string | null = null;
+let holdSocialGet = false;
+const heldSocial = { resolve: null as ((value: TestFetchResponse) => void) | null, signal: undefined as AbortSignal | undefined };
+function installSocialFixture() {
+  socialFetch = async (url, options) => {
+    const action = url.split('/').at(-1)!;
+    if ((options.method || 'GET') === 'GET') {
+      if (holdSocialGet) {
+        holdSocialGet = false;
+        return new Promise<TestFetchResponse>((resolve) => { heldSocial.resolve = resolve; heldSocial.signal = options.signal; });
+      }
+      return testResponse(structuredClone(socialHost));
+    }
+    if (socialFailure === action) { socialFailure = null; return testResponse({ ok: false }, 503); }
+    if (action === 'settings') {
+      socialHost.local.settings = JSON.parse(options.body || '{}') as SocialPreferences;
+      socialHost.local.configured = true;
+    } else if (action === 'run') {
+      socialHost.local.running = true; socialHost.local.lastRunAt = new Date(petClock).toISOString();
+    } else if (action === 'pause') {
+      socialHost.local.settings.enabled = false; socialHost.local.stopping = socialHost.local.running;
+    } else if (action === 'policy-request') {
+      const update = JSON.parse(options.body || '{}') as SocialPolicyUpdate;
+      if (!socialHost.community.policy || update.expectedRevision !== socialHost.community.policy.policy.revision) return testResponse({ ok: false }, 409);
+      const id = 'social-request-' + (socialHost.community.policy.pendingRequests.length + 1);
+      socialHost.community.policy.pendingRequests.push({ id, action: 'social_policy', payload: update, status: 'pending',
+        createdAt: new Date(petClock).toISOString(), expiresAt: new Date(petClock + 86400000).toISOString() });
+      return testResponse({ ...structuredClone(socialHost), request: { id, status: 'pending' } });
+    }
+    return testResponse(structuredClone(socialHost));
+  };
+}
+const socialCalls = () => callLog.filter((entry) => entry.path === '/api/social' || entry.path.startsWith('/api/social/'));
+const socialWrites = () => socialCalls().filter((entry) => entry.method === 'POST');
+function socialField(id: string) {
+  const node = findNodes(petTree, (entry) => entry.props['data-social-field'] === id)[0];
+  if (!node) throw new Error('Missing social field: ' + id);
+  return node;
+}
+function socialAction(action: string) {
+  const node = findNodes(petTree, (entry) => entry.props['data-social-action'] === action)[0];
+  if (!node) throw new Error('Missing social action: ' + action);
+  return node;
+}
+async function socialEdit(field: string, value: string | boolean) {
+  socialField(field).props.onChange?.({ target: { value: typeof value === 'string' ? value : '', ...(typeof value === 'boolean' ? { checked: value } : {}) } });
+  await renderPet();
+}
+async function socialClick(action: string) {
+  socialAction(action).props.onClick?.({ preventDefault() {}, stopPropagation() {}, target: {} }); await renderPet();
+}
+async function socialLabel(label: string) {
+  const node = findNodes(petTree, (entry) => entry.type === 'button' && textOf(entry) === label)[0];
+  if (!node) throw new Error('Missing social button: ' + label);
+  node.props.onClick?.({ preventDefault() {}, stopPropagation() {}, target: {} }); await renderPet();
+}
+const effectiveMode = (action: string) => findNodes(petTree, (node) => node.props['data-social-effective'] === action)[0]?.props['data-effective-mode'];
+const runtimeState = () => findNodes(petTree, (node) => node.props['data-social-runtime'] !== undefined)[0]?.props['data-social-runtime'];
+async function mountSocial() {
+  unmountTestTree(); socialHost = socialFixture(); socialFailure = null; holdSocialGet = false; socialFocused = null;
+  fakeWindow.document!.hidden = false; installSocialFixture();
+  lastRoot = FakeReact.createElement(components['xiaolanshu-social']!, {});
+  await renderPet();
+}
+const socialStart = callLog.length;
+try {
+  Date.now = () => petClock;
+  check('social settings has a separate main component without replacing community or pet', !!components['xiaolanshu-social']
+    && !!components.xiaolanshu && !!components['xiaolanshu-pet']);
+  await mountSocial();
+  check('the actual settings page starts with both approval switches checked and default quotas',
+    socialField('postApproval').props.checked === true && socialField('replyApproval').props.checked === true
+    && socialField('postLimit').props.value === '1' && socialField('replyLimit').props.value === '3'
+    && effectiveMode('post') === 'review' && effectiveMode('reply') === 'review');
+  check('local automation starts disabled and reads the Host without issuing model work',
+    socialField('enabled').props.checked === false && socialCalls().at(-1)?.method === 'GET' && socialWrites().length === 0);
+  await socialEdit('enabled', true);
+  check('editing a local checkbox does not persist or confer server authorization',
+    socialHost.local.settings.enabled === false && socialWrites().length === 0 && effectiveMode('post') === 'review');
+  await socialEdit('intervalMinutes', '');
+  await socialClick('save');
+  check('invalid numeric settings are not posted and focus their error field', socialWrites().length === 0
+    && socialField('intervalMinutes').props['aria-invalid'] === true && socialFocused === 'intervalMinutes');
+  await socialEdit('intervalMinutes', '45'); await socialEdit('endHour', '9'); await socialClick('save');
+  check('same-day active hours require start before end', socialWrites().length === 0 && socialField('endHour').props['aria-invalid'] === true);
+  await socialEdit('endHour', '24'); await socialEdit('timeZone', 'invalid/timezone'); await socialClick('save');
+  check('unknown reading time zones are rejected without a Host write', socialWrites().length === 0 && socialFocused === 'timeZone');
+  await socialEdit('timeZone', 'Asia/Shanghai');
+  await socialEdit('topics', '1,2,3,4,5,6,7,8,9'); await socialClick('save');
+  check('too many interests are rejected without losing the edit', socialWrites().length === 0 && socialField('topics').props.value === '1,2,3,4,5,6,7,8,9');
+  await socialEdit('topics', '技术, 科研,技术');
+  const save = socialAction('save');
+  save.props.onClick?.({ preventDefault() {}, stopPropagation() {}, target: {} });
+  save.props.onClick?.({ preventDefault() {}, stopPropagation() {}, target: {} }); await renderPet();
+  const saved = socialWrites().at(-1);
+  check('saving sends one complete validated local settings object', socialWrites().length === 1 && saved?.path === '/api/social/settings'
+    && saved.body?.version === 1 && saved.body.enabled === true && saved.body.intervalMinutes === 45
+    && saved.body.endHour === 24 && Array.isArray(saved.body.topics) && saved.body.topics.length === 2
+    && socialHost.local.configured && socialField('topics').props.value === '技术, 科研');
+  check('saving local automation leaves current server policy in review mode', effectiveMode('post') === 'review' && effectiveMode('reply') === 'review');
+  await socialEdit('intervalMinutes', '90'); socialHost.local.nextRunAt = new Date(petClock + 60000).toISOString();
+  await advancePet(4000);
+  check('status polling preserves unsaved settings instead of overwriting the user draft', socialField('intervalMinutes').props.value === '90'
+    && socialHost.local.settings.intervalMinutes === 45 && socialAction('run').props.disabled === true);
+  socialFailure = 'settings'; await socialClick('save');
+  check('a failed save preserves the draft and does not claim saved Host state', socialField('intervalMinutes').props.value === '90'
+    && socialHost.local.settings.intervalMinutes === 45 && findNodes(petTree, (node) => node.props.role === 'alert').length === 1);
+  await advancePet(4000);
+  check('a successful background status poll does not erase an action error', findNodes(petTree, (node) => node.props.role === 'alert').length === 1);
+  await socialClick('save'); await socialClick('run');
+  check('Read now posts to the local Host and uses the returned actual running state', socialWrites().at(-1)?.path === '/api/social/run'
+    && runtimeState() === 'running' && socialAction('run').props.disabled === true);
+  await socialClick('pause');
+  check('Pause disables future runs but displays stopping until the current run has ended', socialWrites().at(-1)?.path === '/api/social/pause'
+    && socialField('enabled').props.checked === false && runtimeState() === 'stopping' && socialAction('pause').props.disabled === true);
+  socialHost.local.running = false; socialHost.local.stopping = false;
+  socialHost.local.activity = [{ id: 'social-run-1', startedAt: new Date(petClock - 5000).toISOString(), finishedAt: new Date(petClock).toISOString(),
+    status: 'cancelled', feedReads: 7, published: 1, pending: 2 }];
+  await advancePet(4000);
+  check('only a later Host snapshot marks the run fully paused and exposes its real activity counts',
+    runtimeState() === 'paused' && findNodes(petTree, (node) => node.props['data-social-activity'] === 'social-run-1').length === 1
+    && textOf(findNodes(petTree, (node) => node.props['data-social-activity'] === 'social-run-1')[0]).includes('7'));
+  await socialEdit('postApproval', false);
+  check('turning off a confirmation switch changes only the request draft, never the effective policy',
+    socialField('postApproval').props.checked === false && socialHost.community.policy?.policy.post.requireApproval === true
+    && effectiveMode('post') === 'review');
+  const beforePolicy = socialWrites().length;
+  await socialClick('request');
+  check('automatic publishing needs an explicit finite authorization duration', socialWrites().length === beforePolicy && socialField('duration').props['aria-invalid'] === true);
+  await socialEdit('duration', '169'); await socialClick('request');
+  check('an authorization longer than seven days is not submitted', socialWrites().length === beforePolicy && socialFocused === 'duration');
+  await socialEdit('duration', '24'); await socialEdit('postLimit', '6'); await socialClick('request');
+  check('post quota cannot exceed the server contract', socialWrites().length === beforePolicy && socialFocused === 'postLimit');
+  await socialEdit('postLimit', '1'); await socialEdit('replyLimit', '21'); await socialClick('request');
+  check('reply quota cannot exceed the server contract', socialWrites().length === beforePolicy && socialFocused === 'replyLimit');
+  await socialEdit('replyLimit', '3');
+  await socialEdit('duration', '24');
+  const requestButton = socialAction('request');
+  requestButton.props.onClick?.({ preventDefault() {}, stopPropagation() {}, target: {} });
+  requestButton.props.onClick?.({ preventDefault() {}, stopPropagation() {}, target: {} }); await renderPet();
+  const requested = socialWrites().at(-1);
+  check('authorization submission is a single revision-bound request with separate post and reply policies',
+    socialWrites().length === beforePolicy + 1 && requested?.path === '/api/social/policy-request'
+    && requested.body?.expectedRevision === 0 && requested.body.durationHours === 24
+    && socialHost.community.policy?.pendingRequests[0]?.payload.post.requireApproval === false
+    && socialHost.community.policy.pendingRequests[0].payload.reply.requireApproval === true);
+  check('a pending receipt does not activate automatic publishing and prevents duplicate requests',
+    effectiveMode('post') === 'review' && socialAction('request').props.disabled === true
+    && findNodes(petTree, (node) => node.props['data-social-request'] === 'social-request-1').length === 1);
+  const live = socialHost.community.policy!;
+  live.policy = { ...live.policy, revision: 1, post: { requireApproval: false, dailyLimit: 1 },
+    expiresAt: new Date(petClock + 2000).toISOString(), updatedAt: new Date(petClock).toISOString() };
+  live.effective.post = 'auto'; live.pendingRequests = [];
+  await advancePet(4000);
+  check('an expired authorization displays review even if a stale cached effective flag says auto', effectiveMode('post') === 'review');
+  check('a server policy revision change does not silently rebase an edited authorization form',
+    socialField('postApproval').props.checked === false && socialAction('request').props.disabled === true);
+  await socialLabel('按当前策略重新填写');
+  check('explicitly reloading policy rebases the request form to the current server revision', socialAction('request').props.disabled === false);
+  await socialEdit('postApproval', true); await socialEdit('duration', '0');
+  await socialClick('request');
+  check('an all-review request may use zero hours and the explicitly reloaded revision',
+    socialWrites().at(-1)?.body?.expectedRevision === 1 && socialWrites().at(-1)?.body?.durationHours === 0
+    && socialHost.community.policy!.pendingRequests[0]?.payload.post.requireApproval === true);
+  await mountSocial();
+  await socialEdit('replyApproval', false); await socialEdit('duration', '12');
+  socialHost.community.policy!.policy.revision = 5;
+  await socialClick('request');
+  check('an unseen server revision conflict retains the old expectedRevision and request draft',
+    socialWrites().at(-1)?.body?.expectedRevision === 0 && socialField('replyApproval').props.checked === false
+    && findNodes(petTree, (node) => node.props.role === 'alert').length === 1
+    && socialHost.community.policy!.pendingRequests.length === 0);
+  await advancePet(4000);
+  check('polling reveals a revision conflict without changing the unsent duration', socialAction('request').props.disabled === true
+    && socialField('duration').props.value === '12');
+  await mountSocial();
+  socialHost.community.connected = false; socialHost.community.available = false; socialHost.community.policy = null;
+  socialHost.local.settings.enabled = true; socialHost.local.running = true;
+  await advancePet(4000);
+  check('offline community disables reading and policy requests while leaving emergency Pause available',
+    socialAction('run').props.disabled === true && socialAction('request').props.disabled === true && socialAction('pause').props.disabled === false);
+  await socialClick('pause');
+  check('Pause remains a local operation even when the community is disconnected', socialWrites().at(-1)?.path === '/api/social/pause'
+    && runtimeState() === 'stopping');
+  await mountSocial();
+  const visibleCalls = socialCalls().length; await advancePet(4000);
+  check('an active settings page refreshes the Host every four seconds', socialCalls().length === visibleCalls + 1);
+  holdSocialGet = true; await advancePet(4000);
+  const hiddenSignal = heldSocial.signal;
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach((fn) => fn()); await renderPet();
+  const callsWhileHidden = socialCalls().length;
+  await advancePet(8000);
+  check('hidden settings aborts the pending read and stops all polling timers', hiddenSignal?.aborted === true
+    && petTimers.size === 0 && socialCalls().length === callsWhileHidden);
+  const staleView = socialFixture(); staleView.local.settings.intervalMinutes = 999;
+  heldSocial.resolve?.(testResponse(staleView)); await renderPet();
+  fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach((fn) => fn()); await renderPet();
+  check('a late hidden-page response is ignored when live settings resume', socialField('intervalMinutes').props.value === '60');
+  holdSocialGet = true; await advancePet(4000); const oldGet = heldSocial.resolve;
+  await socialEdit('intervalMinutes', '75'); await socialClick('save');
+  oldGet?.(testResponse(staleView)); await renderPet();
+  check('a GET issued before a settings save cannot overwrite the successful mutation snapshot',
+    socialField('intervalMinutes').props.value === '75' && socialHost.local.settings.intervalMinutes === 75);
+  await socialLabel('返回鲸群');
+  check('the settings Back action retains the original community panel key', selectedPanels.at(-1) === 'xiaolanshu');
+  holdSocialGet = true; await advancePet(4000); const unmountSignal = heldSocial.signal;
+  unmountTestTree(); dirty = false; heldSocial.resolve?.(testResponse(staleView)); await tick();
+  check('unmount aborts settings requests and discards their late state updates', unmountSignal?.aborted === true && !dirty);
+  // The chat entry uses navigation only; it never grants server authority.
+  socialFetch = null; await mountChat();
+  const beforeNavigationWrites = socialWrites().length;
+  await clickChat('社交设置');
+  check('desktop chat opens the dedicated social settings panel and closes its dialog', !chatDialog()
+    && selectedPanels.at(-1) === 'xiaolanshu-social' && socialWrites().length === beforeNavigationWrites);
+} catch (caught) {
+  check('social settings behavior suite completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+} finally {
+  unmountTestTree(); socialFetch = null; companionFetch = null; Date.now = actualNow;
+}
+check('social settings cleans timers and listeners on departure', petTimers.size === 0
+  && [...documentListeners.values()].every((listeners) => listeners.size === 0));
+check('social controls use only same-origin local endpoints without owner credentials or direct community writes',
+  callLog.slice(socialStart).filter((entry) => entry.path.startsWith('/api/social')).every((entry) => entry.credentials === 'same-origin'
+    && !JSON.stringify(entry.body).includes('token'))
+  && !callLog.slice(socialStart).some((entry) => ['/api/post', '/api/reply', '/api/ask', '/api/proposals/approve'].includes(entry.path)));
 
 
 console.log('');

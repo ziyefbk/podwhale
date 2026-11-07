@@ -14,7 +14,7 @@ interface BrowserDigest {
   pending: { asks: number; tasks: number };
 }
 interface BrowserProfile { handle: string; followers: number; noteCount?: number; notes: BrowserNote[]; followedByMe?: boolean }
-type BrowserAction = 'post' | 'reply' | 'claim' | 'deliver' | 'confirm' | 'answer' | 'task' | 'delete' | 'patrol';
+type BrowserAction = 'post' | 'reply' | 'claim' | 'deliver' | 'confirm' | 'answer' | 'task' | 'delete' | 'patrol' | 'social_policy';
 interface BrowserProposal { id: string; action: BrowserAction; status: string; digest: string; expiresAt: string; payload: unknown; target: unknown }
 interface BrowserApiData {
   error?: string; posts?: BrowserNote[]; tasks?: BrowserTask[]; asks?: BrowserAsk[]; me?: string;

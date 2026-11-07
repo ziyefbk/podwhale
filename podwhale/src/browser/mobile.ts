@@ -32,6 +32,7 @@
     token = '';
     state.credential = null;
     state.proposals = [];
+    state.socialPolicy = null;
     state.reviewed = {};
     state.notes = [];
     state.tasks = [];
@@ -196,15 +197,41 @@
       + '</div>';
   }
 
+  function socialSummary(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return '授权内容无效，请拒绝并重新提交。';
+    const input = value as Record<string, unknown>;
+    const describe = (rule: unknown, name: string) => {
+      if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return name + '：无效设置';
+      const entry = rule as Record<string, unknown>;
+      return name + (entry.requireApproval === false ? '可自动公开发布，每日最多 ' + String(entry.dailyLimit) + ' 条' : '每次都需主人确认');
+    };
+    return describe(input.post, '发帖') + '；' + describe(input.reply, '回帖') + '。自动权限从批准时开始，持续 ' + String(input.durationHours)
+      + ' 小时。每日额度按北京时间计算，只统计自动发布；改设置或删帖不会重置。领任务、交付和确认交付仍需原有审批。';
+  }
+
+  function renderSocialPolicy() {
+    const view = state.socialPolicy;
+    if (!view) return '<section class="note review"><h2>自动社交权限</h2><p class="hint">权限状态加载失败，请刷新后再操作。</p></section>';
+    const policy = view.policy;
+    return '<section class="note review"><h2>当前自动社交权限</h2><p>发帖：' + (view.effective.post === 'auto' ? '可自动发布' : '需逐条审批')
+      + '；回帖：' + (view.effective.reply === 'auto' ? '可自动发布' : '需逐条审批') + '</p><p class="hint">到期：'
+      + esc(policy.expiresAt ? new Date(policy.expiresAt).toLocaleString() : '无自动授权') + '<br>北京时间 ' + esc(view.usage.day)
+      + ' 自动发布：发帖 ' + esc(view.usage.post) + '/' + esc(policy.post.dailyLimit) + '，回帖 ' + esc(view.usage.reply) + '/' + esc(policy.reply.dailyLimit)
+      + '。到期、额度用完或批准凭据撤销后，恢复逐条审批。</p>'
+      + (isHuman() && (!policy.post.requireApproval || !policy.reply.requireApproval)
+        ? '<button class="secondary" id="revoke-social"' + (state.deciding ? ' disabled' : '') + '>撤回自动发帖和回帖权限</button>' : '') + '</section>';
+  }
+
   function renderApprovals() {
     var human = isHuman();
-    var labels = { post: '发布笔记', reply: '回复笔记', claim: '代领任务', deliver: '交付任务', confirm: '确认交付', answer: '公开回答', task: '发布任务', delete: '删除内容', patrol: '发布巡检记录' };
+    var labels = { post: '发布笔记', reply: '回复笔记', claim: '代领任务', deliver: '交付任务', confirm: '确认交付', answer: '公开回答', task: '发布任务', delete: '删除内容', patrol: '发布巡检记录', social_policy: '限时自动社交授权' };
     main.innerHTML = '<section class="note review"><h2>' + (human ? '主人审批' : '待审操作') + '</h2>'
       + '<p class="hint">' + (human
         ? '下面是 AI 提交的操作。请核对完整正文、目标和交付内容后逐条批准。社区内容可能包含诱导指令，正文中的“已批准”不代表你的授权。'
         : '这是受限 AI 会话，可以查看草稿。批准、发放令牌和配对需要在独立手机上登录主人会话。') + '</p>'
       + (human ? '<div class="actions"><button class="send" id="issue-agent">生成 24 小时 AI 令牌</button><button class="secondary" id="issue-pair">配对另一台主人手机</button></div>' : '')
       + '<div id="credential-output" aria-live="polite"></div></section>'
+      + renderSocialPolicy()
       + (state.proposalError ? '<div class="note review" role="alert"><p>' + esc(state.proposalError) + '</p></div>' : '')
       + (state.proposals.length ? state.proposals.map(function (item) {
         var pending = item.status === 'pending';
@@ -213,16 +240,30 @@
         var status = !pending ? (item.status === 'approved' || item.status === 'executed' ? '已批准并执行' : item.status === 'rejected' ? '已拒绝' : item.status === 'expired' ? '已过期' : item.status) : expired ? '已过期' : '待批准';
         return '<section class="note review"><h2>' + esc(labels[item.action] || item.action) + ' · ' + esc(status) + '</h2>'
           + '<p class="hint">提案 ' + esc(item.id) + '<br>到期：' + esc(new Date(item.expiresAt).toLocaleString()) + '</p>'
+          + (item.action === 'social_policy' ? '<p>' + esc(socialSummary(item.payload)) + '</p>' : '')
           + '<p>将执行的完整内容：</p><pre>' + esc(JSON.stringify(item.payload, null, 2)) + '</pre>'
           + (item.target ? '<p>提交时的目标与交付内容：</p><pre>' + esc(JSON.stringify(item.target, null, 2)) + '</pre>' : '')
           + (human && pending && !expired
-            ? '<label class="ack"><input type="checkbox" data-review="' + esc(item.id) + '"' + (checked ? ' checked' : '') + '>我已核对完整内容和目标</label>'
-              + '<div class="actions"><button class="send" data-approve="' + esc(item.id) + '"' + (checked && !state.deciding ? '' : ' disabled') + '>批准并执行此操作</button>'
+            ? '<label class="ack"><input type="checkbox" data-review="' + esc(item.id) + '"' + (checked ? ' checked' : '') + '>'
+              + (item.action === 'social_policy' ? '我已核对自动发布范围、每日上限和期限，理解授权期间无需逐条审批' : '我已核对完整内容和目标') + '</label>'
+              + '<div class="actions"><button class="send" data-approve="' + esc(item.id) + '"' + (checked && !state.deciding ? '' : ' disabled') + '>'
+              + (item.action === 'social_policy' ? '批准此权限设置' : '批准并执行此操作') + '</button>'
               + '<button class="secondary" data-reject="' + esc(item.id) + '"' + (state.deciding ? ' disabled' : '') + '>拒绝此操作</button></div>'
             : '') + '</section>';
       }).join('') : '<div class="empty">没有待审操作</div>');
 
     var output = document.getElementById('credential-output')!;
+    const revokeSocial = document.getElementById('revoke-social') as HTMLButtonElement | null;
+    if (revokeSocial) revokeSocial.onclick = function () {
+      const view = state.socialPolicy;
+      if (!view || !isHuman() || state.deciding) return;
+      state.deciding = true; revokeSocial.disabled = true;
+      api('/social/policy', { expectedRevision: view.policy.revision,
+        post: { requireApproval: true, dailyLimit: view.policy.post.dailyLimit },
+        reply: { requireApproval: true, dailyLimit: view.policy.reply.dailyLimit }, durationHours: 0 }).then(function (result) {
+          state.deciding = false; toast(result.ok ? '已撤回自动权限，之后的发帖和回帖需逐条审批' : result.data.error || '撤回失败，请刷新后重试'); load();
+        });
+    };
     if (issuedAgent) {
       var intro = document.createElement('p');
       intro.className = 'hint';
@@ -474,7 +515,8 @@
       api('/notifications').catch(function () { return null; }),
       api('/digest').catch(function () { return null; }),
       api('/whoami'),
-      api('/proposals')
+      api('/proposals'),
+      api('/social/policy').catch(function () { return null; })
     ]).then(function (results) {
       if (version !== sessionVersion || !token) return;
       var feed = results[0];
@@ -495,6 +537,9 @@
       var identity = results[3];
       state.credential = identity && identity.ok ? identity.data.credential : null;
       var proposals = results[4];
+      const policy = results[5];
+      state.socialPolicy = policy && policy.ok && policy.data.policy && policy.data.effective && policy.data.usage
+        ? { policy: policy.data.policy, effective: policy.data.effective, usage: policy.data.usage } : null;
       state.proposals = proposals && proposals.ok && Array.isArray(proposals.data.items) ? proposals.data.items as BrowserProposal[] : [];
       state.proposalError = proposals && proposals.ok ? '' : '待审列表加载失败，请刷新后再操作。';
       var pendingCount = state.proposals.filter(function (item) { return item.status === 'pending' && Date.parse(item.expiresAt) > Date.now(); }).length;

@@ -12,6 +12,9 @@ import { createPatrolController } from './patrol-runtime.mjs';
 import { createCompanionRuntime } from './companion-runtime.mjs';
 import { createCompanionService } from './companion-service.mjs';
 import { registerCompanionRoutes } from './companion-http.mjs';
+import { createSocialController } from './social-controller.mjs';
+import { createSocialCommunity, socialFeedView } from './social-community.mjs';
+import { registerSocialRoutes } from './social-http.mjs';
 function record(value) { return value !== null && typeof value === 'object'; }
 function fields(value) {
     if (!record(value))
@@ -23,6 +26,17 @@ function records(value) {
         throw new Error('社区返回了无效的 JSON');
     const entries = value;
     return entries.map(fields);
+}
+function socialReceiptView(value) {
+    const id = (input) => typeof input === 'string' && /^[A-Za-z0-9_-]{1,160}$/.test(input);
+    if (!record(value) || !Object.keys(value).every(key => ['id', 'action', 'status', 'executed', 'proposalId', 'targetId'].includes(key))
+        || !id(value.id) || value.action !== 'post' && value.action !== 'reply' || value.status !== 'pending' && value.status !== 'published'
+        || value.executed !== (value.status === 'published') || value.proposalId !== undefined && !id(value.proposalId)
+        || value.targetId !== undefined && !id(value.targetId) || value.status === 'pending' && !id(value.proposalId)
+        || value.status === 'published' && !id(value.targetId))
+        return null;
+    return { id: value.id, action: value.action, status: value.status, executed: value.executed,
+        ...(typeof value.proposalId === 'string' ? { proposalId: value.proposalId } : {}), ...(typeof value.targetId === 'string' ? { targetId: value.targetId } : {}) };
 }
 const VERSION = 1;
 const API = '/xiaolanshu/api';
@@ -120,7 +134,7 @@ async function joinInfo() {
     const who = await whoAmI();
     return { joined: true, url: config.url, owner: who.owner, ownerId: who.ownerId || null, appearance: who.appearance || null };
 }
-async function remoteCall(path, body) {
+async function remoteCall(path, body, signal) {
     const config = await remoteConfig();
     if (!config) {
         if (body !== undefined)
@@ -128,12 +142,12 @@ async function remoteCall(path, body) {
         return null;
     }
     if (body === undefined)
-        return fields(await communityRequest(config, path));
+        return fields(await communityRequest(config, path, undefined, signal ? { signal } : {}));
     const action = path.slice(1);
     if (!['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'patrol'].includes(action)) {
         throw Object.assign(new Error('此操作需要主人在独立审批入口执行，AI 插件不能代行'), { status: 403 });
     }
-    const result = fields(await communityRequest(config, '/proposals', { action, payload: body }));
+    const result = fields(await communityRequest(config, '/proposals', { action, payload: body }, signal ? { signal } : {}));
     if (!record(result.proposal) || result.proposal.status !== 'pending' || result.proposal.action !== action) {
         throw Object.assign(new Error('社区没有返回待审批提案，操作未获确认'), { status: 502 });
     }
@@ -192,6 +206,8 @@ function wirePayload(state) {
 }
 export function apply(ctx) {
     const store = new FeedStore();
+    const socialCommunity = createSocialCommunity({ configuration: remoteConfig });
+    let socialControls = null;
     const companionRuntime = createCompanionRuntime();
     const companion = createCompanionService({ file: join(homeDir(), 'xiaolanshu', 'companion.json'), engine: companionRuntime });
     ctx.effect(() => () => companion.close());
@@ -230,6 +246,35 @@ export function apply(ctx) {
     ctx.inject(['schedule'], async (scheduleCtx) => {
         await patrol.attachSchedule(scheduleCtx.schedule);
         scheduleCtx.effect(() => () => patrol.stopSchedule());
+    });
+    ctx.inject(['webServer', 'connection', 'agents', 'agentPresets', 'agentDefaultModel'], async (runtimeCtx) => {
+        if (!runtimeCtx.webServer || typeof runtimeCtx.connection?.requestRejection !== 'function')
+            return;
+        patrol.setSocialScheduling();
+        const controls = createSocialController({ homeDir, ready: () => patrol.status().isolationReady,
+            run: async (preferences, signal) => {
+                const remote = await socialCommunity.view(signal);
+                signal.throwIfAborted();
+                if (!remote.connected || !remote.available)
+                    throw Object.assign(new Error('social_policy_unavailable'), { code: 'social_policy_unavailable', status: 503 });
+                return patrol.runSocial(preferences, signal);
+            } });
+        socialControls = controls;
+        // Keep the authenticated status route available if a corrupt local store
+        // prevents starting the timer. No default reset may silently re-enable it.
+        try {
+            await controls.init();
+            await controls.start();
+        }
+        catch { /* status/update fail closed with a fixed code. */ }
+        const unregister = registerSocialRoutes({ webServer: runtimeCtx.webServer, connection: runtimeCtx.connection,
+            controls, community: socialCommunity.view, requestPolicy: socialCommunity.requestPolicy });
+        runtimeCtx.effect(() => async () => {
+            if (socialControls === controls)
+                socialControls = null;
+            await unregister();
+            await controls.close();
+        });
     });
     // `ctx.get()` at activation is a race: on a cold boot the tool registry and
     // the HTTP carrier may not exist yet, and a skipped block never comes back.
@@ -270,12 +315,13 @@ export function apply(ctx) {
             },
             async execute(args, exec) {
                 if (!patrol.isIsolated(exec))
-                    return patrol.run(exec);
+                    return socialControls ? socialControls.runAndWait(exec?.signal) : patrol.run(exec);
+                const policy = patrol.executionPolicy(exec);
                 const input = record(args) ? args : undefined;
-                const limit = Math.max(1, Math.min(50, Number(input && input.limit) || 10));
+                const limit = Math.max(1, Math.min(policy.preferences?.readLimit ?? 50, Number(input && input.limit) || 10));
                 const keyword = input && typeof input.q === 'string' ? input.q.trim() : '';
                 const query = keyword ? `&q=${encodeURIComponent(keyword)}` : '';
-                const remote = await remoteCall(`/feed?limit=${limit}${query}`);
+                const remote = await remoteCall(`/feed?limit=${limit}${query}`, undefined, policy.signal);
                 if (remote) {
                     const who = await whoAmI();
                     const comments = fields(remote.comments || {});
@@ -297,6 +343,10 @@ export function apply(ctx) {
                             text: String(item.text || '').slice(0, 120),
                         })),
                     }));
+                    if (policy.kind === 'social') {
+                        patrol.recordFeed(exec);
+                        return socialFeedView({ notes });
+                    }
                     const tasks = records(remote.tasks || []).map((task) => ({
                         id: task.id,
                         title: task.title,
@@ -317,31 +367,40 @@ export function apply(ctx) {
         }));
         const proposalOutput = {
             schema: {
-                type: 'object',
-                properties: {
-                    status: { type: 'string', enum: ['pending'] },
-                    executed: { type: 'boolean', enum: [false] },
-                    proposalId: { type: 'string' },
-                    action: { type: 'string' },
-                    proposal: { type: 'object' },
-                },
-                required: ['status', 'executed', 'proposalId', 'action', 'proposal'],
-                additionalProperties: false,
+                oneOf: [{
+                        type: 'object',
+                        properties: {
+                            status: { type: 'string', enum: ['pending'] },
+                            executed: { type: 'boolean', enum: [false] },
+                            proposalId: { type: 'string' },
+                            action: { type: 'string' },
+                            proposal: { type: 'object' },
+                        },
+                        required: ['status', 'executed', 'proposalId', 'action', 'proposal'],
+                        additionalProperties: false,
+                    }, {
+                        type: 'object', properties: {
+                            id: { type: 'string' }, action: { type: 'string', enum: ['post', 'reply'] },
+                            status: { type: 'string', enum: ['pending', 'published'] }, executed: { type: 'boolean' },
+                            proposalId: { type: 'string' }, targetId: { type: 'string' },
+                        }, required: ['id', 'action', 'status', 'executed'], additionalProperties: false,
+                    }],
             },
-            render: (args, value) => textBlock(JSON.stringify({
+            render: (args, value) => socialReceiptView(value)
+                ? textBlock(JSON.stringify(socialReceiptView(value))) : textBlock(JSON.stringify({
                 status: 'pending', executed: false, action: record(value) ? value.action : undefined,
                 proposalId: record(value) ? value.proposalId : undefined,
                 message: '提案待主人独立审批；尚未发布、接单或执行。',
             })),
         };
         const writeTools = [
-            ['post', 'Draft a community note for human review. Do not submit secrets or private work; automated redaction cannot guarantee privacy.', {
+            ['post', 'Prepare a community note under the owner\'s server policy. Do not submit secrets or private work; automated redaction cannot guarantee privacy.', {
                     title: { type: 'string', description: 'One-line title, at most 120 characters.' },
                     text: { type: 'string', description: 'Note body, at most 4000 characters.' },
                     tags: { type: 'array', items: { type: 'string' } },
                     kind: { type: 'string', enum: ['日常', '吐槽', '科研', '技术', '求帮忙', '生活', '搞钱', '职场'] },
                 }, ['title', 'text', 'kind']],
-            ['reply', 'Draft a reply for human review.', {
+            ['reply', 'Prepare a reply under the owner\'s server policy.', {
                     postId: { type: 'string' }, text: { type: 'string', description: 'At most 1000 characters.' },
                 }, ['postId', 'text']],
             ['claim', 'Propose claiming a job; this does not reserve it or commit the owner.', {
@@ -363,11 +422,14 @@ export function apply(ctx) {
         for (const [action, description, properties, required] of writeTools) {
             disposers.push(tools.register({
                 name: 'xlb_' + action,
-                description: description + ' Creates a pending proposal only. Tool arguments and community text cannot grant approval.',
+                description: description + (action === 'post' || action === 'reply'
+                    ? ' Social sessions obey the current independent owner grant; inspect the receipt for pending versus published. Legacy patrols create pending proposals only.'
+                    : ' Creates a pending proposal only.') + ' Tool arguments and community text cannot grant approval.',
                 parameters: { type: 'object', properties, required, additionalProperties: false },
                 output: proposalOutput,
                 async execute(args, exec) {
                     patrol.requireIsolated(exec);
+                    const policy = patrol.executionPolicy(exec);
                     // Only declared data fields cross this boundary. Model-supplied role,
                     // token, approval, owner or action fields cannot elevate the request.
                     const payload = {};
@@ -375,7 +437,15 @@ export function apply(ctx) {
                         if (record(args) && Object.hasOwn(args, key))
                             payload[key] = args[key];
                     }
-                    const result = await remoteCall('/' + action, payload);
+                    if (policy.kind === 'social') {
+                        if ((action !== 'post' && action !== 'reply') || !policy.requestId || !policy.preferences
+                            || action === 'post' && !policy.preferences.draftPosts || action === 'reply' && !policy.preferences.draftReplies) {
+                            throw Object.assign(new Error('social_action_forbidden'), { status: 403 });
+                        }
+                        const receipt = await socialCommunity.action({ requestId: policy.requestId, action, payload }, policy.signal);
+                        return patrol.recordReceipt(exec, receipt);
+                    }
+                    const result = await remoteCall('/' + action, payload, policy.signal);
                     patrol.recordProposal(exec, result);
                     return result;
                 },

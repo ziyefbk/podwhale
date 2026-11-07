@@ -13,6 +13,7 @@ function record(value) {
 const REQUIRED = ['package.json', 'README.md', 'LICENSE', 'NOTICE', 'index.js', 'client.js',
     'cordis.patch.yml', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs', 'private-config.mjs',
     'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'companion-setup.mjs', 'wechat-relay.mjs',
+    'social-controller.mjs', 'social-types.mjs', 'social-http.mjs', 'social-community.mjs', 'server/social-policy.mjs',
     'server/community.mjs', 'server/auth.mjs', 'server/http-guard.mjs', 'server/types.mjs',
     'server/static/icon-192.png', 'server/static/icon-512.png', 'docs/compatibility.md',
     'docs/releasing.md', 'docs/screenshots/mobile-feed.png',
@@ -35,7 +36,7 @@ export function inspectReleaseFiles(files, { version } = {}) {
         const segments = name.toLowerCase().split('/');
         const leaf = segments.at(-1);
         if (segments.some((part) => ['data', 'assets', 'legacy', 'node_modules', '.git', '.tmp'].includes(part))
-            || /^(?:local|remote|owners|credentials|companion|companion-wechat-access|companion-wechat-client)\.json$/.test(leaf)
+            || /^(?:local|remote|owners|credentials|companion|companion-wechat-access|companion-wechat-client|social)\.json$/.test(leaf)
             || /^\.env(?:\.|$)/.test(leaf) || leaf === '.npmrc' || leaf === '.credentials.yaml'
             || /\.(?:db|db-journal|db-wal|db-shm|log|pem|key)$/.test(leaf)) {
             throw new Error('Private or optional local content included in release');

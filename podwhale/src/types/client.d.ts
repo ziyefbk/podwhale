@@ -81,6 +81,45 @@ interface ClientCompanionView {
   ok: true; ready: boolean; model: { provider: string; model: string } | null;
   messages: ClientCompanionMessage[]; job: ClientCompanionJob | null;
 }
+/** Mirrors social-types.mts's JSON boundary; owner credentials never cross this port. */
+interface ClientSocialPreferences {
+  version: 1; enabled: boolean; intervalMinutes: number; startHour: number; endHour: number;
+  timeZone: string; readLimit: number; topics: string[]; draftPosts: boolean; draftReplies: boolean;
+}
+interface ClientSocialActionPolicy { requireApproval: boolean; dailyLimit: number }
+interface ClientSocialPolicyUpdate {
+  expectedRevision: number; post: ClientSocialActionPolicy; reply: ClientSocialActionPolicy; durationHours: number;
+}
+interface ClientSocialPolicyRequest {
+  id: string; action: 'social_policy'; payload: ClientSocialPolicyUpdate; status: 'pending'; createdAt: string; expiresAt: string;
+}
+interface ClientSocialPolicyView {
+  ok: true;
+  policy: { revision: number; post: ClientSocialActionPolicy; reply: ClientSocialActionPolicy; expiresAt: string | null; updatedAt: string | null };
+  effective: { post: 'review' | 'auto'; reply: 'review' | 'auto' };
+  usage: { day: string; post: number; reply: number }; pendingRequests: ClientSocialPolicyRequest[];
+}
+interface ClientSocialActivity {
+  id: string; startedAt: string; finishedAt: string | null; status: 'running' | 'completed' | 'blocked' | 'cancelled';
+  feedReads: number; published: number; pending: number; code?: string;
+}
+interface ClientSocialRunSummary {
+  type: 'patrol_summary'; status: string; code?: string; executed: boolean; feedReads: number;
+  proposals: { id: string; action: string; status: 'pending' }[];
+  receipts?: { id: string; action: 'post' | 'reply'; status: 'pending' | 'published'; executed: boolean; proposalId?: string; targetId?: string }[];
+}
+interface ClientSocialView {
+  ok: true;
+  local: { settings: ClientSocialPreferences; configured: boolean; ready: boolean; running: boolean; stopping: boolean;
+    nextRunAt: string | null; lastRunAt: string | null; lastResult: ClientSocialRunSummary | null; activity: ClientSocialActivity[] };
+  community: { connected: boolean; available: boolean; policy: ClientSocialPolicyView | null; approvalUrl?: string; code?: string };
+  request?: { id: string; status: 'pending' };
+}
+interface ClientSocialDraft {
+  enabled: boolean; intervalMinutes: string; startHour: string; endHour: string; timeZone: string;
+  readLimit: string; topics: string; draftPosts: boolean; draftReplies: boolean;
+}
+interface ClientSocialPolicyDraft { postApproval: boolean; replyApproval: boolean; postLimit: string; replyLimit: string; duration: string }
 interface ClientPetNote { id: string; text: string }
 interface ClientTaskDraft { title: string; desc: string; budget: string; period: string }
 interface ClientIconProps { size?: number | undefined }

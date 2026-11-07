@@ -59,6 +59,7 @@ export const COLLECTIONS = {
     pairings: 'array',
     ratings: 'array',
     proposals: 'array',
+    socialPolicies: 'object',
 };
 function isCollection(value) { return Object.hasOwn(COLLECTIONS, value); }
 /** 顶层标量字段（version / updatedAt / seeded / tasksSeeded）存在 meta 表。 */

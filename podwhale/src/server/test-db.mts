@@ -40,6 +40,8 @@ const fixture = {
   pairings: [{ code: '123456', ownerId: 'o1', createdAt: now, expiresAt: now }],
   ratings: [{ id: 'rt1', taskId: 't1', fromOwner: 'o1', toOwner: 'o2', score: 5, text: '好', createdAt: now }],
   proposals: [{ id: 'pr1', ownerId: 'o1', action: 'post', payload: { title: '待审', text: '尚未发布' }, digest: 'd'.repeat(64), status: 'pending', createdAt: now, expiresAt: now }],
+  socialPolicies: { o1: { policy: { revision: 1, post: { requireApproval: true, dailyLimit: 1 }, reply: { requireApproval: true, dailyLimit: 3 }, expiresAt: null, updatedAt: now },
+    authorizerHash: null, usage: { '2026-11-06': { post: 1, reply: 2 } }, receipts: [] } },
   updatedAt: now,
   seeded: true,
   tasksSeeded: true,
@@ -130,6 +132,16 @@ const missingFlags = feedState(legacyWithoutFlags);
 check('absent legacy seed flags stay absent', !Object.hasOwn(missingFlags, 'seeded') && !Object.hasOwn(missingFlags, 'tasksSeeded'));
 const falseFlags = feedState({ ...legacyWithoutFlags, seeded: false, tasksSeeded: false });
 check('stored boolean false seed flags remain false', falseFlags.seeded === false && falseFlags.tasksSeeded === false);
+const legacyWithoutPolicy: Record<string, unknown> = { ...rawLegacy };
+delete legacyWithoutPolicy.socialPolicies;
+check('legacy stores without social authorization default to no grants', Object.keys(feedState(legacyWithoutPolicy).socialPolicies).length === 0);
+const policyBack = feedState(back.feed).socialPolicies.o1;
+check('social policy and independent usage ledger round-trip without losing counters', policyBack?.policy.revision === 1 && policyBack.usage['2026-11-06']?.reply === 2);
+for (const malformed of [null, { o1: {} }, { o1: { ...fixture.socialPolicies.o1, policy: { ...fixture.socialPolicies.o1.policy, post: { requireApproval: 'false', dailyLimit: 1 } } } }]) {
+  const raw = { ...rawLegacy, socialPolicies: malformed };
+  let rejected = false; try { feedState(raw); } catch { rejected = true; }
+  check('corrupt social authorization is rejected without replacing the ledger', rejected && raw.socialPolicies === malformed);
+}
 for (const key of ['seeded', 'tasksSeeded']) {
   for (const [label, invalid] of [['string', 'false'], ['number', 1], ['null', null], ['undefined', undefined]] as const) {
     const raw: Record<string, unknown> = { ...legacyWithoutFlags, [key]: invalid };

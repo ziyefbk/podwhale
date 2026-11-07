@@ -21,6 +21,7 @@ podwhale/local.json
 **/companion.json
 **/companion-wechat-access.json
 **/companion-wechat-client.json
+**/social.json
 **/*.log
 .tmp/
 .tools/

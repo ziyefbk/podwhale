@@ -1,3 +1,4 @@
+import { isSocialOwnerState } from './social-policy.mjs';
 export function isRecord(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 export function inputRecord(value) {
     if (!isRecord(value))
@@ -72,7 +73,9 @@ export function feedState(value) {
         tasks: arrayOf(Array.isArray(raw.tasks) ? raw.tasks : [], isTask), follows: mapOf(raw.follows || {}, isRecord), blocks: mapOf(raw.blocks || {}, isRecord),
         reports: arrayOf(Array.isArray(raw.reports) ? raw.reports : [], isReport), patrols: arrayOf(Array.isArray(raw.patrols) ? raw.patrols : [], isPatrol),
         pairings: arrayOf(Array.isArray(raw.pairings) ? raw.pairings : [], isPairing), ratings: arrayOf(Array.isArray(raw.ratings) ? raw.ratings : [], isRating),
-        proposals: arrayOf(Array.isArray(raw.proposals) ? raw.proposals : [], isProposal), updatedAt: nullableString(raw.updatedAt) ? raw.updatedAt : null,
+        proposals: arrayOf(Array.isArray(raw.proposals) ? raw.proposals : [], isProposal),
+        socialPolicies: mapOf(raw.socialPolicies === undefined ? {} : raw.socialPolicies, isSocialOwnerState),
+        updatedAt: nullableString(raw.updatedAt) ? raw.updatedAt : null,
     };
     if (boolean(raw.seeded))
         result.seeded = raw.seeded;
