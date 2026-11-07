@@ -68,7 +68,8 @@ console.log(JSON.stringify({loaded:true,entry}));`;
   }
 
   const privateFiles = ['local.json', 'remote.json', '.env', '.npmrc', 'server/data/owners.json',
-    'server/data/media/private.png', 'data/feed.db', 'assets/whale-girl.png', 'legacy/owners.json'];
+    'server/data/media/private.png', 'data/feed.db', 'assets/whale-girl.png',
+    'assets/whale-actions-a.png', 'assets/whale-actions-b.png', 'legacy/owners.json'];
   for (const name of privateFiles) {
     const target = join(installed, name); await mkdir(dirname(target), { recursive: true });
     await writeFile(target, 'private-fixture-not-for-distribution');

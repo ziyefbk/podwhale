@@ -302,7 +302,9 @@ node podwhale/status.mjs          # 加 --json 给脚本用；有 warning 时退
 | `assets/whale-girl.png`（413×512） | 桌宠、主页大图（≥48px） | [TreapGoGo/deepseek-whale-girl](https://github.com/TreapGoGo/deepseek-whale-girl) 的 Q 版设定集前视图，裁切去底 |
 | `assets/whale-girl-face.png`（256×256） | 16–22px 小头像 | 同一仓库的标志版 |
 
-桌宠的「困了」状态不用第二张图：闲置一分钟后加 `z z z` 和轻微倾斜/去饱和（纯 CSS，`.xls-zzz` / `.xls-doze`）。
+桌宠可选加载本机动作图集 `assets/whale-actions-a.png`（4 列 × 4 行：待机眨眼、招手、开心、打瞌睡）和 `assets/whale-actions-b.png`（4 列 × 2 行：思考、被拖拽），每种动作 4 帧。两张图均为经典社区鲸鱼娘参考图生成的本地二创素材，沿用长发、女仆裙、头饰和鲸尾；不写入仓库或公开发行包。
+
+桌宠使用 112px 显示尺寸。鼠标悬停或聚焦时招手，真实新互动出现时开心，闲置一分钟后打瞌睡；按住拖动显示平衡动作，松手恢复。聚焦后按 `T` 可看思考表情，它不代表 agent 正在执行任务；`Enter` / 空格打开面板，方向键移动，`Home` 归位。系统偏好减少动态效果时停止切帧和自动漂移；页面隐藏时停止动画。缺少动作图时回退已有立绘，缺少立绘时回退内置矢量形象。
 
 **许可状态**：该仓库代码是 MIT，但**角色图片不在 MIT 范围内**——仓库站点写明「立绘为非商业素材」。自己用没问题，**商业使用前须取得授权或替换**。
 

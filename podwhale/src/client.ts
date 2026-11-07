@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
 
     const NS = 'xiaolanshu';
     /** Bumped on every visible change; the panel footer prints it. */
-    const BUILD = '0.1.2';
+    const BUILD = '0.1.3';
 
     // ---------------------------------------------------------------- texts
     const ZH: Record<string, string> = {
@@ -156,7 +156,7 @@ window.__ModuleLoader__.load({
       'n.post': '发了新笔记',
       'look.title': '外形',
       'look.hint': '改了立刻同步到社区',
-      'pet.title': '大肥鱼 · 拖我走，点我打开鲸群',
+      'pet.title': '鲸群桌宠 · 点击或 Enter / 空格打开；拖拽或方向键移动；T 播放本地思考表情',
       'pet.post': '发了：',
       'pet.reply': '回了一句：',
       'pet.claim': '领了任务：',
@@ -339,7 +339,7 @@ window.__ModuleLoader__.load({
       'n.post': 'posted a new note',
       'look.title': 'Look',
       'look.hint': 'Changes reach the community immediately',
-      'pet.title': 'Fat fish · drag me, click to open Podwhale',
+      'pet.title': 'Podwhale pet · click or Enter / Space to open; drag or arrow keys to move; T for a local thinking expression',
       'pet.post': 'posted: ',
       'pet.reply': 'replied: ',
       'pet.claim': 'claimed: ',
@@ -618,9 +618,12 @@ window.__ModuleLoader__.load({
 .xls-note-when{flex:none;font-size:10.5px;color:var(--dsw-alias-label-secondary);}
 .xls-zzz{position:absolute;top:-12px;right:-2px;font-size:10.5px;letter-spacing:1px;color:var(--dsw-alias-label-secondary);opacity:.85;pointer-events:none;}
 .xls-doze{transform:rotate(-5deg) scale(.97);filter:grayscale(.2) brightness(.94);transition:transform .6s ease,filter .6s ease;}
-.xls-pet{position:fixed;right:24px;bottom:96px;z-index:30;display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;cursor:grab;touch-action:none;pointer-events:auto;user-select:none;transition:left .9s ease,top .9s ease;background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.22),transparent 70%);filter:drop-shadow(0 8px 16px rgba(20,26,46,.25));}
+.xls-pet{position:fixed;right:24px;bottom:96px;z-index:30;display:flex;align-items:center;justify-content:center;width:112px;height:112px;border-radius:50%;cursor:grab;touch-action:none;pointer-events:auto;user-select:none;transition:left .9s ease,top .9s ease;background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.22),transparent 70%);filter:drop-shadow(0 8px 16px rgba(20,26,46,.25));}
 .xls-pet.drag{transition:none;cursor:grabbing;}
-.xls-pet-bubble{position:absolute;right:66px;top:0;width:max-content;max-width:190px;padding:7px 10px;border-radius:12px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:11.5px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.22);animation:xls-pop .22s ease-out;pointer-events:none;}
+.xls-pet-sprite{display:block;width:112px;height:112px;background-repeat:no-repeat;pointer-events:none;}
+.xls-pet:focus-visible{outline:2px solid #5385e8;outline-offset:4px;}
+.xls-pet[data-still="true"] *{animation:none!important;transition:none!important;}
+.xls-pet-bubble{position:absolute;right:114px;top:0;width:max-content;max-width:min(190px,45vw);padding:7px 10px;border-radius:12px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:11.5px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.22);animation:xls-pop .22s ease-out;pointer-events:none;}
 @keyframes xls-pop{from{opacity:0;transform:translateY(4px) scale(.96)}to{opacity:1;transform:none}}
 .xls-pet:hover{background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.36),transparent 70%);}
 .xls-tab-dot{margin-left:5px;background:var(--dsw-alias-state-error-primary);color:#fff;border-radius:8px;padding:0 5px;font-size:9.5px;font-weight:600;}
@@ -1264,172 +1267,254 @@ window.__ModuleLoader__.load({
       return h(Creature, { look: look, size: size });
     }
 
+    const PET_SIZE = 112;
+    const PET_MOTIONS: Record<ClientPetAction, ClientPetMotion> = {
+      idle: { atlas: 'a', row: 0, sequence: [0, 1, 2, 3], durationMs: [2600, 90, 120, 500] },
+      wave: { atlas: 'a', row: 1, sequence: [0, 1, 2, 1, 2, 3], durationMs: [180, 160, 180, 160, 180, 300] },
+      happy: { atlas: 'a', row: 2, sequence: [0, 1, 2, 1, 3], durationMs: [240, 180, 240, 180, 360] },
+      sleep: { atlas: 'a', row: 3, sequence: [0, 1, 2, 1, 2, 1], durationMs: [300, 900, 750, 900, 750, 900] },
+      think: { atlas: 'b', row: 0, sequence: [0, 1, 2, 3], durationMs: [600, 600, 650, 500] },
+      drag: { atlas: 'b', row: 1, sequence: [0, 1, 0, 2, 0, 3], durationMs: [180, 160, 180, 160, 180, 220] },
+    };
+    const PET_ATLASES = {
+      a: { url: '/xiaolanshu/pet-actions-a.png', rows: 4 },
+      b: { url: '/xiaolanshu/pet-actions-b.png', rows: 2 },
+    };
+
+    /** Only the overlay uses optional atlases; avatars keep their existing rendering. */
+    function PetArtwork(props: { look: ClientLook; action: ClientPetAction; still: boolean }) {
+      const [available, setAvailable] = useState(false);
+      const [frame, setFrame] = useState(0);
+      useEffect(() => {
+        setAvailable(false);
+        if (props.look.shape !== 'girl') return;
+        let alive = true, loaded = 0, failed = false;
+        const images = Object.values(PET_ATLASES).map((atlas) => {
+          const image = new window.Image();
+          image.onload = () => {
+            // Fractional cells are intentional (313.5 / 443.5px in the current art).
+            const width = image.naturalWidth, height = image.naturalHeight;
+            if (width < 4 || height < atlas.rows || width > 8192 || height > 8192
+              || width / 4 !== height / atlas.rows) failed = true;
+            loaded += 1;
+            if (alive && loaded === 2 && !failed) setAvailable(true);
+          };
+          image.onerror = () => { failed = true; };
+          image.src = atlas.url;
+          return image;
+        });
+        return () => { alive = false; images.forEach((image) => { image.onload = null; image.onerror = null; }); };
+      }, [props.look.shape]);
+      useEffect(() => {
+        setFrame(0);
+        if (!available || props.still || props.look.shape !== 'girl') return;
+        const motion = PET_MOTIONS[props.action];
+        let step = 0;
+        let timer: number;
+        const advance = () => {
+          step = (step + 1) % motion.sequence.length;
+          setFrame(motion.sequence[step] ?? 0);
+          timer = window.setTimeout(advance, motion.durationMs[step] ?? 1000);
+        };
+        timer = window.setTimeout(advance, motion.durationMs[0] ?? 1000);
+        return () => window.clearTimeout(timer);
+      }, [available, props.action, props.still, props.look.shape]);
+      if (!available || props.look.shape !== 'girl') return h(Portrait, { look: props.look, size: PET_SIZE });
+      const motion = PET_MOTIONS[props.action], atlas = PET_ATLASES[motion.atlas];
+      const visibleFrame = props.still ? 0 : frame;
+      return h('span', {
+        className: 'xls-pet-sprite', 'aria-hidden': true,
+        'data-pet-artwork': 'classic', 'data-pet-action': props.action, 'data-pet-frame': visibleFrame,
+        style: { backgroundImage: 'url("' + atlas.url + '")', backgroundSize: '400% ' + (atlas.rows * 100) + '%',
+          backgroundPosition: (visibleFrame / 3 * 100) + '% ' + (motion.row / (atlas.rows - 1) * 100) + '%' },
+      });
+    }
+
+    function clampPetPosition(value: ClientPosition): ClientPosition {
+      const maxX = Math.max(0, window.innerWidth - PET_SIZE - 8);
+      const maxY = Math.max(0, window.innerHeight - PET_SIZE - 8);
+      return { x: Math.min(Math.max(Math.min(8, maxX), value.x), maxX),
+        y: Math.min(Math.max(Math.min(64, maxY), value.y), maxY) };
+    }
+
     function Pet(props: { onOpen(): void }) {
       const [look, setLook] = useState(AI_LOOKS.alan);
       const [dragging, setDragging] = useState(false);
-      // `null` = anchored to the bottom-right corner by CSS. Computing left/top
-      // from window.innerWidth is fragile (a 0 measurement parks it at 0,0,
-      // under the title bar); a corner anchor always looks right.
-      const [pos, setPos] = useState(() => {
+      const [hovered, setHovered] = useState(false);
+      const [focused, setFocused] = useState(false);
+      const [reduced, setReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      const [hidden, setHidden] = useState(() => document.hidden);
+      const [sleepy, setSleepy] = useState(false);
+      const [thinking, setThinking] = useState(false);
+      const [happy, setHappy] = useState(false);
+      const [note, setNote] = useState<ClientPetNote | null>(null);
+      // Keep the existing storage key and CSS corner anchor when no valid spot exists.
+      const [pos, setPos] = useState<ClientPosition | null>(() => {
         try {
           const saved = JSON.parse(localStorage.getItem('xlb-pet-pos') || 'null') as ClientPosition | null;
-          // A saved spot inside the window chrome is unclickable forever: ignore it.
-          if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) && saved.y >= 64) {
-            return {
-              x: Math.min(Math.max(8, saved.x), Math.max(8, window.innerWidth - 72)),
-              y: Math.min(Math.max(64, saved.y), Math.max(64, window.innerHeight - 84)),
-            };
-          }
+          if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) && saved.y >= 64) return clampPetPosition(saved);
         } catch (error) { /* ignore */ }
         return null;
       });
       const drag = useRef<ClientDrag | null>(null);
       const el = useRef<HTMLDivElement | null>(null);
-      const lastSave = useRef(0);
       const posRef = useRef(pos);
+      const lastSave = useRef(0);
+      const lastTouch = useRef(Date.now());
+      const lastSeen = useRef<string | null>(null);
+      const activityInitialized = useRef(false);
       posRef.current = pos;
-
-      const clampPos = (value: ClientPosition) => ({
-        x: Math.min(Math.max(8, value.x), Math.max(8, window.innerWidth - 72)),
-        y: Math.min(Math.max(64, value.y), Math.max(64, window.innerHeight - 84)),
-      });
-
-      // Persist on the move: waiting for pointerup loses the spot whenever the
-      // release lands somewhere React never sees.
-      const savePos = (value: ClientPosition) => {
-        const time = Date.now();
-        if (time - lastSave.current < 500) return;
-        lastSave.current = time;
-        try { localStorage.setItem('xlb-pet-pos', JSON.stringify(value)); } catch (error) { /* ignore */ }
+      const wake = () => { lastTouch.current = Date.now(); setSleepy(false); };
+      const position = (value: ClientPosition, forceSave = false) => {
+        const next = clampPetPosition(value);
+        posRef.current = next;
+        setPos(next);
+        if (!forceSave && Date.now() - lastSave.current < 500) return;
+        lastSave.current = Date.now();
+        try { localStorage.setItem('xlb-pet-pos', JSON.stringify(next)); } catch (error) { /* ignore */ }
       };
-
+      useEffect(() => {
+        const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const motionChange = () => setReduced(media.matches);
+        const visibilityChange = () => {
+          setHidden(document.hidden);
+          if (document.hidden) { setThinking(false); setHappy(false); setNote(null); }
+        };
+        const resize = () => {
+          const rect = el.current?.getBoundingClientRect();
+          const current = posRef.current || (rect && rect.width > 0 ? { x: rect.left, y: rect.top } : null);
+          if (current) position(current, true);
+        };
+        media.addEventListener('change', motionChange);
+        document.addEventListener('visibilitychange', visibilityChange);
+        window.addEventListener('resize', resize);
+        return () => {
+          media.removeEventListener('change', motionChange);
+          document.removeEventListener('visibilitychange', visibilityChange);
+          window.removeEventListener('resize', resize);
+        };
+      }, []);
       useEffect(() => {
         let alive = true;
         fetch('/xiaolanshu/api/join', { headers: { accept: 'application/json' } })
           .then((response) => (response.ok ? response.json() : null))
-          .then((data) => {
-            if (alive && data && data.appearance) setLook(data.appearance);
-          })
+          .then((data) => { if (alive && data && data.appearance) setLook(data.appearance); })
           .catch(() => { /* keep the default look */ });
         return () => { alive = false; };
       }, []);
-
-      const [note, setNote] = useState<ClientPetNote | null>(null);
-      const lastSeen = useRef<string | null>(null);
-      // A pet that never changes expression is a sticker. After a minute without
-      // being touched she dozes off, and any pointer contact wakes her up.
-      const [sleepy, setSleepy] = useState(false);
-      const lastTouch = useRef(Date.now());
-
       useEffect(() => {
-        const timer = setInterval(() => {
-          setSleepy(!drag.current && Date.now() - lastTouch.current > 60000);
-        }, 15000);
-        return () => clearInterval(timer);
-      }, []);
-
+        if (hidden) return;
+        const timer = window.setInterval(() => setSleepy(!drag.current && Date.now() - lastTouch.current >= 60000), 1000);
+        return () => window.clearInterval(timer);
+      }, [hidden]);
       useEffect(() => {
+        if (!thinking) return;
+        const timer = window.setTimeout(() => setThinking(false), 4000);
+        return () => window.clearTimeout(timer);
+      }, [thinking]);
+      useEffect(() => {
+        if (!note) return;
+        setHappy(true);
+        wake();
+        const happyTimer = window.setTimeout(() => setHappy(false), 2400);
+        const noteTimer = window.setTimeout(() => setNote(null), 9000);
+        return () => { window.clearTimeout(happyTimer); window.clearTimeout(noteTimer); };
+      }, [note]);
+      useEffect(() => {
+        if (hidden) return;
         let alive = true;
         const pull = async () => {
           try {
             const response = await fetch('/xiaolanshu/api/activity', { headers: { accept: 'application/json' } });
             if (!response.ok) return;
             const data = await response.json();
+            if (!alive) return;
             const newest = (data.items || [])[0];
-            if (!alive || !newest || newest.id === lastSeen.current) return;
+            // The first poll is a baseline, not a newly received event.
+            if (!activityInitialized.current) { activityInitialized.current = true; lastSeen.current = newest?.id || null; return; }
+            if (!newest || newest.id === lastSeen.current) return;
             lastSeen.current = newest.id;
-            const prefix = newest.kind === 'claim' ? tr('pet.claim')
-              : newest.kind === 'reply' ? tr('pet.reply') : tr('pet.post');
+            const prefix = newest.kind === 'claim' ? tr('pet.claim') : newest.kind === 'reply' ? tr('pet.reply') : tr('pet.post');
             setNote({ id: newest.id, text: prefix + newest.title });
-            setTimeout(() => {
-              setNote((current) => (current && current.id === newest.id ? null : current));
-            }, 9000);
-          } catch (error) {
-            /* offline: say nothing rather than lie */
-          }
+          } catch (error) { /* offline: say nothing rather than lie */ }
         };
         pull();
-        const timer = setInterval(pull, 45000);
-        return () => {
-          alive = false;
-          clearInterval(timer);
-        };
-      }, []);
+        const timer = window.setInterval(pull, 45000);
+        return () => { alive = false; window.clearInterval(timer); };
+      }, [hidden]);
 
-      const down = (event: import("react").PointerEvent<HTMLDivElement>) => {
+      const down = (event: import('react').PointerEvent<HTMLDivElement>) => {
+        if (event.button !== 0 || drag.current) return;
         event.preventDefault();
-        lastTouch.current = Date.now();
-        setSleepy(false);
+        wake();
         const rect = event.currentTarget.getBoundingClientRect();
         try { event.currentTarget.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
-        drag.current = {
-          dx: event.clientX - rect.left,
-          dy: event.clientY - rect.top,
-          startX: event.clientX,
-          startY: event.clientY,
-          moved: false,
-        };
-        setPos({ x: rect.left, y: rect.top });
+        drag.current = { pointerId: event.pointerId, dx: event.clientX - rect.left, dy: event.clientY - rect.top,
+          startX: event.clientX, startY: event.clientY, moved: false };
+        position({ x: rect.left, y: rect.top });
         setDragging(true);
       };
-      const move = (event: import("react").PointerEvent<HTMLDivElement>) => {
-        lastTouch.current = Date.now();
+      const move = (event: import('react').PointerEvent<HTMLDivElement>) => {
         const state = drag.current;
-        if (!state) return;
+        if (!state || state.pointerId !== event.pointerId) return;
+        wake();
         if (Math.abs(event.clientX - state.startX) + Math.abs(event.clientY - state.startY) > 3) state.moved = true;
-        const x = Math.min(Math.max(8, event.clientX - state.dx), Math.max(8, window.innerWidth - 72));
-        const y = Math.min(Math.max(64, event.clientY - state.dy), Math.max(64, window.innerHeight - 84));
-        const next = { x: x, y: y };
-        setPos(next);
-        savePos(next);
+        position({ x: event.clientX - state.dx, y: event.clientY - state.dy });
       };
-      const up = () => {
+      const release = (event: import('react').PointerEvent<HTMLDivElement>, cancelled: boolean) => {
         const state = drag.current;
+        if (!state || state.pointerId !== event.pointerId) return;
         drag.current = null;
         setDragging(false);
-        if (!state) return;
-        if (state.moved) {
-          try { localStorage.setItem('xlb-pet-pos', JSON.stringify(posRef.current)); } catch (error) { /* ignore */ }
-          return;
-        }
-        props.onOpen();
+        wake();
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        if (posRef.current) position(posRef.current, true);
+        if (!cancelled && !state.moved) props.onOpen();
       };
-
-      // Idle drift: a pet that never moves is a sticker. It wanders a little
-      // every few seconds, and the CSS transition makes the hop look like swimming.
+      const keyboard = (event: import('react').KeyboardEvent<HTMLDivElement>) => {
+        const steps: Record<string, ClientPosition> = { ArrowLeft: { x: -16, y: 0 }, ArrowRight: { x: 16, y: 0 },
+          ArrowUp: { x: 0, y: -16 }, ArrowDown: { x: 0, y: 16 } };
+        const step = steps[event.key];
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault(); wake(); if (!event.repeat) props.onOpen();
+        } else if (step || event.key === 'Home') {
+          event.preventDefault(); wake();
+          const rect = event.currentTarget.getBoundingClientRect();
+          const base = posRef.current || { x: rect.left, y: rect.top };
+          position(step ? { x: base.x + step.x, y: base.y + step.y }
+            : { x: window.innerWidth - PET_SIZE - 24, y: window.innerHeight - PET_SIZE - 96 }, true);
+        } else if (event.key.toLowerCase() === 't' && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          event.preventDefault(); wake(); setThinking(true);
+        }
+      };
+      // Drift never fights the user's pointer/focus, sleeping, or motion preferences.
       useEffect(() => {
-        const timer = setInterval(() => {
+        if (hidden || reduced || sleepy || focused || hovered) return;
+        const timer = window.setInterval(() => {
           if (drag.current) return;
-          let base = posRef.current;
-          if (!base && el.current) {
-            const rect = el.current.getBoundingClientRect();
-            if (rect.width > 0) base = { x: rect.left, y: rect.top };
-          }
-          if (!base) return;
-          const next = clampPos({
-            x: base.x + (Math.random() - 0.5) * 90,
-            y: base.y + (Math.random() - 0.5) * 60,
-          });
-          setPos(next);
-          savePos(next);
+          const rect = el.current?.getBoundingClientRect();
+          const base = posRef.current || (rect && rect.width > 0 ? { x: rect.left, y: rect.top } : null);
+          if (base) position({ x: base.x + (Math.random() - 0.5) * 90, y: base.y + (Math.random() - 0.5) * 60 });
         }, 7000);
-        return () => clearInterval(timer);
-      }, []);
-
+        return () => window.clearInterval(timer);
+      }, [hidden, reduced, sleepy, focused, hovered]);
+      const action: ClientPetAction = dragging ? 'drag' : happy ? 'happy' : thinking ? 'think'
+        : hovered || focused ? 'wave' : sleepy ? 'sleep' : 'idle';
       return h('div', {
-        className: 'xls-pet' + (dragging ? ' drag' : ''),
-        ref: el,
-        style: pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' } : undefined,
-        onPointerDown: down,
-        onPointerMove: move,
-        onPointerUp: up,
-        title: tr('pet.title'),
-        role: 'button',
-        'aria-label': tr('pet.title'),
+        className: 'xls-pet' + (dragging ? ' drag' : ''), ref: el,
+        style: { ...(pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' } : {}),
+          transition: reduced || hidden ? 'none' : undefined },
+        'data-pet-action': action, 'data-still': String(reduced || hidden),
+        onPointerDown: down, onPointerMove: move, onPointerUp: (event: import('react').PointerEvent<HTMLDivElement>) => release(event, false),
+        onPointerCancel: (event: import('react').PointerEvent<HTMLDivElement>) => release(event, true),
+        onLostPointerCapture: (event: import('react').PointerEvent<HTMLDivElement>) => release(event, true),
+        onPointerEnter: () => { wake(); setHovered(true); }, onPointerLeave: () => setHovered(false),
+        onFocus: () => { wake(); setFocused(true); }, onBlur: () => setFocused(false), onKeyDown: keyboard,
+        tabIndex: 0, title: tr('pet.title'), role: 'button', 'aria-label': tr('pet.title'),
       },
-        note ? h('div', { className: 'xls-pet-bubble' }, note.text) : null,
-        sleepy ? h('div', { className: 'xls-zzz' }, 'z z z') : null,
-        h('div', { className: sleepy ? 'xls-doze' : null }, h(Portrait, { look: look, size: 56 }))
+        note ? h('div', { className: 'xls-pet-bubble', role: 'status' }, note.text) : null,
+        action === 'sleep' ? h('div', { className: 'xls-zzz', 'aria-hidden': true }, 'z z z') : null,
+        h('div', { className: action === 'sleep' ? 'xls-doze' : undefined }, h(PetArtwork, { look, action, still: reduced || hidden }))
       );
     }
 

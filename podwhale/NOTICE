@@ -9,8 +9,9 @@ in icon.svg. They contain no optional character illustrations. Maintainers can
 rebuild both sizes using ops/generate-pwa-icons.mjs with Node >=22.5 and an
 installed Chromium browser; no npm dependencies are required.
 
-Optional local character images, including assets/whale-girl.png and
-assets/whale-girl-face.png, are not included in the repository or release
+Optional local character images, including assets/whale-girl.png,
+assets/whale-girl-face.png, assets/whale-actions-a.png and
+assets/whale-actions-b.png, are not included in the repository or public release
 package. They are third-party material, and are not relicensed by this project.
 Anyone adding such images must obtain and comply with the applicable rights
 and permissions, including any redistribution or commercial-use restrictions.

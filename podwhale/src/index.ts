@@ -437,25 +437,37 @@ export function apply(ctx: HostContext) {
       }),
     }));
 
-    // Two sizes of the same character: full body for the pet and the hero, the
-    // badge face for 16–22px avatars. Both come from the same source artwork so
-    // the provenance line in the README covers everything we ship.
+    // Optional local character artwork is served through a fixed filename map.
+    // These assets are excluded from the repository and public release archive.
     for (const [route, file] of [
       ['/xiaolanshu/avatar.png', 'whale-girl.png'],
       ['/xiaolanshu/face.png', 'whale-girl-face.png'],
+      ['/xiaolanshu/pet-actions-a.png', 'whale-actions-a.png'],
+      ['/xiaolanshu/pet-actions-b.png', 'whale-actions-b.png'],
     ] as const) {
       routes.push(webServer.register({
         kind: 'exact',
         path: route,
         handler: async (req, res) => {
+          res.setHeader('x-content-type-options', 'nosniff');
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            res.statusCode = 405;
+            res.setHeader('allow', 'GET, HEAD');
+            res.setHeader('cache-control', 'no-store');
+            res.end();
+            return;
+          }
           try {
             const bytes = await readFile(new URL(`./assets/${file}`, import.meta.url));
             res.statusCode = 200;
             res.setHeader('content-type', 'image/png');
-            res.setHeader('cache-control', 'public, max-age=86400');
-            res.end(bytes);
+            res.setHeader('content-length', bytes.length);
+            res.setHeader('cache-control', 'public, max-age=300');
+            if (req.method === 'HEAD') res.end();
+            else res.end(bytes);
           } catch (error) {
             res.statusCode = 404;
+            res.setHeader('cache-control', 'no-store');
             res.end();
           }
         },

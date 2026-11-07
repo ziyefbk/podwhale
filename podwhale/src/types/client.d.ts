@@ -68,7 +68,9 @@ interface ClientRemote {
 }
 interface ClientPending { status?: string; executed?: boolean; proposalId?: string }
 interface ClientPosition { x: number; y: number }
-interface ClientDrag { dx: number; dy: number; startX: number; startY: number; moved: boolean }
+interface ClientDrag { pointerId: number; dx: number; dy: number; startX: number; startY: number; moved: boolean }
+type ClientPetAction = 'idle' | 'wave' | 'happy' | 'sleep' | 'think' | 'drag';
+interface ClientPetMotion { atlas: 'a' | 'b'; row: number; sequence: number[]; durationMs: number[] }
 interface ClientPetNote { id: string; text: string }
 interface ClientTaskDraft { title: string; desc: string; budget: string; period: string }
 interface ClientIconProps { size?: number | undefined }

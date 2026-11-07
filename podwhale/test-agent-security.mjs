@@ -3,9 +3,10 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdir, mkdtemp, readFile, writeFile, rm, access } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, rm, access, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { deflateSync } from 'node:zlib';
 import { communityEndpoint } from './community-endpoint.mjs';
 import { PATROL_TOOLS, PATROL_SYSTEM } from './patrol-runtime.mjs';
 function fields(value) {
@@ -81,6 +82,29 @@ async function tempHome() {
     const dir = await mkdtemp(join(TEMP, 'agent-security-'));
     dirs.push(dir);
     return dir;
+}
+function fixturePng(rgba) {
+    const chunk = (type, data) => {
+        const body = Buffer.concat([Buffer.from(type), data]);
+        let crc = 0xffffffff;
+        for (const byte of body) {
+            crc ^= byte;
+            for (let bit = 0; bit < 8; bit++)
+                crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+        }
+        const length = Buffer.alloc(4);
+        length.writeUInt32BE(data.length);
+        const checksum = Buffer.alloc(4);
+        checksum.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+        return Buffer.concat([length, body, checksum]);
+    };
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(1, 0);
+    header.writeUInt32BE(1, 4);
+    header[8] = 8;
+    header[9] = 6;
+    return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header),
+        chunk('IDAT', deflateSync(Buffer.from([0, ...rgba]))), chunk('IEND', Buffer.alloc(0))]);
 }
 async function listen(server) {
     servers.push(server);
@@ -163,7 +187,7 @@ async function host(config, faults = {}) {
         await writeFile(join(configDir, 'remote.json'), JSON.stringify(config));
     if (faults.security)
         await writeFile(join(configDir, 'security.json'), JSON.stringify(faults.security));
-    const { apply } = await import('./index.js?security=' + (++serial));
+    const { apply } = await import(faults.moduleUrl ?? './index.js?security=' + (++serial));
     const tools = new Map();
     const routes = [];
     const activations = [];
@@ -346,6 +370,54 @@ const inputs = {
 try {
     const communityBase = await listen(fixture) + '/xiaolanshu';
     const config = { url: communityBase, token: agentToken };
+    // Load the real Host from a separate runtime directory so these tests never
+    // inspect, overwrite or distribute the user's optional local character art.
+    const imageRuntime = join(await tempHome(), 'plugin');
+    const imageAssets = join(imageRuntime, 'assets');
+    await mkdir(imageAssets, { recursive: true });
+    await writeFile(join(imageRuntime, 'package.json'), '{"type":"module"}');
+    for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs']) {
+        await copyFile(join(HERE, name), join(imageRuntime, name));
+    }
+    const bluePng = fixturePng([50, 100, 230, 255]);
+    const pinkPng = fixturePng([230, 100, 170, 255]);
+    const imageRoutes = [
+        ['/xiaolanshu/avatar.png', 'whale-girl.png', bluePng],
+        ['/xiaolanshu/face.png', 'whale-girl-face.png', pinkPng],
+        ['/xiaolanshu/pet-actions-a.png', 'whale-actions-a.png', bluePng],
+        ['/xiaolanshu/pet-actions-b.png', 'whale-actions-b.png', pinkPng],
+    ];
+    for (const [, name, bytes] of imageRoutes)
+        await writeFile(join(imageAssets, name), bytes);
+    await writeFile(join(imageAssets, 'unlisted.png'), bluePng);
+    const imageHost = await host(null, { moduleUrl: pathToFileURL(join(imageRuntime, 'index.js')).href, noRuntime: true });
+    const imageCallsBefore = calls.length;
+    for (const [path, name, bytes] of imageRoutes) {
+        const response = await fetch(imageHost.base + path + '?v=synthetic-classic-1');
+        check('fixed artwork GET returns only its mapped PNG: ' + name, response.status === 200
+            && response.headers.get('content-type') === 'image/png' && response.headers.get('x-content-type-options') === 'nosniff'
+            && response.headers.get('content-length') === String(bytes.length)
+            && response.headers.get('cache-control') === 'public, max-age=300'
+            && Buffer.from(await response.arrayBuffer()).equals(bytes));
+        const head = await fetch(imageHost.base + path, { method: 'HEAD' });
+        check('fixed artwork HEAD returns PNG headers without bytes: ' + name, head.status === 200
+            && head.headers.get('content-type') === 'image/png' && head.headers.get('x-content-type-options') === 'nosniff'
+            && head.headers.get('content-length') === String(bytes.length) && (await head.arrayBuffer()).byteLength === 0);
+        const rejected = await Promise.all(['POST', 'PUT', 'DELETE'].map((method) => fetch(imageHost.base + path, { method })));
+        check('fixed artwork rejects other methods before reading files: ' + name, rejected.every((reply) => reply.status === 405
+            && reply.headers.get('allow') === 'GET, HEAD' && reply.headers.get('cache-control') === 'no-store'
+            && reply.headers.get('x-content-type-options') === 'nosniff'));
+        await rm(join(imageAssets, name));
+        const missing = await fetch(imageHost.base + path);
+        check('missing optional artwork returns an uncached 404: ' + name, missing.status === 404
+            && missing.headers.get('cache-control') === 'no-store' && (await missing.arrayBuffer()).byteLength === 0);
+    }
+    const invalidImagePaths = ['/xiaolanshu/pet-actions-c.png', '/xiaolanshu/unlisted.png',
+        '/xiaolanshu/pet-actions-a.png/unlisted.png', '/xiaolanshu/pet-actions-a.png%2f..%2funlisted.png',
+        '/xiaolanshu/assets/unlisted.png', '/xiaolanshu/pet-actions-a.png/%2e%2e%2fpackage.json'];
+    const invalidImages = await Promise.all(invalidImagePaths.map((path) => fetch(imageHost.base + path)));
+    check('fixed artwork routes never expose unlisted files or encoded traversal', invalidImages.every((reply) => reply.status === 404));
+    check('local artwork requests never contact the community or start an agent', calls.length === imageCallsBefore && imageHost.followups() === 0);
     const active = await host(config);
     const feedTool = active.tool('xlb_feed');
     const first = await active.within((invoke) => invoke('xlb_feed', {}));
