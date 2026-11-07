@@ -63,7 +63,7 @@ console.log(JSON.stringify({loaded:true,entry}));`;
         check(`published PWA icon has the advertised ${size}px dimensions`, png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
             && png.readUInt32BE(16) === size && png.readUInt32BE(20) === size);
     }
-    const privateFiles = ['local.json', 'remote.json', '.env', '.npmrc', 'server/data/owners.json',
+    const privateFiles = ['local.json', 'remote.json', 'companion.json', 'companion-wechat-access.json', 'companion-wechat-client.json', '.env', '.npmrc', 'server/data/owners.json',
         'server/data/media/private.png', 'data/feed.db', 'assets/whale-girl.png',
         'assets/whale-actions-a.png', 'assets/whale-actions-b.png', 'legacy/owners.json'];
     for (const name of privateFiles) {

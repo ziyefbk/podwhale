@@ -18,6 +18,9 @@ podwhale/local.json
 **/*.db
 **/*.db-journal
 **/remote.json
+**/companion.json
+**/companion-wechat-access.json
+**/companion-wechat-client.json
 **/*.log
 .tmp/
 .tools/

@@ -131,11 +131,15 @@ class TestImage {
     }
 }
 const capturedPointers = new Set();
+let petFocusCount = 0, inputFocusCount = 0, requestSequence = 0;
+const inputTarget = { focus: () => { inputFocusCount += 1; } };
+const logTarget = { scrollTop: 0, scrollHeight: 120 };
 let petLeft = 1200, petTop = 640;
 const petTarget = {
     getBoundingClientRect: () => ({ left: petLeft, top: petTop, width: 112, height: 112 }),
     setPointerCapture: (id) => { capturedPointers.add(id); }, hasPointerCapture: (id) => capturedPointers.has(id),
     releasePointerCapture: (id) => { capturedPointers.delete(id); },
+    focus: () => { petFocusCount += 1; },
 };
 const fakeWindow = {
     innerWidth: 1440,
@@ -149,6 +153,7 @@ const fakeWindow = {
     },
     matchMedia: () => motion,
     Image: TestImage,
+    crypto: { randomUUID: () => 'desktop-test-' + (++requestSequence) },
     setTimeout: (callback, delay) => petTimer(callback, delay, null), clearTimeout: (id) => { petTimers.delete(id); },
     setInterval: (callback, delay) => petTimer(callback, delay, delay), clearInterval: (id) => { petTimers.delete(id); },
     Notification: undefined,
@@ -161,6 +166,7 @@ fakeWindow.document = {
     removeEventListener: (name, fn) => { documentListeners.get(name)?.delete(fn); },
     createElement: () => ({ style: {}, appendChild() { }, setAttribute() { } }),
     body: { appendChild() { }, removeChild() { } },
+    querySelector: (selector) => selector === '.xls-pet' ? petTarget : null,
 };
 // --------------------------------------------------------------- fake backend
 const joinInfo = {
@@ -217,7 +223,12 @@ const routes = {
     '/api/profile': { profile: { handle: '阿数', followers: 2, following: 1, followedByMe: true, noteCount: 42, reputation: { count: 5, average: 4.8, recent: [] }, notes: [{ id: 'p1', title: '回测', createdAt: now() }] } },
     '/api/pair': { ok: true, code: '482913', expiresAt: now() },
     '/api/ask': { ok: true, ask: { id: 'q9', text: 'x' } },
+    '/api/companion': { ok: true, ready: false, model: null, messages: [], job: null },
 };
+let companionFetch = null;
+function testResponse(value, status = 200) {
+    return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(value), text: () => Promise.resolve(JSON.stringify(value)) };
+}
 const callLog = [];
 function fakeFetch(url, options) {
     const path = String(url).replace('/xiaolanshu', '').split('?')[0];
@@ -229,7 +240,9 @@ function fakeFetch(url, options) {
         const error = caught;
         body = null;
     }
-    callLog.push({ path: path, method: (options && options.method) || 'GET', body: body });
+    callLog.push({ path: path, url, method: (options && options.method) || 'GET', body: body, ...(options?.credentials ? { credentials: options.credentials } : {}) });
+    if (companionFetch && (path === '/api/companion' || path.startsWith('/api/companion/')))
+        return companionFetch(url, options || {});
     if (process.env.XLB_DEBUG)
         console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
     const payload = routes[path] !== undefined ? routes[path] : {};
@@ -271,6 +284,12 @@ function renderNode(element) {
         return renderNode(output);
     }
     const children = [];
+    if (typeof props.ref === 'object' && props.ref !== null && 'current' in props.ref) {
+        if (props.className === 'xls-chat-input')
+            props.ref.current = inputTarget;
+        if (props.className === 'xls-chat-log')
+            props.ref.current = logTarget;
+    }
     if (typeof props.className === 'string' && props.className.split(' ').includes('xls-pet')) {
         if (typeof props.ref === 'object' && props.ref !== null && 'current' in props.ref)
             props.ref.current = petTarget;
@@ -646,7 +665,24 @@ async function petPointer(name, x, y, id = 1, button = 0) {
     await renderPet();
 }
 async function petKey(key, repeat = false) {
-    petNode().props.onKeyDown?.({ key, repeat, ctrlKey: false, altKey: false, metaKey: false, currentTarget: petTarget, preventDefault() { } });
+    petNode().props.onKeyDown?.({ key, repeat, ctrlKey: false, altKey: false, metaKey: false, currentTarget: petTarget, preventDefault() { }, stopPropagation() { } });
+    await renderPet();
+}
+function chatDialog() { return findNodes(petTree, (node) => node.props.className === 'xls-chat')[0]; }
+function chatInput() {
+    const node = findNodes(petTree, (entry) => entry.props.className === 'xls-chat-input')[0];
+    if (!node)
+        throw new Error('Companion input missing');
+    return node;
+}
+function chatButton(label) {
+    const node = findNodes(chatDialog(), (entry) => entry.type === 'button' && (textOf(entry) === label || entry.props['aria-label'] === label))[0];
+    if (!node)
+        throw new Error('Companion button missing: ' + label);
+    return node;
+}
+async function clickChat(label) {
+    chatButton(label).props.onClick?.({ stopPropagation() { }, preventDefault() { }, target: {} });
     await renderPet();
 }
 async function advancePet(milliseconds) {
@@ -718,8 +754,11 @@ try {
     await petPointer('onPointerDown', 1210, 650);
     check('pressing captures the pointer and selects drag', capturedPointers.has(1) && petSprite()?.props['data-pet-action'] === 'drag');
     await petPointer('onPointerUp', 1210, 650);
-    check('an unmoved pointer release opens the existing panel once', selectedPanels.length === beforeOpen + 1
-        && selectedPanels.at(-1) === 'xiaolanshu' && !capturedPointers.has(1));
+    check('an unmoved pointer release opens companion chat without selecting a community panel', !!chatDialog()
+        && selectedPanels.length === beforeOpen && !capturedPointers.has(1));
+    await clickChat('鲸群社区');
+    check('chat retains an explicit route to the existing community panel', !chatDialog()
+        && selectedPanels.length === beforeOpen + 1 && selectedPanels.at(-1) === 'xiaolanshu');
     await petPointer('onPointerDown', 1210, 650);
     await petPointer('onPointerMove', 1020, 510);
     await petPointer('onPointerUp', 1020, 510);
@@ -737,9 +776,14 @@ try {
     await petPointer('onPointerDown', 1020, 510, 2, 2);
     check('secondary buttons do not start a drag', !capturedPointers.has(2) && petNode().props['data-pet-action'] === 'idle');
     await petKey('Enter');
+    const enterOpened = !!chatDialog();
+    await clickChat('收起聊天');
     await petKey(' ');
+    const spaceOpened = !!chatDialog();
+    await clickChat('收起聊天');
     await petKey('Enter', true);
-    check('Enter and Space open once each while held key repeat does not', selectedPanels.length === beforeOpen + 3);
+    check('Enter and Space open chat while held key repeat does not', enterOpened && spaceOpened && !chatDialog()
+        && selectedPanels.length === beforeOpen + 1);
     const previousX = petLeft;
     await petKey('ArrowLeft');
     check('arrow keys move and persist the same desktop pet position', petLeft === previousX - 16
@@ -863,6 +907,252 @@ check('pet unmount clears all its timers, image handlers and listeners', petTime
     && petImages.every((image) => image.onload === null && image.onerror === null)
     && motionListeners.size === 0 && [...windowListeners.values()].every((listeners) => listeners.size === 0)
     && [...documentListeners.values()].every((listeners) => listeners.size === 0));
+// A local Host fixture drives the real chat component; no provider or network is called.
+let hostCompanion = { ok: true, ready: true, model: { provider: 'fixture', model: 'synthetic' }, messages: [], job: null };
+let sendFailures = 0;
+let holdCompanionGet = false;
+const heldCompanion = { resolve: null, signal: undefined };
+function installCompanionFixture() {
+    companionFetch = async (_url, options) => {
+        const method = options.method || 'GET';
+        if (method === 'GET') {
+            if (holdCompanionGet) {
+                holdCompanionGet = false;
+                return new Promise((resolve) => { heldCompanion.resolve = resolve; heldCompanion.signal = options.signal; });
+            }
+            return testResponse(structuredClone(hostCompanion));
+        }
+        const body = JSON.parse(options.body || '{}');
+        if (_url.endsWith('/messages')) {
+            if (sendFailures > 0) {
+                sendFailures -= 1;
+                return testResponse({ ok: false }, 503);
+            }
+            if (typeof body.requestId !== 'string' || typeof body.text !== 'string')
+                return testResponse({ ok: false }, 400);
+            hostCompanion.job = { id: 'job-' + body.requestId, requestId: body.requestId, state: 'preparing',
+                input: body.text, createdAt: new Date(petClock).toISOString() };
+            return testResponse({ ok: true, job: structuredClone(hostCompanion.job) }, 202);
+        }
+        if (_url.endsWith('/cancel')) {
+            const job = hostCompanion.job;
+            if (!job || job.id !== body.jobId)
+                return testResponse({ ok: false }, 404);
+            hostCompanion.job = { ...job, state: 'cancelled' };
+            return testResponse({ ok: true, job: structuredClone(hostCompanion.job) });
+        }
+        if (method === 'DELETE') {
+            hostCompanion = { ...hostCompanion, messages: [], job: null };
+            return testResponse({ ok: true });
+        }
+        return testResponse({ ok: false }, 404);
+    };
+}
+async function mountChat(ready = true) {
+    hostCompanion = { ok: true, ready, model: ready ? { provider: 'fixture', model: 'synthetic' } : null, messages: [], job: null };
+    sendFailures = 0;
+    holdCompanionGet = false;
+    heldCompanion.resolve = null;
+    heldCompanion.signal = undefined;
+    installCompanionFixture();
+    await mountPet();
+    await petKey('Enter');
+}
+async function typeChat(text) { chatInput().props.onChange?.({ target: { value: text } }); await renderPet(); }
+async function chatKey(key, options = {}) {
+    chatInput().props.onKeyDown?.({ key, repeat: false, ctrlKey: false, altKey: false, metaKey: false,
+        currentTarget: petTarget, shiftKey: !!options.shift, nativeEvent: { isComposing: !!options.composing },
+        keyCode: options.code || 0, preventDefault() { }, stopPropagation() { } });
+    await renderPet();
+}
+const chatCalls = () => callLog.filter((entry) => entry.path === '/api/companion' || entry.path.startsWith('/api/companion/'));
+const chatSends = () => chatCalls().filter((entry) => entry.path.endsWith('/messages'));
+function finishCompanion(state, reply = '合成回复') {
+    const job = hostCompanion.job;
+    if (!job)
+        throw new Error('Host fixture has no job');
+    hostCompanion.job = { ...job, state, ...(state === 'completed' ? { reply } : {}) };
+    if (state === 'completed')
+        hostCompanion.messages = [
+            { id: job.id + '-u', role: 'user', text: job.input, createdAt: job.createdAt },
+            { id: job.id + '-a', role: 'assistant', text: reply, createdAt: job.createdAt },
+        ];
+}
+const beforeChatCalls = callLog.length;
+try {
+    Date.now = () => petClock;
+    await mountChat(false);
+    const disabledSendCount = chatSends().length;
+    check('opening companion only reads the Host and keeps input disabled without a configured model', chatInput().props.disabled === true && !!chatDialog() && !hostCompanion.messages.length
+        && chatCalls().at(-1)?.method === 'GET' && chatCalls().at(-1)?.credentials === 'same-origin');
+    await typeChat('不能假装有模型');
+    await clickChat('发送');
+    check('an unconfigured companion cannot submit a request or invent a reply', chatSends().length === disabledSendCount
+        && findNodes(chatDialog(), (n) => n.props.className === 'xls-chat-message').length === 0);
+    await mountChat();
+    check('overlay supplies styles and focuses a separate chat input before opening any community page', findNodes(petTree, (n) => n.type === 'style').length === 1 && inputFocusCount > 0
+        && findNodes(petNode(), (n) => n.type === 'textarea').length === 0 && chatInput().props.disabled === false);
+    const positionBeforeChat = store.get('xlb-pet-pos');
+    await advancePet(7000);
+    check('chat engagement disables wandering and sleep without freezing permitted sprite animation', store.get('xlb-pet-pos') === positionBeforeChat && ![...petTimers.values()].some((timer) => timer.interval === 7000 || timer.interval === 1000));
+    await typeChat('中文输入');
+    const beforeIme = chatSends().length;
+    await chatKey('Enter', { composing: true });
+    await chatKey('Enter', { code: 229 });
+    await chatKey('Enter', { shift: true });
+    check('IME composition, legacy IME Enter and Shift Enter do not send messages', chatSends().length === beforeIme);
+    await typeChat('');
+    await chatKey('Enter');
+    check('empty input does not send', chatSends().length === beforeIme);
+    await typeChat('  你好，大肥鱼  ');
+    const sendButton = chatButton('发送');
+    sendButton.props.onClick?.({ preventDefault() { }, stopPropagation() { }, target: {} });
+    sendButton.props.onClick?.({ preventDefault() { }, stopPropagation() { }, target: {} });
+    await renderPet();
+    check('two immediate clicks submit exactly one bounded request with a generated id', chatSends().length === beforeIme + 1
+        && chatSends().at(-1)?.body?.text === '你好，大肥鱼' && typeof chatSends().at(-1)?.body?.requestId === 'string');
+    check('accepted pending input is shown once outside committed history', hostCompanion.messages.length === 0
+        && findNodes(chatDialog(), (n) => n.props['data-pending-job'] === hostCompanion.job?.id).length === 1
+        && chatInput().props.value === '');
+    check('preparing does not falsely animate the pet as model generation', petNode().props['data-pet-action'] !== 'think');
+    check('busy chat disables duplicate send and clear actions', chatButton('发送').props.disabled === true
+        && chatButton('清空对话').props.disabled === true && !!chatButton('停止回复'));
+    finishCompanion('generating');
+    await advancePet(900);
+    check('only actual Host generating state selects the pet thinking animation', petSprite()?.props['data-pet-action'] === 'think');
+    check('polling targets the specific accepted job', chatCalls().some((entry) => entry.method === 'GET'
+        && entry.url.includes('?jobId=' + encodeURIComponent(hostCompanion.job.id))));
+    finishCompanion('completed', '<img src=x onerror=alert(1)>这是纯文本');
+    await advancePet(900);
+    check('completion renders exactly the Host committed pair and removes the pending duplicate', findNodes(chatDialog(), (n) => typeof n.props['data-message-id'] === 'string').length === 2
+        && findNodes(chatDialog(), (n) => typeof n.props['data-pending-job'] === 'string').length === 0);
+    check('model content stays plain text without HTML, image nodes or HTML injection props', textOf(chatDialog()).includes('<img src=x onerror=alert(1)>这是纯文本')
+        && findNodes(chatDialog(), (n) => n.type === 'img' || n.props.dangerouslySetInnerHTML !== undefined).length === 0);
+    check('completed generation clears the busy animation and re-enables input', petNode().props['data-pet-action'] !== 'think'
+        && chatInput().props.disabled === false);
+    const deletesBefore = chatCalls().filter((entry) => entry.method === 'DELETE').length;
+    await clickChat('清空对话');
+    check('clear requires an explicit confirmation before contacting the Host', chatCalls().filter((entry) => entry.method === 'DELETE').length === deletesBefore
+        && !!chatButton('确认清空') && hostCompanion.messages.length === 2);
+    await clickChat('返回');
+    check('dismissing clear confirmation preserves history', hostCompanion.messages.length === 2);
+    await clickChat('清空对话');
+    await clickChat('确认清空');
+    check('confirmed clear uses DELETE and refreshes the empty Host history', hostCompanion.messages.length === 0
+        && chatCalls().filter((entry) => entry.method === 'DELETE').length === deletesBefore + 1
+        && findNodes(chatDialog(), (n) => typeof n.props['data-message-id'] === 'string').length === 0);
+    await typeChat('停止这一轮');
+    await chatKey('Enter');
+    finishCompanion('generating');
+    await advancePet(900);
+    const cancelledJob = hostCompanion.job.id;
+    await clickChat('停止回复');
+    check('Stop sends the actual job id to the Host cancellation endpoint', chatCalls().findLast((entry) => entry.path.endsWith('/cancel'))?.body?.jobId === cancelledJob);
+    check('cancelled work restores the draft without committing fake history', chatInput().props.value === '停止这一轮'
+        && hostCompanion.messages.length === 0 && petNode().props['data-pet-action'] !== 'think');
+    await mountChat();
+    sendFailures = 1;
+    await typeChat('网络重试');
+    await clickChat('发送');
+    const failedRequestId = chatSends().at(-1)?.body?.requestId;
+    check('transport failure keeps the draft and exposes an actionable error', chatInput().props.value === '网络重试'
+        && findNodes(chatDialog(), (n) => n.props.role === 'alert').length === 1 && !!chatButton('重新连接'));
+    await clickChat('发送');
+    check('ambiguous transport retry reuses its idempotent request id', chatSends().at(-1)?.body?.requestId === failedRequestId
+        && hostCompanion.job?.requestId === failedRequestId);
+    finishCompanion('failed');
+    await advancePet(900);
+    check('a failed Host job restores its original input and leaves successful history untouched', chatInput().props.value === '网络重试'
+        && hostCompanion.messages.length === 0);
+    await clickChat('发送');
+    check('retrying a known terminal failure creates a new request id', chatSends().at(-1)?.body?.requestId !== failedRequestId);
+    finishCompanion('generating');
+    await advancePet(900);
+    const cancellingBeforeClose = chatCalls().filter((entry) => entry.path.endsWith('/cancel')).length;
+    const focusBeforeClose = petFocusCount;
+    await clickChat('收起聊天');
+    const closedCallCount = chatCalls().length;
+    await advancePet(1800);
+    check('closing stops polling and restores pet focus without cancelling Host work', !chatDialog()
+        && chatCalls().length === closedCallCount && petFocusCount === focusBeforeClose + 1
+        && chatCalls().filter((entry) => entry.path.endsWith('/cancel')).length === cancellingBeforeClose);
+    finishCompanion('completed', '关窗期间完成');
+    await petKey('Enter');
+    check('reopening recovers Host completion instead of re-sending or losing history', textOf(chatDialog()).includes('关窗期间完成')
+        && findNodes(chatDialog(), (n) => typeof n.props['data-message-id'] === 'string').length === 2);
+    chatDialog()?.props.onKeyDown?.({ key: 'Escape', repeat: false, ctrlKey: false, altKey: false, metaKey: false,
+        currentTarget: petTarget, preventDefault() { }, stopPropagation() { } });
+    await renderPet();
+    check('Escape closes the nonmodal chat and returns keyboard focus', !chatDialog() && petFocusCount === focusBeforeClose + 2);
+    await mountChat();
+    await typeChat('后台生成');
+    await clickChat('发送');
+    finishCompanion('generating');
+    await advancePet(900);
+    fakeWindow.document.hidden = true;
+    documentListeners.get('visibilitychange')?.forEach((fn) => fn());
+    await renderPet();
+    const hiddenCalls = chatCalls().length;
+    await advancePet(2000);
+    check('hidden chat removes every timer and makes no further polling requests', petTimers.size === 0 && chatCalls().length === hiddenCalls);
+    finishCompanion('completed', '恢复可见时获取');
+    fakeWindow.document.hidden = false;
+    documentListeners.get('visibilitychange')?.forEach((fn) => fn());
+    await renderPet();
+    check('visible chat recovers actual Host state and completed messages', textOf(chatDialog()).includes('恢复可见时获取')
+        && petNode().props['data-pet-action'] !== 'think');
+    await mountChat();
+    await clickChat('收起聊天');
+    holdCompanionGet = true;
+    await petKey('Enter');
+    const closedSignal = heldCompanion.signal;
+    const lateView = { ...structuredClone(hostCompanion), messages: [{ id: 'late-message', role: 'assistant', text: '不应显示的迟到内容', createdAt: now() }],
+        job: { id: 'late-job', requestId: 'late-request', state: 'generating', input: '迟到输入', createdAt: now() } };
+    check('an in-flight chat read has an abortable request', !!heldCompanion.resolve && closedSignal?.aborted === false);
+    await clickChat('收起聊天');
+    check('closing aborts an in-flight read without issuing a Host cancel', closedSignal?.aborted === true && !chatDialog());
+    heldCompanion.resolve?.(testResponse(lateView));
+    await renderPet();
+    await petKey('Enter');
+    check('late closed-window responses cannot overwrite a freshly reopened conversation', !textOf(chatDialog()).includes('不应显示的迟到内容')
+        && petNode().props['data-pet-action'] !== 'think');
+    await clickChat('收起聊天');
+    holdCompanionGet = true;
+    await petKey('Enter');
+    const hiddenSignal = heldCompanion.signal;
+    fakeWindow.document.hidden = true;
+    documentListeners.get('visibilitychange')?.forEach((fn) => fn());
+    await renderPet();
+    check('hiding aborts an in-flight read and removes all background timers', hiddenSignal?.aborted === true && petTimers.size === 0);
+    heldCompanion.resolve?.(testResponse(lateView));
+    await renderPet();
+    fakeWindow.document.hidden = false;
+    documentListeners.get('visibilitychange')?.forEach((fn) => fn());
+    await renderPet();
+    check('late hidden-window responses are discarded when actual Host state is recovered', !textOf(chatDialog()).includes('不应显示的迟到内容')
+        && petNode().props['data-pet-action'] !== 'think');
+    await clickChat('收起聊天');
+    holdCompanionGet = true;
+    await petKey('Enter');
+    const unmountedSignal = heldCompanion.signal;
+    unmountTestTree();
+    dirty = false;
+    heldCompanion.resolve?.(testResponse(lateView));
+    await tick();
+    check('unmount aborts outstanding reads and ignores their late state updates', unmountedSignal?.aborted === true && !dirty);
+}
+catch (caught) {
+    check('companion chat behavior suite completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+}
+finally {
+    unmountTestTree();
+    Date.now = actualNow;
+    companionFetch = null;
+}
+check('chat unmount removes its polling, visibility listeners and sprite timers', petTimers.size === 0
+    && [...documentListeners.values()].every((listeners) => listeners.size === 0));
+check('every companion request uses same-origin credentials and never the community ask route', callLog.slice(beforeChatCalls).filter((entry) => entry.path.startsWith('/api/companion')).every((entry) => entry.credentials === 'same-origin')
+    && !callLog.slice(beforeChatCalls).some((entry) => entry.path === '/api/ask'));
 console.log('');
 if (failures.length === 0) {
     console.log('ALL PASS');

@@ -5,10 +5,13 @@
  * Agent tools and the panel proxy share a restricted agent credential; neither
  * can approve a proposal or perform a live community write.
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { communityEndpoint, communityRequest, requireAgentIdentity } from './community-endpoint.mjs';
 import { createPatrolController } from './patrol-runtime.mjs';
+import { createCompanionRuntime } from './companion-runtime.mjs';
+import { createCompanionService } from './companion-service.mjs';
+import { registerCompanionRoutes } from './companion-http.mjs';
 function record(value) { return value !== null && typeof value === 'object'; }
 function fields(value) {
     if (!record(value))
@@ -189,6 +192,33 @@ function wirePayload(state) {
 }
 export function apply(ctx) {
     const store = new FeedStore();
+    const companionRuntime = createCompanionRuntime();
+    const companion = createCompanionService({ file: join(homeDir(), 'xiaolanshu', 'companion.json'), engine: companionRuntime });
+    ctx.effect(() => () => companion.close());
+    ctx.inject(['webServer', 'connection', 'agents', 'agentPresets', 'agentDefaultModel'], async (runtimeCtx) => {
+        // Older/partial hosts never get a sensitive route through a fallback guard.
+        if (!runtimeCtx.webServer || typeof runtimeCtx.connection?.requestRejection !== 'function')
+            return;
+        const detach = await companionRuntime.attach(runtimeCtx);
+        const unregister = registerCompanionRoutes({ webServer: runtimeCtx.webServer, connection: runtimeCtx.connection, chat: companion,
+            bridgeAccess: async () => {
+                const file = join(homeDir(), 'xiaolanshu', 'companion-wechat-access.json');
+                try {
+                    const info = await lstat(file);
+                    if (!info.isFile() || info.isSymbolicLink() || info.size > 16384)
+                        return undefined;
+                    const raw = JSON.parse(await readFile(file, 'utf8'));
+                    if (!record(raw) || raw.enabled !== true || typeof raw.tokenHash !== 'string' || !Array.isArray(raw.accounts) || !Array.isArray(raw.peers)
+                        || !raw.accounts.every((item) => typeof item === 'string') || !raw.peers.every((item) => typeof item === 'string'))
+                        return undefined;
+                    return { tokenHash: raw.tokenHash, accounts: raw.accounts, peers: raw.peers };
+                }
+                catch {
+                    return undefined;
+                }
+            } });
+        runtimeCtx.effect(() => async () => { await unregister(); await detach(); });
+    });
     const patrol = createPatrolController({ homeDir, beforeRun: async () => {
             if (!await remoteConfig())
                 throw Object.assign(new Error('离线时不能启动巡检'), { status: 409 });

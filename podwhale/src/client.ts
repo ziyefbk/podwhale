@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
 
     const NS = 'xiaolanshu';
     /** Bumped on every visible change; the panel footer prints it. */
-    const BUILD = '0.1.3';
+    const BUILD = '0.1.4';
 
     // ---------------------------------------------------------------- texts
     const ZH: Record<string, string> = {
@@ -156,7 +156,31 @@ window.__ModuleLoader__.load({
       'n.post': '发了新笔记',
       'look.title': '外形',
       'look.hint': '改了立刻同步到社区',
-      'pet.title': '鲸群桌宠 · 点击或 Enter / 空格打开；拖拽或方向键移动；T 播放本地思考表情',
+      'pet.title': '大肥鱼 · 点击或 Enter / 空格聊天；拖拽或方向键移动；T 播放本地思考表情',
+      'chat.title': '大肥鱼',
+      'chat.subtitle': '使用当前 DSH 模型处理消息，敏感信息自动脱敏；本机记录不发布到社区',
+      'chat.community': '鲸群社区',
+      'chat.close': '收起聊天',
+      'chat.loading': '正在连接本机 DSH…',
+      'chat.unconfigured': '请先在 DSH 中配置可用模型，再重新连接。',
+      'chat.empty': '和大肥鱼聊聊吧。',
+      'chat.input': '想和大肥鱼说些什么',
+      'chat.hint': 'Enter 发送 · Shift + Enter 换行 · 最多 4000 字',
+      'chat.send': '发送',
+      'chat.sending': '正在发送…',
+      'chat.preparing': '正在准备对话…',
+      'chat.generating': '大肥鱼正在回复…',
+      'chat.failed': '这次未能完成回复，内容已保留，可修改后重试。',
+      'chat.cancelled': '已停止回复，可修改内容后重新发送。',
+      'chat.error': '连接未完成，输入内容已保留。请重新连接或重试。',
+      'chat.conflict': '当前还有一条对话在进行，请先等待或停止。',
+      'chat.reconnect': '重新连接',
+      'chat.stop': '停止回复',
+      'chat.stopping': '正在停止…',
+      'chat.clear': '清空对话',
+      'chat.clearPrompt': '清空本插件聊天记录？DSH 原生会话与诊断数据由 DSH 独立管理。',
+      'chat.confirmClear': '确认清空',
+      'chat.back': '返回',
       'pet.post': '发了：',
       'pet.reply': '回了一句：',
       'pet.claim': '领了任务：',
@@ -339,7 +363,31 @@ window.__ModuleLoader__.load({
       'n.post': 'posted a new note',
       'look.title': 'Look',
       'look.hint': 'Changes reach the community immediately',
-      'pet.title': 'Podwhale pet · click or Enter / Space to open; drag or arrow keys to move; T for a local thinking expression',
+      'pet.title': 'Whale companion · click or Enter / Space to chat; drag or arrow keys to move; T for a local thinking expression',
+      'chat.title': 'Whale companion',
+      'chat.subtitle': 'Messages use the current DSH model with automatic sensitive-data redaction. Local records are not posted to the community.',
+      'chat.community': 'Podwhale community',
+      'chat.close': 'Close chat',
+      'chat.loading': 'Connecting to local DSH…',
+      'chat.unconfigured': 'Configure an available model in DSH, then reconnect.',
+      'chat.empty': 'Say hello to your whale companion.',
+      'chat.input': 'Message your whale companion',
+      'chat.hint': 'Enter to send · Shift + Enter for a new line · 4000 characters',
+      'chat.send': 'Send',
+      'chat.sending': 'Sending…',
+      'chat.preparing': 'Preparing the conversation…',
+      'chat.generating': 'Your companion is replying…',
+      'chat.failed': 'The reply did not complete. Your input is preserved for editing and retry.',
+      'chat.cancelled': 'Reply stopped. You can edit and send again.',
+      'chat.error': 'The connection did not complete. Your input is preserved. Reconnect or retry.',
+      'chat.conflict': 'A conversation is still running. Wait for it or stop it first.',
+      'chat.reconnect': 'Reconnect',
+      'chat.stop': 'Stop reply',
+      'chat.stopping': 'Stopping…',
+      'chat.clear': 'Clear conversation',
+      'chat.clearPrompt': 'Clear this plugin’s chat records? Native DSH sessions and diagnostics are managed separately by DSH.',
+      'chat.confirmClear': 'Confirm clear',
+      'chat.back': 'Back',
       'pet.post': 'posted: ',
       'pet.reply': 'replied: ',
       'pet.claim': 'claimed: ',
@@ -626,6 +674,26 @@ window.__ModuleLoader__.load({
 .xls-pet-bubble{position:absolute;right:114px;top:0;width:max-content;max-width:min(190px,45vw);padding:7px 10px;border-radius:12px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:11.5px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.22);animation:xls-pop .22s ease-out;pointer-events:none;}
 @keyframes xls-pop{from{opacity:0;transform:translateY(4px) scale(.96)}to{opacity:1;transform:none}}
 .xls-pet:hover{background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.36),transparent 70%);}
+.xls-chat{position:fixed;right:24px;bottom:min(224px,24vh);width:min(380px,calc(100vw - 32px));height:min(520px,calc(100dvh - min(224px,24vh) - 80px));z-index:35;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:16px;background:var(--dsw-alias-bg-overlay,#fff);color:var(--dsw-alias-label-primary,#18314d);box-shadow:0 18px 58px rgba(20,26,46,.22);pointer-events:auto;font-size:13px;}
+.xls-chat-head{padding:14px 14px 10px;border-bottom:1px solid var(--dsw-alias-border-l2,#dbe2ea);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.xls-chat-title{font-size:15px;font-weight:650;margin:0;}
+.xls-chat-sub{font-size:11px;color:var(--dsw-alias-label-secondary,#526478);padding:8px 14px 0;}
+.xls-chat-actions{display:flex;align-items:center;gap:6px;}
+.xls-chat-button{min-height:44px;min-width:44px;padding:6px 9px;font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:8px;cursor:pointer;}
+.xls-chat-button:disabled{opacity:.5;cursor:default;}
+.xls-chat-button:focus-visible,.xls-chat-input:focus-visible{outline:2px solid #5385e8;outline-offset:2px;}
+.xls-chat-log{flex:1;min-height:0;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;}
+.xls-chat-message{white-space:pre-wrap;overflow-wrap:anywhere;max-width:92%;padding:9px 11px;border-radius:12px;line-height:1.6;background:var(--dsw-alias-bg-l2,#edf2f7);align-self:flex-start;}
+.xls-chat-message.mine{align-self:flex-end;background:rgba(83,133,232,.14);}
+.xls-chat-empty{margin:auto 0;color:var(--dsw-alias-label-secondary,#526478);text-align:center;font-size:12px;}
+.xls-chat-status{font-size:12px;color:var(--dsw-alias-label-secondary,#526478);padding:0 14px 8px;white-space:pre-wrap;overflow-wrap:anywhere;}
+.xls-chat-error{padding:8px 14px;color:var(--dsw-alias-state-error-primary,#a33232);font-size:12px;}
+.xls-chat-compose{padding:10px 14px 12px;border-top:1px solid var(--dsw-alias-border-l2,#dbe2ea);}
+.xls-chat-input{display:block;width:100%;min-height:66px;max-height:132px;resize:vertical;padding:9px 10px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:9px;background:var(--dsw-alias-bg-l1,#fff);color:inherit;font:inherit;line-height:1.5;}
+.xls-chat-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;}
+.xls-chat-hint{font-size:10px;color:var(--dsw-alias-label-secondary,#526478);margin-top:6px;}
+.xls-chat-confirm{padding:10px 14px;border-top:1px solid var(--dsw-alias-border-l2,#dbe2ea);font-size:12px;}
+@media(max-width:600px){.xls-chat{right:16px;bottom:16px;height:min(540px,calc(100dvh - 88px));}}
 .xls-tab-dot{margin-left:5px;background:var(--dsw-alias-state-error-primary);color:#fff;border-radius:8px;padding:0 5px;font-size:9.5px;font-weight:600;}
 .xls-author{background:transparent;border:none;padding:0;font:inherit;cursor:pointer;color:inherit;}
 .xls-author:hover{text-decoration:underline;}
@@ -1337,7 +1405,7 @@ window.__ModuleLoader__.load({
         y: Math.min(Math.max(Math.min(64, maxY), value.y), maxY) };
     }
 
-    function Pet(props: { onOpen(): void }) {
+    function Pet(props: { onOpen(): void; chatting?: boolean; generating?: boolean }) {
       const [look, setLook] = useState(AI_LOOKS.alan);
       const [dragging, setDragging] = useState(false);
       const [hovered, setHovered] = useState(false);
@@ -1403,10 +1471,10 @@ window.__ModuleLoader__.load({
         return () => { alive = false; };
       }, []);
       useEffect(() => {
-        if (hidden) return;
+        if (hidden || props.chatting) { setSleepy(false); return; }
         const timer = window.setInterval(() => setSleepy(!drag.current && Date.now() - lastTouch.current >= 60000), 1000);
         return () => window.clearInterval(timer);
-      }, [hidden]);
+      }, [hidden, props.chatting]);
       useEffect(() => {
         if (!thinking) return;
         const timer = window.setTimeout(() => setThinking(false), 4000);
@@ -1489,7 +1557,7 @@ window.__ModuleLoader__.load({
       };
       // Drift never fights the user's pointer/focus, sleeping, or motion preferences.
       useEffect(() => {
-        if (hidden || reduced || sleepy || focused || hovered) return;
+        if (hidden || reduced || sleepy || focused || hovered || props.chatting) return;
         const timer = window.setInterval(() => {
           if (drag.current) return;
           const rect = el.current?.getBoundingClientRect();
@@ -1497,8 +1565,8 @@ window.__ModuleLoader__.load({
           if (base) position({ x: base.x + (Math.random() - 0.5) * 90, y: base.y + (Math.random() - 0.5) * 60 });
         }, 7000);
         return () => window.clearInterval(timer);
-      }, [hidden, reduced, sleepy, focused, hovered]);
-      const action: ClientPetAction = dragging ? 'drag' : happy ? 'happy' : thinking ? 'think'
+      }, [hidden, reduced, sleepy, focused, hovered, props.chatting]);
+      const action: ClientPetAction = dragging ? 'drag' : props.generating ? 'think' : happy ? 'happy' : thinking ? 'think'
         : hovered || focused ? 'wave' : sleepy ? 'sleep' : 'idle';
       return h('div', {
         className: 'xls-pet' + (dragging ? ' drag' : ''), ref: el,
@@ -1517,6 +1585,225 @@ window.__ModuleLoader__.load({
         h('div', { className: action === 'sleep' ? 'xls-doze' : undefined }, h(PetArtwork, { look, action, still: reduced || hidden }))
       );
     }
+
+    const COMPANION_API = '/xiaolanshu/api/companion';
+    function companionRecord(value: unknown): value is Record<string, unknown> {
+      return typeof value === 'object' && value !== null && !Array.isArray(value);
+    }
+    function companionJob(value: unknown): value is ClientCompanionJob {
+      return companionRecord(value) && typeof value.id === 'string' && typeof value.requestId === 'string'
+        && typeof value.input === 'string' && typeof value.createdAt === 'string'
+        && typeof value.state === 'string' && ['preparing', 'generating', 'completed', 'failed', 'cancelled'].includes(value.state)
+        && (value.reply === undefined || typeof value.reply === 'string')
+        && (value.error === undefined || typeof value.error === 'string');
+    }
+    function companionView(value: unknown): value is ClientCompanionView {
+      return companionRecord(value) && value.ok === true && typeof value.ready === 'boolean'
+        && (value.model === null || (companionRecord(value.model) && typeof value.model.provider === 'string' && typeof value.model.model === 'string'))
+        && Array.isArray(value.messages) && value.messages.every((message: unknown) => companionRecord(message)
+          && typeof message.id === 'string' && (message.role === 'user' || message.role === 'assistant')
+          && typeof message.text === 'string' && typeof message.createdAt === 'string')
+        && (value.job === null || companionJob(value.job));
+    }
+    const companionRunning = (job: ClientCompanionJob | null | undefined) => job?.state === 'preparing' || job?.state === 'generating';
+    class CompanionRequestError extends Error {
+      constructor(readonly status: number) { super('companion request failed'); }
+    }
+
+    function CompanionChat(props: { open: boolean; onClose(): void; onCommunity(): void; onGenerating(value: boolean): void }) {
+      const [view, setView] = useState<ClientCompanionView | null>(null);
+      const [draft, setDraft] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [working, setWorking] = useState<'send' | 'cancel' | 'clear' | null>(null);
+      const [confirming, setConfirming] = useState(false);
+      const [hidden, setHidden] = useState(() => document.hidden);
+      const [revision, setRevision] = useState(0);
+      const input = useRef<HTMLTextAreaElement | null>(null);
+      const log = useRef<HTMLDivElement | null>(null);
+      const active = useRef(false);
+      const epoch = useRef(0);
+      const controllers = useRef(new Set<AbortController>());
+      const mutation = useRef(false);
+      const watchJob = useRef<string | null>(null);
+      const retry = useRef<{ requestId: string; text: string } | null>(null);
+      const job = view?.job || null;
+      const running = companionRunning(job);
+      const request = async (path: string, method = 'GET', body?: object): Promise<unknown> => {
+        const controller = new AbortController();
+        controllers.current.add(controller);
+        try {
+          const response = await fetch(path, { method, credentials: 'same-origin', signal: controller.signal,
+            headers: { accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) },
+            ...(body ? { body: JSON.stringify(body) } : {}) });
+          if (!response.ok) throw new CompanionRequestError(response.status);
+          if (method === 'DELETE' || response.status === 204) return null;
+          const value: unknown = await response.json();
+          return value;
+        } finally { controllers.current.delete(controller); }
+      };
+      const accept = (next: ClientCompanionView) => {
+        setView(next);
+        props.onGenerating(next.job?.state === 'generating');
+        if (next.job) {
+          watchJob.current = next.job.id;
+          if (next.job.state === 'failed' || next.job.state === 'cancelled') setDraft((current) => current || next.job!.input);
+          if (!companionRunning(next.job) && retry.current?.requestId === next.job.requestId) retry.current = null;
+        }
+      };
+      useEffect(() => {
+        const visibility = () => setHidden(document.hidden);
+        document.addEventListener('visibilitychange', visibility);
+        return () => document.removeEventListener('visibilitychange', visibility);
+      }, []);
+      useEffect(() => {
+        const version = ++epoch.current;
+        active.current = props.open && !hidden;
+        if (!active.current) {
+          setWorking(null);
+          mutation.current = false;
+          props.onGenerating(false);
+          if (!props.open) { watchJob.current = null; setConfirming(false); }
+          return;
+        }
+        let timer: number | undefined;
+        setLoading(true);
+        setError('');
+        const poll = async () => {
+          try {
+            const value = await request(COMPANION_API + (watchJob.current ? '?jobId=' + encodeURIComponent(watchJob.current) : ''));
+            if (!active.current || version !== epoch.current) return;
+            if (!companionView(value)) throw new CompanionRequestError(502);
+            accept(value);
+            setLoading(false);
+            if (companionRunning(value.job)) timer = window.setTimeout(poll, 900);
+          } catch (caught) {
+            if (!active.current || version !== epoch.current) return;
+            props.onGenerating(false);
+            setLoading(false);
+            setError(tr('chat.error'));
+          }
+        };
+        poll();
+        input.current?.focus();
+        return () => {
+          active.current = false;
+          epoch.current += 1;
+          if (timer !== undefined) window.clearTimeout(timer);
+          controllers.current.forEach((controller) => controller.abort());
+          controllers.current.clear();
+          mutation.current = false;
+          props.onGenerating(false);
+        };
+      }, [props.open, hidden, revision]);
+      useEffect(() => {
+        if (log.current) log.current.scrollTop = log.current.scrollHeight;
+      }, [view, working]);
+      useEffect(() => {
+        if (props.open && !hidden && !loading && view?.ready && !running) input.current?.focus();
+      }, [props.open, hidden, loading, view?.ready, running]);
+      const change = async (kind: 'send' | 'cancel' | 'clear', path: string, method: string, body?: object) => {
+        if (!active.current || mutation.current) return;
+        mutation.current = true;
+        const version = epoch.current;
+        setWorking(kind);
+        setError('');
+        try {
+          const value = await request(path, method, body);
+          if (!active.current || version !== epoch.current) return;
+          if (kind === 'clear') {
+            setView((current) => current ? { ...current, messages: [], job: null } : current);
+            setDraft(''); retry.current = null; watchJob.current = null; setConfirming(false);
+          } else {
+            if (!companionRecord(value) || value.ok !== true || !companionJob(value.job)) throw new CompanionRequestError(502);
+            const nextJob = value.job;
+            watchJob.current = nextJob.id;
+            setView((current) => current ? { ...current, job: nextJob } : current);
+            props.onGenerating(nextJob.state === 'generating');
+            if (kind === 'send') setDraft('');
+            if (nextJob.state === 'failed' || nextJob.state === 'cancelled') {
+              setDraft(nextJob.input); retry.current = null;
+            }
+          }
+          setRevision((value) => value + 1);
+        } catch (caught) {
+          if (!active.current || version !== epoch.current) return;
+          setError(tr(caught instanceof CompanionRequestError && caught.status === 409 ? 'chat.conflict' : 'chat.error'));
+          props.onGenerating(false);
+        } finally {
+          if (active.current && version === epoch.current) { mutation.current = false; setWorking(null); }
+        }
+      };
+      const send = () => {
+        const text = draft.trim();
+        if (!text || text.length > 4000 || !view?.ready || running || loading || working || mutation.current) return;
+        if (!retry.current || retry.current.text !== text) retry.current = { requestId: window.crypto.randomUUID(), text };
+        change('send', COMPANION_API + '/messages', 'POST', retry.current);
+      };
+      if (!props.open) return null;
+      const state = loading ? tr('chat.loading') : working === 'send' ? tr('chat.sending') : working === 'cancel' ? tr('chat.stopping')
+        : job?.state === 'generating' ? tr('chat.generating') : job?.state === 'preparing' ? tr('chat.preparing')
+        : job?.state === 'failed' ? tr('chat.failed') : job?.state === 'cancelled' ? tr('chat.cancelled') : '';
+      return h('section', { className: 'xls-chat', role: 'dialog', 'aria-modal': false, 'aria-labelledby': 'xls-chat-title',
+        'data-companion-state': job?.state || 'idle',
+        onKeyDown: (event: import('react').KeyboardEvent<HTMLElement>) => {
+          event.stopPropagation();
+          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); props.onClose(); }
+        } },
+        h('div', { className: 'xls-chat-head' },
+          h('h2', { className: 'xls-chat-title', id: 'xls-chat-title' }, tr('chat.title')),
+          h('div', { className: 'xls-chat-actions' },
+            h('button', { className: 'xls-chat-button', onClick: props.onCommunity, type: 'button' }, tr('chat.community')),
+            h('button', { className: 'xls-chat-button', onClick: props.onClose, type: 'button', 'aria-label': tr('chat.close') }, '×'))),
+        h('div', { className: 'xls-chat-sub' }, tr('chat.subtitle')),
+        h('div', { className: 'xls-chat-log', ref: log, role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' },
+          !view?.messages.length && !job ? h('p', { className: 'xls-chat-empty' }, tr('chat.empty')) : null,
+          view?.messages.map((message) => h('div', { key: message.id,
+            className: 'xls-chat-message' + (message.role === 'user' ? ' mine' : ''), 'data-message-id': message.id }, message.text)),
+          job && job.state !== 'completed' ? h('div', { className: 'xls-chat-message mine', 'data-pending-job': job.id }, job.input) : null),
+        !loading && view && !view.ready ? h('div', { className: 'xls-chat-status', role: 'status' }, tr('chat.unconfigured')) : null,
+        state ? h('div', { className: 'xls-chat-status', role: 'status' }, state) : null,
+        error ? h('div', { className: 'xls-chat-error', role: 'alert' }, error) : null,
+        (error || (!loading && !view?.ready)) ? h('div', { className: 'xls-chat-status' },
+          h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working, onClick: () => setRevision((value) => value + 1) }, tr('chat.reconnect'))) : null,
+        confirming ? h('div', { className: 'xls-chat-confirm' }, tr('chat.clearPrompt'),
+          h('div', { className: 'xls-chat-actions' },
+            h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working || running,
+              onClick: () => change('clear', COMPANION_API, 'DELETE') }, tr('chat.confirmClear')),
+            h('button', { className: 'xls-chat-button', type: 'button', onClick: () => setConfirming(false) }, tr('chat.back')))) : null,
+        h('div', { className: 'xls-chat-compose' },
+          h('textarea', { className: 'xls-chat-input', ref: input, value: draft, maxLength: 4000,
+            'aria-label': tr('chat.input'), 'aria-describedby': 'xls-chat-hint', disabled: !!working || running || !view?.ready || loading || hidden,
+            onChange: (event: import('react').ChangeEvent<HTMLTextAreaElement>) => setDraft(event.target.value),
+            onKeyDown: (event: import('react').KeyboardEvent<HTMLTextAreaElement>) => {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                event.preventDefault(); send();
+              }
+            } }),
+          h('div', { className: 'xls-chat-foot' },
+            h('button', { className: 'xls-chat-button', type: 'button', disabled: !view || !!working || running || loading,
+              onClick: () => setConfirming(true) }, tr('chat.clear')),
+            h('div', { className: 'xls-chat-actions' },
+              running && job ? h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working,
+                onClick: () => change('cancel', COMPANION_API + '/cancel', 'POST', { jobId: job.id }) }, tr('chat.stop')) : null,
+              h('button', { className: 'xls-chat-button', type: 'button', onClick: send,
+                disabled: !draft.trim() || !view?.ready || running || !!working || loading || hidden }, tr('chat.send')))),
+          h('div', { className: 'xls-chat-hint', id: 'xls-chat-hint' }, tr('chat.hint'))));
+    }
+
+    function CompanionOverlay(props: { onCommunity(): void }) {
+      useLocaleTick();
+      const [open, setOpen] = useState(false);
+      const [generating, setGenerating] = useState(false);
+      const close = () => { setOpen(false); document.querySelector<HTMLElement>('.xls-pet')?.focus(); };
+      // Overlay styling must work before the community panel has ever mounted.
+      return h(React.Fragment, null,
+        h('style', null, CSS),
+        h(Pet, { onOpen: () => setOpen(true), chatting: open, generating: open && generating }),
+        h(CompanionChat, { open, onClose: close, onGenerating: setGenerating,
+          onCommunity: () => { close(); props.onCommunity(); } }));
+    }
+
 
     function Page() {
       useLocaleTick();
@@ -2695,7 +2982,7 @@ window.__ModuleLoader__.load({
         };
         // Hoisted so a re-registration never hands React a new component type:
         // a new type means remount, which would throw away the drag position.
-        const PetEntry = () => h(Pet, { onOpen: openPanel });
+        const PetEntry = () => h(CompanionOverlay, { onCommunity: openPanel });
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
           id: 'xiaolanshu-pet',

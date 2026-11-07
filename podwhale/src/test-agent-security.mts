@@ -10,6 +10,7 @@ import { deflateSync } from 'node:zlib';
 import { communityEndpoint } from './community-endpoint.mjs';
 import { PATROL_TOOLS, PATROL_SYSTEM } from './patrol-runtime.mjs';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import type { CompanionConnection } from './companion-types.mjs';
 import type { AgentContext, AgentCreateOptions, Dispose, EffectContext, HostAgent, HostContext, PatrolRuntimeContext, PatrolUserMessage, RegisteredTool, ScheduleService, ToolDefinition, ToolExecutor, ToolGuardExecution, WebRoute, WebServer } from './host-types.mjs';
 
 type Invoke = (name: string, args: unknown) => Promise<unknown>;
@@ -251,11 +252,13 @@ async function host(config: { url: string; token: string } | null, faults: HostF
   type ScheduleInjection = [names: ['schedule'], activate: (context: EffectContext & { schedule: ScheduleService }) => void | Promise<void>];
   type ToolsInjection = [names: ['tools'], activate: (context: { tools: { register(tool: RegisteredTool): Dispose } }) => void];
   type WebInjection = [names: ['webServer'], activate: (context: { webServer: WebServer }) => void];
-  type Injection = RuntimeInjection | ScheduleInjection | ToolsInjection | WebInjection;
+  type CompanionInjection = [names: ['webServer', 'connection', 'agents', 'agentPresets', 'agentDefaultModel'],
+    activate: (context: PatrolRuntimeContext & { webServer: WebServer; connection: CompanionConnection }) => void | Promise<void>];
+  type Injection = RuntimeInjection | ScheduleInjection | ToolsInjection | WebInjection | CompanionInjection;
   const runtimeInjection = (value: Injection): value is RuntimeInjection => value[0][0] === 'agents';
   const scheduleInjection = (value: Injection): value is ScheduleInjection => value[0][0] === 'schedule';
   const toolsInjection = (value: Injection): value is ToolsInjection => value[0][0] === 'tools';
-  const webInjection = (value: Injection): value is WebInjection => value[0][0] === 'webServer';
+  const webInjection = (value: Injection): value is WebInjection => value[0][0] === 'webServer' && value[0].length === 1;
   const fakeHost: HostContext = {
     inject(...value: Injection) {
       if (runtimeInjection(value) && !faults.noRuntime) activations.push(Promise.resolve(value[1](runtime)));
@@ -313,7 +316,8 @@ try {
   const imageAssets = join(imageRuntime, 'assets');
   await mkdir(imageAssets, { recursive: true });
   await writeFile(join(imageRuntime, 'package.json'), '{"type":"module"}');
-  for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs']) {
+  for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs',
+    'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'redact.js']) {
     await copyFile(join(HERE, name), join(imageRuntime, name));
   }
   const bluePng = fixturePng([50, 100, 230, 255]);

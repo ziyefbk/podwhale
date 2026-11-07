@@ -71,6 +71,16 @@ interface ClientPosition { x: number; y: number }
 interface ClientDrag { pointerId: number; dx: number; dy: number; startX: number; startY: number; moved: boolean }
 type ClientPetAction = 'idle' | 'wave' | 'happy' | 'sleep' | 'think' | 'drag';
 interface ClientPetMotion { atlas: 'a' | 'b'; row: number; sequence: number[]; durationMs: number[] }
+/** JSON port matching companion-types.mts; no Node/Host services enter the classic client script. */
+interface ClientCompanionMessage { id: string; role: 'user' | 'assistant'; text: string; createdAt: string }
+interface ClientCompanionJob {
+  id: string; requestId: string; state: 'preparing' | 'generating' | 'completed' | 'failed' | 'cancelled';
+  input: string; createdAt: string; reply?: string; error?: string;
+}
+interface ClientCompanionView {
+  ok: true; ready: boolean; model: { provider: string; model: string } | null;
+  messages: ClientCompanionMessage[]; job: ClientCompanionJob | null;
+}
 interface ClientPetNote { id: string; text: string }
 interface ClientTaskDraft { title: string; desc: string; budget: string; period: string }
 interface ClientIconProps { size?: number | undefined }

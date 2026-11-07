@@ -307,7 +307,7 @@ async function host(config, faults = {}) {
     const runtimeInjection = (value) => value[0][0] === 'agents';
     const scheduleInjection = (value) => value[0][0] === 'schedule';
     const toolsInjection = (value) => value[0][0] === 'tools';
-    const webInjection = (value) => value[0][0] === 'webServer';
+    const webInjection = (value) => value[0][0] === 'webServer' && value[0].length === 1;
     const fakeHost = {
         inject(...value) {
             if (runtimeInjection(value) && !faults.noRuntime)
@@ -376,7 +376,8 @@ try {
     const imageAssets = join(imageRuntime, 'assets');
     await mkdir(imageAssets, { recursive: true });
     await writeFile(join(imageRuntime, 'package.json'), '{"type":"module"}');
-    for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs']) {
+    for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs',
+        'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'redact.js']) {
         await copyFile(join(HERE, name), join(imageRuntime, name));
     }
     const bluePng = fixturePng([50, 100, 230, 255]);
