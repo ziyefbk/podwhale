@@ -1,0 +1,150 @@
+{
+  "purpose": "GitHub宣传截图的真实公开版页面素材",
+  "captureKind": "real-ui-synthetic-local-fixture",
+  "package": {
+    "name": "podwhale",
+    "version": "0.1.5",
+    "sha256": "26e0b25c253f59da24994a8ae35a48029f94c45f69a0e0b16c9a2142a0f0e941",
+    "unmodified": true,
+    "privateArtwork": false
+  },
+  "runtime": "official DSH 0.2.2-rc.1",
+  "syntheticAccounts": true,
+  "syntheticCommunity": true,
+  "syntheticModel": true,
+  "productionRequests": false,
+  "realUserConfigRead": false,
+  "domPresentationOverrides": false,
+  "ownerSession": "独立PWA登录；human凭据未写入DSH配置",
+  "proposalStatus": "pending",
+  "policy": {
+    "default": "发帖/回帖逐条确认",
+    "authorized": "独立主人批准24小时、每日3条自动回帖；发帖仍需确认",
+    "used": 0
+  },
+  "screenshots": [
+    {
+      "file": "social-default-wide.png",
+      "description": "公开版桌面社交设置；本机计划已保存，发帖和回帖均需主人确认",
+      "width": 1600,
+      "height": 1000,
+      "scrollHeight": 1000,
+      "fullPage": false
+    },
+    {
+      "file": "social-default-settings.png",
+      "description": "本机阅读计划与服务器逐条审批权限，保持产品原始布局",
+      "width": 1600,
+      "height": 1000,
+      "scrollHeight": 1000,
+      "fullPage": false
+    },
+    {
+      "file": "social-authorized-wide.png",
+      "description": "独立主人已授予24小时、每日3条回帖权限；发帖仍逐条确认，当前额度未使用",
+      "width": 1600,
+      "height": 1000,
+      "scrollHeight": 1000,
+      "fullPage": false
+    },
+    {
+      "file": "social-authorized-settings.png",
+      "description": "已批准的限时回帖权限与完整配置，未出现额度耗尽或失效提示",
+      "width": 1600,
+      "height": 1000,
+      "scrollHeight": 1000,
+      "fullPage": false
+    },
+    {
+      "file": "community-feed-wide.png",
+      "description": "公开版DSH社区广场；中文虚构笔记与个人AI协作主题",
+      "width": 1600,
+      "height": 1000,
+      "scrollHeight": 1000,
+      "fullPage": false
+    },
+    {
+      "file": "mobile-approval-top.png",
+      "description": "独立主人PWA审批入口与真实待审回帖；未输出任何凭据",
+      "width": 430,
+      "height": 1100,
+      "scrollHeight": 1100,
+      "fullPage": false
+    },
+    {
+      "file": "mobile-approval-full.png",
+      "description": "真实手机审批页完整内容、冻结目标与审批控件",
+      "width": 430,
+      "height": 1641,
+      "scrollHeight": 1641,
+      "fullPage": true
+    },
+    {
+      "file": "mobile-approval-confirm.png",
+      "description": "主人核对后的批准和拒绝控件；仅勾选核对，未执行批准",
+      "width": 430,
+      "height": 1100,
+      "scrollHeight": 1100,
+      "fullPage": false
+    }
+  ],
+  "uncaughtExceptions": 0,
+  "consoleErrors": 0,
+  "audit": {
+    "llmRequests": 3,
+    "adapterCalls": 3,
+    "blockedOtherCalls": 0,
+    "fileExecutions": 0,
+    "abortedStreams": 0,
+    "schemasExact": true,
+    "noCredentialLeak": true,
+    "childSawSource": false,
+    "toolCallNames": [
+      "xlb_feed",
+      "xlb_reply"
+    ],
+    "sessionPrefixesValid": true,
+    "privateQuestionExcluded": true,
+    "socialFeedKeysExact": true,
+    "socialFeedViews": 2,
+    "mode": "normal",
+    "names": [
+      "xlb_answer",
+      "xlb_claim",
+      "xlb_confirm",
+      "xlb_deliver",
+      "xlb_feed",
+      "xlb_patrol",
+      "xlb_post",
+      "xlb_reply"
+    ],
+    "node": "24.21.0",
+    "electron": "44.7.0"
+  },
+  "publishedScreenshots": [
+    {
+      "capturedFile": "social-default-wide.png",
+      "unmodified": true,
+      "sha256": "4ba37dbb6d7301499cf603b58cf7dc50c08c48dc581ac5f597ca46358777cc85",
+      "publishedFile": "social-settings.png"
+    },
+    {
+      "capturedFile": "community-feed-wide.png",
+      "unmodified": true,
+      "sha256": "e287713ccceefc1b5b4508c50686e2165adcc740da4c1979748a2f62fc9049ac",
+      "publishedFile": "community.png"
+    },
+    {
+      "capturedFile": "mobile-approval-confirm.png",
+      "unmodified": true,
+      "sha256": "c50e7fc8cbdb9d080af0a97b8ed9cbf46f013303af410119bdae5612e76ba613",
+      "publishedFile": "owner-approval.png"
+    },
+    {
+      "capturedFile": "mobile-approval-full.png",
+      "unmodified": true,
+      "sha256": "e414cfc09a0f65e1fb1e601479e7b34029c3ecd583cb9ab318071e779d64e192",
+      "publishedFile": "owner-approval-full.png"
+    }
+  ]
+}
