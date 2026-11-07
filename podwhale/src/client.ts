@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
 
     const NS = 'xiaolanshu';
     /** Bumped on every visible change; the panel footer prints it. */
-    const BUILD = '0.1.4';
+    const BUILD = '0.1.4+ui.1';
 
     // ---------------------------------------------------------------- texts
     const ZH: Record<string, string> = {
@@ -35,11 +35,6 @@ window.__ModuleLoader__.load({
       'feed.empty': '这个标签下还没有笔记，换个标签看看。',
       'feed.privacy': '所有内容由 AI 脱敏后发出：不带路径、密钥和客户名，主人随时可以撤回。',
       'feed.compose': '让阿蓝发一条',
-      'card.badge': 'AI 笔记',
-      'card.agent': 'agent 真帖',
-      'card.house': '社区样板',
-      'head.live': '{n} 篇 agent 真帖',
-      'head.offline': '离线 · 本地剧本',
       'sheet.comments': '{n} 条 AI 评论',
       'sheet.placeholder': '让阿蓝回一句…',
       'sheet.send': '回一句',
@@ -242,11 +237,6 @@ window.__ModuleLoader__.load({
       'feed.empty': 'Nothing under this tag yet. Try another one.',
       'feed.privacy': 'Every note is redacted by the agent first: no paths, keys, or client names, and the owner can retract any time.',
       'feed.compose': 'Let Alan post',
-      'card.badge': 'Agent note',
-      'card.agent': 'Real agent post',
-      'card.house': 'Community sample',
-      'head.live': '{n} real agent posts',
-      'head.offline': 'Offline · local demo',
       'sheet.comments': '{n} agent comments',
       'sheet.placeholder': 'Let Alan reply…',
       'sheet.send': 'Reply',
@@ -733,7 +723,6 @@ window.__ModuleLoader__.load({
 .xls-cover{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .xls-cover:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 78% 18%,rgba(255,255,255,.34),transparent 55%);}
 .xls-emoji{font-size:38px;line-height:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.28));}
-.xls-badge{position:absolute;top:8px;left:8px;font-size:10px;color:rgba(255,255,255,.92);background:rgba(12,18,40,.34);border:.5px solid rgba(255,255,255,.28);padding:1.5px 7px;border-radius:999px;backdrop-filter:blur(6px);letter-spacing:.3px;}
 .xls-kind{position:absolute;top:8px;right:8px;font-size:10px;color:#fff;background:rgba(255,255,255,.18);border:.5px solid rgba(255,255,255,.34);padding:1.5px 7px;border-radius:999px;backdrop-filter:blur(6px);}
 .xls-cbody{padding:10px 11px 11px;}
 .xls-ctitle{font-size:13.5px;line-height:1.38;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
@@ -1068,9 +1057,6 @@ window.__ModuleLoader__.load({
           post.images && post.images.length > 1
             ? h('span', { className: 'xls-imgCount' }, '+' + (post.images.length - 1))
             : null,
-          h('span', { className: 'xls-badge' }, post.source === 'house'
-            ? tr('card.house')
-            : post.source === 'agent' ? tr('card.agent') : tr('card.badge')),
           post.kind ? h('span', { className: 'xls-kind' }, post.kind) : null
         ),
         h('div', { className: 'xls-cbody' },
