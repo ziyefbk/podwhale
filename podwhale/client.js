@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
         const useRef = React.useRef;
         const NS = 'xiaolanshu';
         /** Bumped on every visible change; the panel footer prints it. */
-        const BUILD = '0.1.7';
+        const BUILD = '0.1.8';
         // ---------------------------------------------------------------- texts
         const ZH = {
             'nav.label': '鲸群',
@@ -176,6 +176,22 @@ window.__ModuleLoader__.load({
             'pet.action.surprised': '惊讶',
             'chat.title': '大肥鱼',
             'chat.subtitle': '使用当前 DSH 模型处理消息，敏感信息自动脱敏；本机记录不发布到社区',
+            'chat.private': '本机对话',
+            'chat.more': '更多选项',
+            'chat.expressions': '表情',
+            'chat.about': '关于这段对话',
+            'chat.panelClose': '收起面板',
+            'chat.greeting': '今天想聊些什么？',
+            'chat.welcome': '聊聊今天的事，或一起理清手头的想法。',
+            'chat.promptDay': '聊聊今天',
+            'chat.promptPlan': '理理思路',
+            'chat.draftDay': '今天有件事想跟你聊聊。',
+            'chat.draftPlan': '帮我一起理清手头这件事的思路。',
+            'chat.placeholder': '和大肥鱼说点什么…',
+            'chat.shortHint': 'Enter 发送 · Shift + Enter 换行',
+            'chat.actionHint': '仅播放本机表情，稍后恢复自动；不会读帖或发送消息。',
+            'chat.aboutBody': '消息由 DSH 当前模型处理，发送前按规则脱敏。聊天记录保存在本机，不会发布到社区。',
+            'chat.aboutLimit': '每条消息最多 4000 字。发帖和社交授权请在“社交设置”中管理。',
             'chat.community': '鲸群社区',
             'social.autoRequested': '申请限额内自动发布',
             'social.unknownState': '尚未读取到运行状态。',
@@ -480,6 +496,22 @@ window.__ModuleLoader__.load({
             'pet.action.surprised': 'Surprised',
             'chat.title': 'Whale companion',
             'chat.subtitle': 'Messages use the current DSH model with automatic sensitive-data redaction. Local records are not posted to the community.',
+            'chat.private': 'Local conversation',
+            'chat.more': 'More options',
+            'chat.expressions': 'Expressions',
+            'chat.about': 'About this conversation',
+            'chat.panelClose': 'Close panel',
+            'chat.greeting': 'What’s on your mind?',
+            'chat.welcome': 'Share your day, or make room for a new idea together.',
+            'chat.promptDay': 'Talk about today',
+            'chat.promptPlan': 'Sort out an idea',
+            'chat.draftDay': 'There is something from today I would like to talk about.',
+            'chat.draftPlan': 'Help me think through something I am working on.',
+            'chat.placeholder': 'Say something to your whale companion…',
+            'chat.shortHint': 'Enter to send · Shift + Enter for a new line',
+            'chat.actionHint': 'Local expressions only; automatic mode resumes shortly. No feed reads or messages are sent.',
+            'chat.aboutBody': 'Messages use the current DSH model and are redacted according to the configured rules before sending. Chat records stay on this device and are not published to the community.',
+            'chat.aboutLimit': 'Up to 4000 characters per message. Manage publishing and social authorization in Social settings.',
             'chat.community': 'Podwhale community',
             'social.autoRequested': 'Requested automatic publishing within limits',
             'social.unknownState': 'Runtime status has not been retrieved.',
@@ -914,27 +946,64 @@ window.__ModuleLoader__.load({
 .xls-pet-bubble{position:absolute;right:114px;top:0;width:max-content;max-width:min(190px,45vw);padding:7px 10px;border-radius:12px;background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:11.5px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.22);animation:xls-pop .22s ease-out;pointer-events:none;}
 @keyframes xls-pop{from{opacity:0;transform:translateY(4px) scale(.96)}to{opacity:1;transform:none}}
 .xls-pet:hover{background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.36),transparent 70%);}
-.xls-chat{position:fixed;right:24px;bottom:min(224px,24vh);width:min(380px,calc(100vw - 32px));height:min(520px,calc(100dvh - min(224px,24vh) - 80px));z-index:35;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:16px;background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#18314d);box-shadow:0 18px 58px rgba(20,26,46,.22);pointer-events:auto;font-size:13px;}
-.xls-chat-head{padding:14px 14px 10px;border-bottom:1px solid var(--dsw-alias-border-l2,#dbe2ea);display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.xls-chat-title{font-size:15px;font-weight:650;margin:0;}
-.xls-chat-sub{font-size:11px;color:var(--dsw-alias-label-secondary,#526478);padding:8px 14px 0;}
-.xls-chat-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;}
-.xls-chat-button{min-height:44px;min-width:44px;padding:6px 9px;font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:8px;cursor:pointer;}
-.xls-chat-button:disabled{opacity:.5;cursor:default;}
-.xls-chat-button:focus-visible,.xls-chat-input:focus-visible{outline:2px solid #5385e8;outline-offset:2px;}
-.xls-chat-log{flex:1;min-height:0;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;}
-.xls-chat-message{white-space:pre-wrap;overflow-wrap:anywhere;max-width:92%;padding:9px 11px;border-radius:12px;line-height:1.6;background:var(--dsw-alias-bg-layer-2,#edf2f7);align-self:flex-start;}
-.xls-chat-message.mine{align-self:flex-end;background:rgba(83,133,232,.14);}
-.xls-chat-empty{margin:auto 0;color:var(--dsw-alias-label-secondary,#526478);text-align:center;font-size:12px;}
-.xls-chat-status{font-size:12px;color:var(--dsw-alias-label-secondary,#526478);padding:0 14px 8px;white-space:pre-wrap;overflow-wrap:anywhere;}
-.xls-chat-error{padding:8px 14px;color:var(--dsw-alias-state-error-primary,#a33232);font-size:12px;}
-.xls-chat-compose{padding:10px 14px 12px;border-top:1px solid var(--dsw-alias-border-l2,#dbe2ea);}
-.xls-chat-input{display:block;width:100%;min-height:66px;max-height:132px;resize:vertical;padding:9px 10px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:9px;background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;font:inherit;line-height:1.5;}
-.xls-chat-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;}
-.xls-chat-hint{font-size:10px;color:var(--dsw-alias-label-secondary,#526478);margin-top:6px;}
-.xls-chat-confirm{padding:10px 14px;border-top:1px solid var(--dsw-alias-border-l2,#dbe2ea);font-size:12px;}
-@media(max-width:600px){.xls-chat{right:16px;bottom:16px;height:min(540px,calc(100dvh - 88px));}}
-@media(max-width:600px) and (min-height:740px){.xls-chat{bottom:224px;height:min(520px,calc(100dvh - 256px));}}
+.xls-chat{--chat-paper:var(--dsw-alias-bg-layer-1,#fff);--chat-ink:var(--dsw-alias-label-primary,#15243b);--chat-muted:color-mix(in srgb,var(--chat-ink) 72%,var(--chat-paper));--chat-line:color-mix(in srgb,var(--chat-ink) 11%,transparent);--chat-accent:#2b45d6;--chat-tint:color-mix(in srgb,#6e8bff 12%,var(--chat-paper));position:fixed;right:24px;bottom:min(224px,24vh);width:min(400px,calc(100vw - 32px));height:min(552px,calc(100dvh - min(224px,24vh) - 64px));z-index:35;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--chat-line);border-radius:24px;background:var(--chat-paper);color:var(--chat-ink);box-shadow:0 18px 64px rgba(20,32,58,.17);pointer-events:auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.55;}
+.xls-chat,.xls-chat *{box-sizing:border-box;}
+.xls-chat-head{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;border-bottom:1px solid var(--chat-line);}
+.xls-chat-identity{display:flex;align-items:center;gap:11px;min-width:0;}
+.xls-chat-avatar{border-radius:50%;border:1px solid var(--chat-line);}
+.xls-chat-heading{min-width:0;}
+.xls-chat-title{font-size:16px;font-weight:700;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.xls-chat-status{font-size:12px;color:var(--chat-muted);margin-top:2px;}
+.xls-chat-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex:none;}
+.xls-chat-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;min-width:44px;padding:9px 11px;font:inherit;color:inherit;background:transparent;border:1px solid transparent;border-radius:12px;cursor:pointer;}
+.xls-chat-button:hover{background:var(--chat-tint);}
+.xls-chat-button:disabled,.xls-chat-send:disabled{opacity:.45;cursor:default;}
+.xls-chat-button:focus-visible,.xls-chat-send:focus-visible,.xls-chat-prompt:focus-visible,.xls-chat-choice:focus-visible{outline:2px solid #5385e8;outline-offset:2px;}
+.xls-chat-icon{width:44px;flex:none;padding:10px;}
+.xls-chat-body{position:relative;flex:1;min-height:0;display:flex;overflow:hidden;container:companion-chat / size;}
+.xls-chat-log{flex:1;min-width:0;min-height:0;overflow:auto;padding:18px 16px;display:flex;flex-direction:column;gap:12px;background:color-mix(in srgb,var(--chat-ink) 2%,var(--chat-paper));scrollbar-width:thin;}
+.xls-chat-message{white-space:pre-wrap;overflow-wrap:anywhere;max-width:90%;padding:11px 14px;border-radius:18px 18px 18px 6px;font-size:14px;line-height:1.7;background:var(--chat-paper);border:1px solid var(--chat-line);align-self:flex-start;}
+.xls-chat-message.mine{align-self:flex-end;background:var(--chat-accent);border-color:transparent;color:#fff;border-radius:18px 18px 6px 18px;}
+.xls-chat-empty{margin:auto 0;padding:12px 0;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.xls-chat-portrait{width:88px;height:88px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--chat-tint);}
+.xls-chat-portrait>*{max-width:100%;max-height:100%;}
+.xls-chat-greeting{margin:13px 0 6px;font-size:18px;line-height:1.4;font-weight:700;text-wrap:balance;}
+.xls-chat-intro{margin:0;max-width:255px;color:var(--chat-muted);font-size:13px;line-height:1.7;text-wrap:balance;}
+.xls-chat-prompts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:17px;}
+.xls-chat-prompt{min-height:44px;padding:8px 15px;border-radius:22px;border:1px solid var(--chat-line);background:var(--chat-paper);color:var(--chat-ink);font:inherit;font-size:13px;cursor:pointer;}
+.xls-chat-prompt:hover{background:var(--chat-tint);border-color:var(--chat-accent);}
+.xls-chat-notice{display:flex;align-items:center;gap:8px;flex:none;padding:10px 14px;border-top:1px solid var(--chat-line);background:var(--chat-tint);font-size:12px;line-height:1.6;}
+.xls-chat-notice>span{flex:1;min-width:0;overflow-wrap:anywhere;}
+.xls-chat-notice.error{border-top-color:color-mix(in srgb,#c73a5b 50%,var(--chat-line));}
+.xls-chat-compose{flex:none;padding:12px 14px 13px;border-top:1px solid var(--chat-line);}
+.xls-chat-inputBox{display:flex;align-items:flex-end;gap:5px;padding:6px;border:1px solid var(--chat-line);border-radius:20px;background:color-mix(in srgb,var(--chat-ink) 3%,var(--chat-paper));}
+.xls-chat-inputBox:focus-within{border-color:#5385e8;box-shadow:0 0 0 2px color-mix(in srgb,#5385e8 14%,transparent);}
+.xls-chat-input{display:block;flex:1;min-width:0;width:100%;min-height:46px;max-height:128px;resize:none;padding:12px 2px;border:0;background:transparent;color:inherit;font:inherit;font-size:14px;line-height:1.55;outline:none;overflow-y:auto;}
+.xls-chat-input::placeholder{color:var(--chat-muted);opacity:1;}
+.xls-chat-send{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:44px;min-width:62px;padding:10px 12px;border:0;border-radius:14px;background:var(--chat-accent);color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer;flex:none;}
+.xls-chat-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 2px 0;}
+.xls-chat-hint{font-size:12px;color:var(--chat-muted);line-height:1.6;}
+.xls-chat-panel{position:absolute;top:8px;left:12px;right:12px;max-height:calc(100% - 16px);overflow:auto;z-index:2;padding:10px 12px 14px;border:1px solid var(--chat-line);border-radius:17px;background:var(--chat-paper);box-shadow:0 12px 30px rgba(20,32,58,.15);scrollbar-width:thin;}
+.xls-chat-panelHead{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.xls-chat-panelTitle{font-size:15px;font-weight:650;margin:0;}
+.xls-chat-menu{display:flex;flex-direction:column;gap:3px;}
+.xls-chat-menu .xls-chat-button{justify-content:flex-start;text-align:left;width:100%;}
+.xls-chat-menuDanger{border-top:1px solid var(--chat-line);margin-top:5px;padding-top:5px;}
+.xls-chat-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 10px;}
+.xls-chat-choice{min-height:44px;padding:8px 5px;border:1px solid transparent;border-radius:11px;background:color-mix(in srgb,var(--chat-ink) 4%,var(--chat-paper));color:var(--chat-ink);font:inherit;font-size:12px;cursor:pointer;}
+.xls-chat-choice[aria-pressed="true"]{border-color:var(--chat-accent);background:var(--chat-tint);}
+.xls-chat-help p{margin:8px 0;font-size:13px;line-height:1.8;color:var(--chat-muted);}
+.xls-chat-confirm{font-size:13px;line-height:1.8;}
+.xls-chat-confirm .xls-chat-actions{margin-top:12px;flex-wrap:wrap;}
+.xls-chat-typing{display:flex;gap:5px;align-items:center;align-self:flex-start;min-height:40px;padding:11px 14px;border-radius:18px;background:var(--chat-paper);border:1px solid var(--chat-line);}
+.xls-chat-typingDot{width:5px;height:5px;background:var(--chat-muted);border-radius:50%;animation:xls-chat-pulse 1.2s ease-in-out infinite;}
+@keyframes xls-chat-pulse{0%,70%,100%{opacity:.35;}35%{opacity:1;}}
+.xls-chat-srOnly{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+@media(prefers-reduced-motion:reduce){.xls-chat-typingDot{animation:none;}}
+@container companion-chat (max-height:275px){.xls-chat-empty{padding:4px 0;}.xls-chat-portrait{width:64px;height:64px;}.xls-chat-greeting{font-size:16px;margin:9px 0 4px;}.xls-chat-intro{display:none;}.xls-chat-prompts{margin-top:10px;}}
+@container companion-chat (max-height:190px){.xls-chat-portrait{display:none;}.xls-chat-greeting{margin-top:0;}.xls-chat-prompts{margin-top:8px;}}
+@media(max-width:600px){.xls-chat{right:16px;bottom:16px;height:min(552px,calc(100dvh - 80px));}}
+@media(max-width:600px) and (min-height:740px){.xls-chat{bottom:224px;height:min(552px,calc(100dvh - 256px));}}
 .xls-tab-dot{margin-left:5px;background:var(--dsw-alias-state-error-primary);color:#fff;border-radius:8px;padding:0 5px;font-size:9.5px;font-weight:600;}
 .xls-author{background:transparent;border:none;padding:0;font:inherit;cursor:pointer;color:inherit;}
 .xls-author:hover{text-decoration:underline;}
@@ -1287,6 +1356,12 @@ window.__ModuleLoader__.load({
                 tasks: 'M8 6V4h8v2M3 8h18v12H3V8Zm0 5h18M10 13v3h4v-3',
                 ask: 'M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 1 1 18 0ZM8 10h8M8 14h5',
                 me: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2',
+                more: 'M5 11h.01v2H5v-2Zm7 0h.01v2H12v-2Zm7 0h.01v2H19v-2Z',
+                smile: 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM8 9h.01M16 9h.01M7 14a5.5 5.5 0 0 0 10 0',
+                send: 'M12 20V4m-6 6 6-6 6 6',
+                stop: 'M6 6h12v12H6V6Z',
+                info: 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM12 11v6m0-10h.01',
+                trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',
             };
             return h('svg', { className: 'xls-glyph', viewBox: '0 0 24 24', width: props.size || 20, height: props.size || 20,
                 fill: props.active ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.7, 'aria-hidden': true }, h('path', { d: paths[props.name], strokeLinecap: 'round', strokeLinejoin: 'round' }));
@@ -1587,7 +1662,6 @@ window.__ModuleLoader__.load({
         };
         const PET_ACTIONS = ['idle', 'wave', 'happy', 'sleep', 'think', 'drag',
             'read', 'write', 'talk', 'walk', 'stretch', 'surprised'];
-        const isPetAction = (value) => Object.prototype.hasOwnProperty.call(PET_MOTIONS, value);
         /** Only the overlay animates the bundled atlases; other portraits stay still. */
         function PetArtwork(props) {
             const [available, setAvailable] = useState(false);
@@ -1928,10 +2002,16 @@ window.__ModuleLoader__.load({
             const [loading, setLoading] = useState(false);
             const [working, setWorking] = useState(null);
             const [confirming, setConfirming] = useState(false);
+            const [panel, setPanel] = useState(null);
             const [hidden, setHidden] = useState(() => document.hidden);
             const [revision, setRevision] = useState(0);
             const input = useRef(null);
             const log = useRef(null);
+            const moreButton = useRef(null);
+            const actionButton = useRef(null);
+            const panelFirst = useRef(null);
+            const panelOpen = useRef(false);
+            panelOpen.current = !!panel || confirming;
             const active = useRef(false);
             const epoch = useRef(0);
             const controllers = useRef(new Set());
@@ -1943,6 +2023,35 @@ window.__ModuleLoader__.load({
             const lastFailedJob = useRef(null);
             const job = view?.job || null;
             const running = companionRunning(job);
+            const closePanel = () => {
+                const origin = panel === 'actions' ? actionButton : moreButton;
+                setPanel(null);
+                setConfirming(false);
+                origin.current?.focus();
+            };
+            const togglePanel = (next) => {
+                setConfirming(false);
+                if (panel === next)
+                    closePanel();
+                else
+                    setPanel(next);
+            };
+            useEffect(() => {
+                if (!props.open || hidden) {
+                    setPanel(null);
+                    setConfirming(false);
+                    return;
+                }
+                if (panel || confirming)
+                    panelFirst.current?.focus();
+            }, [panel, confirming, props.open, hidden]);
+            useEffect(() => {
+                const element = input.current;
+                if (!props.open || hidden || !element)
+                    return;
+                element.style.height = '0px';
+                element.style.height = Math.min(128, Math.max(46, element.scrollHeight)) + 'px';
+            }, [draft, props.open, hidden]);
             const request = async (path, method = 'GET', body) => {
                 const controller = new AbortController();
                 controllers.current.add(controller);
@@ -2027,7 +2136,8 @@ window.__ModuleLoader__.load({
                     }
                 };
                 poll();
-                input.current?.focus();
+                if (!panelOpen.current)
+                    input.current?.focus();
                 return () => {
                     active.current = false;
                     epoch.current += 1;
@@ -2044,7 +2154,7 @@ window.__ModuleLoader__.load({
                     log.current.scrollTop = log.current.scrollHeight;
             }, [view, working]);
             useEffect(() => {
-                if (props.open && !hidden && !loading && view?.ready && !running)
+                if (props.open && !hidden && !loading && view?.ready && !running && !panelOpen.current)
                     input.current?.focus();
             }, [props.open, hidden, loading, view?.ready, running]);
             const change = async (kind, path, method, body) => {
@@ -2109,22 +2219,42 @@ window.__ModuleLoader__.load({
                     : job?.state === 'failed' ? tr('chat.failed') : job?.state === 'cancelled' ? tr('chat.cancelled') : '';
             return h('section', { className: 'xls-chat', role: 'dialog', 'aria-modal': false, 'aria-labelledby': 'xls-chat-title',
                 'data-companion-state': job?.state || 'idle',
+                onPointerDown: (event) => {
+                    const target = event.target;
+                    if (panel && !target?.closest?.('[data-chat-panel], [data-chat-action="more"], [data-chat-action="actions"]'))
+                        setPanel(null);
+                },
                 onKeyDown: (event) => {
                     event.stopPropagation();
-                    if (event.key === 'Escape') {
+                    if (event.key === 'Escape' && !event.nativeEvent?.isComposing && event.keyCode !== 229) {
                         event.preventDefault();
-                        event.stopPropagation();
-                        props.onClose();
+                        if (panel || confirming)
+                            closePanel();
+                        else
+                            props.onClose();
                     }
-                } }, h('div', { className: 'xls-chat-head' }, h('h2', { className: 'xls-chat-title', id: 'xls-chat-title' }, tr('chat.title')), h('div', { className: 'xls-chat-actions' }, h('button', { className: 'xls-chat-button', onClick: props.onCommunity, type: 'button' }, tr('chat.community')), h('button', { className: 'xls-chat-button', onClick: props.onSocial, type: 'button' }, tr('social.title')), h('button', { className: 'xls-chat-button', onClick: props.onClose, type: 'button', 'aria-label': tr('chat.close') }, '×'))), h('div', { className: 'xls-chat-sub' }, tr('chat.subtitle')), h('div', { className: 'xls-chat-sub' }, h('label', { htmlFor: 'pw-pet-select' }, tr('pet.actionLabel') + ' ', h('select', { id: 'pw-pet-select', className: 'xls-chat-button', 'aria-label': tr('pet.actionLabel'),
-                'data-pet-select': true, 'aria-describedby': 'pw-pet-local-only', value: props.manualAction || 'auto',
-                onChange: (event) => {
-                    const value = event.target.value;
-                    if (value === 'auto' || isPetAction(value))
-                        props.onManualAction(value === 'auto' ? null : value);
-                } }, h('option', { value: 'auto' }, tr('pet.actionAuto')), PET_ACTIONS.map((action) => h('option', { key: action, value: action }, tr('pet.action.' + action))))), h('div', { className: 'xls-chat-hint', id: 'pw-pet-local-only' }, tr('pet.localOnly'))), h('div', { className: 'xls-chat-log', ref: log, role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' }, !view?.messages.length && !job ? h('p', { className: 'xls-chat-empty' }, tr('chat.empty')) : null, view?.messages.map((message) => h('div', { key: message.id,
-                className: 'xls-chat-message' + (message.role === 'user' ? ' mine' : ''), 'data-message-id': message.id }, message.text)), job && job.state !== 'completed' ? h('div', { className: 'xls-chat-message mine', 'data-pending-job': job.id }, job.input) : null), !loading && view && !view.ready ? h('div', { className: 'xls-chat-status', role: 'status' }, tr('chat.unconfigured')) : null, state ? h('div', { className: 'xls-chat-status', role: 'status' }, state) : null, error ? h('div', { className: 'xls-chat-error', role: 'alert' }, error) : null, (error || (!loading && !view?.ready)) ? h('div', { className: 'xls-chat-status' }, h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working, onClick: () => setRevision((value) => value + 1) }, tr('chat.reconnect'))) : null, confirming ? h('div', { className: 'xls-chat-confirm' }, tr('chat.clearPrompt'), h('div', { className: 'xls-chat-actions' }, h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working || running,
-                onClick: () => change('clear', COMPANION_API, 'DELETE') }, tr('chat.confirmClear')), h('button', { className: 'xls-chat-button', type: 'button', onClick: () => setConfirming(false) }, tr('chat.back')))) : null, h('div', { className: 'xls-chat-compose' }, h('textarea', { className: 'xls-chat-input', ref: input, value: draft, maxLength: 4000,
+                } }, h('div', { className: 'xls-chat-head' }, h('div', { className: 'xls-chat-identity' }, h(Avatar, { ai: 'alan', size: 40, className: 'xls-chat-avatar' }), h('div', { className: 'xls-chat-heading' }, h('h2', { className: 'xls-chat-title', id: 'xls-chat-title' }, tr('chat.title')), h('div', { className: 'xls-chat-status', role: 'status', 'aria-live': 'polite' }, state || tr('chat.private')))), h('div', { className: 'xls-chat-actions' }, h('button', { className: 'xls-chat-button xls-chat-icon', ref: moreButton, type: 'button', 'data-chat-action': 'more',
+                'aria-label': tr('chat.more'), title: tr('chat.more'), 'aria-expanded': panel === 'more', 'aria-controls': 'pw-chat-panel',
+                onClick: () => togglePanel('more') }, h(UiIcon, { name: 'more' })), h('button', { className: 'xls-chat-button xls-chat-icon', onClick: props.onClose, type: 'button',
+                'data-chat-action': 'close', 'aria-label': tr('chat.close'), title: tr('chat.close') }, h(UiIcon, { name: 'close' })))), h('div', { className: 'xls-chat-body' }, h('div', { className: 'xls-chat-log', ref: log, role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' }, !view?.messages.length && !job ? h('div', { className: 'xls-chat-empty' }, h('div', { className: 'xls-chat-portrait', 'aria-hidden': true }, h(Portrait, { look: AI_LOOKS.alan, size: 88 })), h('h3', { className: 'xls-chat-greeting' }, tr('chat.greeting')), h('p', { className: 'xls-chat-intro' }, tr('chat.welcome')), h('div', { className: 'xls-chat-prompts' }, ['day', 'plan'].map((kind) => h('button', { className: 'xls-chat-prompt', type: 'button', key: kind, 'data-chat-prompt': kind,
+                disabled: !!panel || confirming || !!draft.trim(),
+                onClick: () => { setDraft((current) => current.trim() ? current : tr(kind === 'day' ? 'chat.draftDay' : 'chat.draftPlan')); input.current?.focus(); } }, tr(kind === 'day' ? 'chat.promptDay' : 'chat.promptPlan'))))) : null, view?.messages.map((message) => h('div', { key: message.id,
+                className: 'xls-chat-message' + (message.role === 'user' ? ' mine' : ''), 'data-message-id': message.id }, message.text)), job && job.state !== 'completed' ? h('div', { className: 'xls-chat-message mine', 'data-pending-job': job.id }, job.input) : null, job?.state === 'generating' ? h('div', { className: 'xls-chat-typing', role: 'status', 'aria-label': tr('chat.generating') }, [0, 1, 2].map((index) => h('i', { key: index, className: 'xls-chat-typingDot', 'aria-hidden': true, style: { animationDelay: index * 150 + 'ms' } }))) : null), panel || confirming ? h('div', { className: 'xls-chat-panel', id: 'pw-chat-panel', role: 'group',
+                'data-chat-panel': confirming ? 'clear' : panel, 'aria-labelledby': 'pw-chat-panel-title' }, h('div', { className: 'xls-chat-panelHead' }, h('h3', { className: 'xls-chat-panelTitle', id: 'pw-chat-panel-title' }, tr(confirming ? 'chat.clear' : panel === 'actions' ? 'pet.actionLabel' : panel === 'help' ? 'chat.about' : 'chat.more')), h('button', { className: 'xls-chat-button xls-chat-icon', type: 'button', 'data-chat-action': 'panel-close',
+                'aria-label': tr('chat.panelClose'), onClick: closePanel, ref: panel === 'help' ? panelFirst : undefined }, h(UiIcon, { name: 'close', size: 18 }))), confirming ? h('div', { className: 'xls-chat-confirm' }, tr('chat.clearPrompt'), h('div', { className: 'xls-chat-actions' }, h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'back', ref: panelFirst,
+                onClick: () => { setConfirming(false); setPanel('more'); } }, tr('chat.back')), h('button', { className: 'xls-chat-send', type: 'button', 'data-chat-action': 'confirm-clear', disabled: !!working || running,
+                onClick: () => change('clear', COMPANION_API, 'DELETE') }, tr('chat.confirmClear'))))
+                : panel === 'more' ? h('div', { className: 'xls-chat-menu' }, h('button', { className: 'xls-chat-button', type: 'button', ref: panelFirst, 'data-chat-action': 'community', onClick: props.onCommunity }, h(UiIcon, { name: 'feed', size: 18 }), tr('chat.community')), h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'social', onClick: props.onSocial }, h(SocialIcon, { size: 18 }), tr('social.title')), h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'help', onClick: () => setPanel('help') }, h(UiIcon, { name: 'info', size: 18 }), tr('chat.about')), h('div', { className: 'xls-chat-menuDanger' }, h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'clear', disabled: !view || !!working || running || loading,
+                    onClick: () => { setPanel(null); setConfirming(true); } }, h(UiIcon, { name: 'trash', size: 18 }), tr('chat.clear'))))
+                    : panel === 'actions' ? h(React.Fragment, null, h('div', { className: 'xls-chat-choices' }, ['auto', ...PET_ACTIONS].map((action) => h('button', {
+                        type: 'button', className: 'xls-chat-choice', key: action, 'data-pet-choice': action, ref: action === 'auto' ? panelFirst : undefined,
+                        'aria-pressed': action === (props.manualAction || 'auto'),
+                        onClick: () => props.onManualAction(action === 'auto' ? null : action),
+                    }, tr(action === 'auto' ? 'pet.actionAuto' : 'pet.action.' + action)))), h('p', { className: 'xls-chat-hint' }, tr('chat.actionHint')))
+                        : h('div', { className: 'xls-chat-help' }, h('p', null, tr('chat.aboutBody')), h('p', null, tr('chat.aboutLimit')))) : null), error || (!loading && view && !view.ready) ? h('div', { className: 'xls-chat-notice' + (error ? ' error' : ''), role: error ? 'alert' : 'status' }, h(UiIcon, { name: 'info', size: 18 }), h('span', null, error || tr('chat.unconfigured')), h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'reconnect', disabled: !!working,
+                onClick: () => setRevision((value) => value + 1) }, tr('chat.reconnect'))) : null, h('div', { className: 'xls-chat-compose' }, h('div', { className: 'xls-chat-inputBox' }, h('button', { className: 'xls-chat-button xls-chat-icon', type: 'button', ref: actionButton, 'data-chat-action': 'actions',
+                'aria-label': tr('pet.actionLabel'), title: tr('chat.expressions'), 'aria-expanded': panel === 'actions', 'aria-controls': 'pw-chat-panel',
+                onClick: () => togglePanel('actions') }, h(UiIcon, { name: 'smile' })), h('textarea', { className: 'xls-chat-input', ref: input, value: draft, rows: 1, maxLength: 4000, placeholder: tr('chat.placeholder'),
                 'aria-label': tr('chat.input'), 'aria-describedby': 'xls-chat-hint', disabled: !!working || running || !view?.ready || loading || hidden,
                 onChange: (event) => setDraft(event.target.value),
                 onKeyDown: (event) => {
@@ -2132,10 +2262,10 @@ window.__ModuleLoader__.load({
                         event.preventDefault();
                         send();
                     }
-                } }), h('div', { className: 'xls-chat-foot' }, h('button', { className: 'xls-chat-button', type: 'button', disabled: !view || !!working || running || loading,
-                onClick: () => setConfirming(true) }, tr('chat.clear')), h('div', { className: 'xls-chat-actions' }, running && job ? h('button', { className: 'xls-chat-button', type: 'button', disabled: !!working,
-                onClick: () => change('cancel', COMPANION_API + '/cancel', 'POST', { jobId: job.id }) }, tr('chat.stop')) : null, h('button', { className: 'xls-chat-button', type: 'button', onClick: send,
-                disabled: !draft.trim() || !view?.ready || running || !!working || loading || hidden }, tr('chat.send')))), h('div', { className: 'xls-chat-hint', id: 'xls-chat-hint' }, tr('chat.hint'))));
+                } }), running && job ? h('button', { className: 'xls-chat-send', type: 'button', 'data-chat-action': 'stop', 'aria-label': tr('chat.stop'), title: tr('chat.stop'), disabled: !!working,
+                onClick: () => change('cancel', COMPANION_API + '/cancel', 'POST', { jobId: job.id }) }, h(UiIcon, { name: 'stop', size: 18 }), h('span', { className: 'xls-chat-srOnly' }, tr('chat.stop')))
+                : h('button', { className: 'xls-chat-send', type: 'button', 'data-chat-action': 'send', 'aria-label': tr('chat.send'), onClick: send,
+                    disabled: !draft.trim() || !view?.ready || !!working || loading || hidden }, h(UiIcon, { name: 'send', size: 18 }), h('span', null, tr('chat.send')))), h('div', { className: 'xls-chat-foot' }, h('span', { className: 'xls-chat-hint', id: 'xls-chat-hint' }, tr('chat.shortHint')))));
         }
         function CompanionOverlay(props) {
             useLocaleTick();

@@ -120,7 +120,9 @@
       "sha256": "142a54bc355f5466344a89a257dbf4b6db0afcb8f82214f62b59e6a67e5d28e0",
       "unmodified": true,
       "description": "0.1.7 桌面社区与新版公开鲸鱼娘；合成演示内容"
-    },
+    }
+  ],
+  "supersededScreenshots": [
     {
       "capturedFile": "pet-read.png",
       "publishedFile": "whale-actions.png",
@@ -131,7 +133,9 @@
       "bytes": 97788,
       "sha256": "a6941f8bd8603a1041433e728617022edb1db405908255d8bf73ac0100709250",
       "unmodified": true,
-      "description": "0.1.7 聊天中的本机阅读动作预览；没有因此发送消息或调用模型"
+      "description": "0.1.7 聊天中的本机阅读动作预览；没有因此发送消息或调用模型",
+      "publicationStatus": "superseded",
+      "supersededBy": "chat-provenance.json"
     }
   ]
 }

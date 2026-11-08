@@ -1,0 +1,48 @@
+{
+  "purpose": "Podwhale 0.1.8 桌面聊天窗与本地阅读表情的真实界面",
+  "captureKind": "real-ui-synthetic-local-fixture",
+  "package": {
+    "name": "podwhale",
+    "version": "0.1.8",
+    "sha256": "6901bd78fd3ff818e090924c583ffa67d81982989d44a50d8284f66a58d0a346",
+    "unmodified": true,
+    "privateArtwork": false
+  },
+  "runtime": "official DSH 0.2.2-rc.1, separate clean configured and unselected-model profiles",
+  "syntheticAccounts": true,
+  "productionRequests": false,
+  "realUserConfigRead": false,
+  "realModelProviderRequests": 0,
+  "realWechatRequests": 0,
+  "domPresentationOverrides": false,
+  "sourceImagePolicy": "直接复制原始页面 PNG；未重绘控件、修改 DOM 或拼接效果。临时演示使用本地合成适配器。",
+  "nativeAcceptance": {
+    "normal": true,
+    "unconfigured": true,
+    "normalGates": 278,
+    "unconfiguredGates": 58,
+    "visualCases": 66,
+    "unconfiguredModelRequests": 0,
+    "uncaughtExceptions": 0,
+    "consoleErrors": 0
+  },
+  "publicArtwork": {
+    "artworkId": "bundled-v1",
+    "source": "pet-provenance.json",
+    "unchanged": true
+  },
+  "publishedScreenshots": [
+    {
+      "capturedFile": "chat-clean-empty-read.png",
+      "publishedFile": "whale-actions.png",
+      "sourceCaptureId": "chat-ui-native-accept-mac8o8",
+      "role": "fresh configured profile; empty chat and manually chosen local read expression; no message sent for this capture",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 112696,
+      "sha256": "7c77950194ac84db883402fd32873bfb14672c899a20b17c86c11afdf35016ab",
+      "unmodified": true,
+      "description": "0.1.8 新聊天窗；头像、空态建议与紧凑输入区，本机阅读表情不代表已读帖"
+    }
+  ]
+}

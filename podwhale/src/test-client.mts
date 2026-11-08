@@ -24,7 +24,8 @@ interface TestPetTarget {
   setPointerCapture(id: number): void; hasPointerCapture(id: number): boolean; releasePointerCapture(id: number): void;
   focus(): void;
 }
-interface TestPetPointer { button: number; pointerId: number; clientX: number; clientY: number; currentTarget: TestPetTarget; preventDefault(): void }
+interface TestPetPointer { button: number; pointerId: number; clientX: number; clientY: number; currentTarget: TestPetTarget;
+  target?: TestDomTarget; preventDefault(): void; stopPropagation?(): void }
 interface TestPetKey { key: string; repeat: boolean; ctrlKey: boolean; altKey: boolean; metaKey: boolean; currentTarget: TestPetTarget;
   shiftKey?: boolean; keyCode?: number; nativeEvent?: { isComposing: boolean }; preventDefault(): void; stopPropagation(): void }
 interface TestProps {
@@ -199,7 +200,11 @@ class TestImage {
 const capturedPointers = new Set<number>();
 let petFocusCount = 0, inputFocusCount = 0, requestSequence = 0;
 let socialFocused: string | null = null;
-const inputTarget = { focus: () => { inputFocusCount += 1; } };
+const inputTarget = { style: { height: '' }, scrollHeight: 46, focus: () => {
+  inputFocusCount += 1;
+  const node = findNodes(currentRenderedTree, entry => entry.props.className === 'xls-chat-input')[0];
+  if (node) fakeWindow.document!.activeElement = domFor(node);
+} };
 const logTarget = { scrollTop: 0, scrollHeight: 120 };
 let petLeft = 1200, petTop = 640;
 const petTarget: TestPetTarget = {
@@ -373,6 +378,7 @@ class TestDomTarget implements TestPetTarget {
   getAttribute(name: string) { const value = this.node.props[name]; return value === undefined || value === null ? null : String(value); }
   hasAttribute(name: string) { return this.node.props[name] !== undefined; }
   contains(target: unknown) { return findNodes(this.node, entry => domNodes.get(entry) === target).length > 0; }
+  closest(selector: string) { return eventPath(currentRenderedTree, this.node).reverse().filter(node => matchesSelector(node, selector)).map(domFor)[0] ?? null; }
   getClientRects() { return this.isConnected ? [this.getBoundingClientRect()] : []; }
   getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 44 }; }
   querySelectorAll(selector: string) { return findNodes(this.node, entry => entry !== this.node && matchesSelector(entry, selector)).map(domFor); }
@@ -427,6 +433,9 @@ function renderNode(element: TestValue, path = 'root'): RenderedNode | null {
   push(props.children);
   const node = { type: type, props: props, children: children.map((child, index) => renderNode(child, path + '.' + index)).filter((child): child is RenderedNode => child !== null) };
   const identity = typeof props['data-open-post'] === 'string' ? 'post:' + props['data-open-post']
+    : typeof props['data-chat-action'] === 'string' ? 'chat:' + props['data-chat-action']
+    : typeof props['data-pet-choice'] === 'string' ? 'pet-choice:' + props['data-pet-choice']
+    : typeof props['data-chat-prompt'] === 'string' ? 'chat-prompt:' + props['data-chat-prompt']
     : typeof props.id === 'string' ? 'id:' + props.id : type + ':' + path;
   let target = stableDom.get(identity);
   if (!target) { target = new TestDomTarget(node); stableDom.set(identity, target); } else target.node = node;
@@ -475,6 +484,16 @@ function clickNode(root: RenderedNode | null, target: RenderedNode) {
     if (!node.props.onClick) continue;
     event.currentTarget = domFor(node);
     node.props.onClick?.(event);
+  }
+}
+function pointerDownNode(root: RenderedNode | null, target: RenderedNode) {
+  let stopped = false;
+  const event: TestPetPointer = { button: 0, pointerId: 70, clientX: 0, clientY: 0, target: domFor(target), currentTarget: domFor(target),
+    preventDefault() {}, stopPropagation() { stopped = true; } };
+  if (target.type === 'button' || target.type === 'input' || target.type === 'textarea') domFor(target).focus();
+  for (const node of eventPath(root, target).reverse()) {
+    if (stopped) break;
+    event.currentTarget = domFor(node); node.props.onPointerDown?.(event);
   }
 }
 function keyNode(root: RenderedNode | null, target: RenderedNode, key: string,
@@ -988,13 +1007,31 @@ function chatInput() {
   if (!node) throw new Error('Companion input missing');
   return node;
 }
+const chatActionAliases: Record<string, string> = { '发送': 'send', '停止回复': 'stop', '收起聊天': 'close', '重新连接': 'reconnect',
+  '清空对话': 'clear', '确认清空': 'confirm-clear', '返回': 'back', '鲸群社区': 'community', '社交设置': 'social' };
 function chatButton(label: string) {
-  const node = findNodes(chatDialog(), (entry) => entry.type === 'button' && (textOf(entry) === label || entry.props['aria-label'] === label))[0];
+  const action = chatActionAliases[label];
+  const node = findNodes(chatDialog(), (entry) => entry.type === 'button'
+    && ((action && entry.props['data-chat-action'] === action) || textOf(entry) === label || entry.props['aria-label'] === label))[0];
   if (!node) throw new Error('Companion button missing: ' + label);
   return node;
 }
+function chatPanel(name: string) { return findNodes(chatDialog(), node => node.props['data-chat-panel'] === name)[0]; }
+function chatAction(name: string) {
+  const button = findNodes(chatDialog(), node => node.type === 'button' && node.props['data-chat-action'] === name)[0];
+  if (!button) throw new Error('Chat action missing: ' + name);
+  return button;
+}
+async function clickChatAction(name: string) { clickNode(petTree, chatAction(name)); await renderPet(); }
+async function openChatPanel(name: 'more' | 'actions') {
+  if (!chatPanel(name)) await clickChatAction(name);
+  const panel = chatPanel(name);
+  if (!panel) throw new Error('Chat panel missing: ' + name);
+  return panel;
+}
 async function clickChat(label: string) {
-  chatButton(label).props.onClick?.({ stopPropagation() {}, preventDefault() {}, target: {} });
+  if (['清空对话', '鲸群社区', '社交设置'].includes(label)) await openChatPanel('more');
+  clickNode(petTree, chatButton(label));
   await renderPet();
 }
 async function advancePet(milliseconds: number) {
@@ -1308,16 +1345,16 @@ function finishCompanion(state: CompanionJob['state'], reply = '合成回复') {
   ];
 }
 
-function petActionSelect() {
-  const control = findNodes(chatDialog(), node => node.type === 'select' && node.props['data-pet-select'] !== undefined)[0];
-  if (!control) throw new Error('Bundled pet action selector missing');
-  return control;
-}
 async function selectPetAction(action: string) {
-  const control = petActionSelect();
-  if (!control.props.onChange) throw new Error('Pet action selector handler missing');
-  control.props.onChange({ target: { value: action } });
+  await openChatPanel('actions');
+  const control = findNodes(chatPanel('actions'), node => node.type === 'button' && node.props['data-pet-choice'] === action)[0];
+  if (!control) throw new Error('Bundled local action choice missing: ' + action);
+  clickNode(petTree, control);
   await renderPet();
+}
+async function selectedPetAction() {
+  await openChatPanel('actions');
+  return findNodes(chatPanel('actions'), node => node.type === 'button' && node.props['aria-pressed'] === true)[0]?.props['data-pet-choice'];
 }
 function petSpriteStyle(name: 'backgroundImage' | 'backgroundSize' | 'backgroundPosition') {
   const style = petSprite()?.props.style;
@@ -1328,13 +1365,112 @@ function petSpriteStyle(name: 'backgroundImage' | 'backgroundSize' | 'background
 try {
   Date.now = () => petClock;
   await mountChat();
+  check('chat starts focused on conversation instead of expanded secondary controls', !findNodes(chatDialog(), node => typeof node.props['data-chat-panel'] === 'string').length
+    && !findNodes(chatDialog(), node => typeof node.props['data-pet-choice'] === 'string').length
+    && !findNodes(chatDialog(), node => ['community', 'social', 'clear', 'help'].includes(String(node.props['data-chat-action']))).length);
+  const knownImages = new Set(['/xiaolanshu/pet-art/v1/face.png', '/xiaolanshu/pet-art/v1/portrait.png']);
+  const pictures = findNodes(chatDialog(), node => node.type === 'img');
+  check('chat identity and greeting use only the bundled canonical face and portrait', pictures.some(node => node.props.src === '/xiaolanshu/pet-art/v1/face.png')
+    && pictures.some(node => node.props.src === '/xiaolanshu/pet-art/v1/portrait.png') && pictures.every(node => typeof node.props.src === 'string' && knownImages.has(node.props.src)));
+  const prompts = findNodes(chatDialog(), node => node.type === 'button' && typeof node.props['data-chat-prompt'] === 'string');
+  check('the empty chat has two native draft suggestions', prompts.length === 2
+    && prompts.some(node => node.props['data-chat-prompt'] === 'day') && prompts.some(node => node.props['data-chat-prompt'] === 'plan'));
+  const beforeSuggestions = callLog.length, focusBeforeSuggestion = inputFocusCount;
+  const day = prompts.find(node => node.props['data-chat-prompt'] === 'day');
+  if (!day) throw new Error('Day draft suggestion missing');
+  clickNode(petTree, day); await renderPet(); const dayDraft = chatInput().props.value;
+  check('a greeting suggestion only fills and focuses the editable draft', typeof dayDraft === 'string' && !!dayDraft.trim()
+    && inputFocusCount > focusBeforeSuggestion && !hostCompanion.job && hostCompanion.messages.length === 0
+    && !callLog.slice(beforeSuggestions).some(call => call.method !== 'GET'));
+  await typeChat('');
+  const plan = findNodes(chatDialog(), node => node.type === 'button' && node.props['data-chat-prompt'] === 'plan')[0];
+  if (!plan) throw new Error('Plan draft suggestion missing');
+  clickNode(petTree, plan); await renderPet();
+  check('the alternate suggestion changes the draft without sending or running a patrol', !!chatInput().props.value
+    && chatInput().props.value !== dayDraft && !callLog.slice(beforeSuggestions).some(call => call.method !== 'GET'));
+  const authoredDraft = '这是一段尚未发送、需要完整保留的主人草稿。';
+  await typeChat(authoredDraft);
+  const protectedPrompts = findNodes(chatDialog(), node => node.type === 'button' && typeof node.props['data-chat-prompt'] === 'string');
+  for (const prompt of protectedPrompts) clickNode(petTree, prompt);
+  // Retain the handler captured from the empty draft. A disabled button alone
+  // cannot protect against an already captured callback with an older closure.
+  day.props.onClick?.({ target: domFor(day), stopPropagation() {}, preventDefault() {} });
+  plan.props.onClick?.({ target: domFor(plan), stopPropagation() {}, preventDefault() {} });
+  await renderPet();
+  check('draft suggestions preserve authored text even through stale empty-draft callbacks', protectedPrompts.length === 2
+    && protectedPrompts.every(node => node.props.disabled === true) && chatInput().props.value === authoredDraft
+    && !callLog.slice(beforeSuggestions).some(call => call.method !== 'GET'));
+  const preservedDraft = chatInput().props.value;
+  inputTarget.scrollHeight = 220; await typeChat('第一行\n第二行\n第三行');
+  check('the input grows from content height but caps its visible size', parseFloat(inputTarget.style.height) === 128);
+  inputTarget.scrollHeight = 12; await typeChat(preservedDraft || '保留草稿');
+  check('the input shrinks after editing while retaining a usable minimum', parseFloat(inputTarget.style.height) === 46);
+  const more = await openChatPanel('more');
+  check('More exposes secondary actions as a labelled group of native buttons', more.props.role === 'group'
+    && ['community', 'social', 'clear', 'help'].every(name => findNodes(more, node => node.type === 'button' && node.props['data-chat-action'] === name).length === 1)
+    && !findNodes(more, node => node.props.role === 'menu' || node.props.role === 'menuitem').length);
+  const firstMore = findNodes(more, node => node.type === 'button' && node.props['data-chat-action'] === 'community')[0];
+  if (!firstMore) throw new Error('More keyboard entry missing');
+  check('opening More exposes expanded state and moves focus to its first navigation control', chatAction('more').props['aria-expanded'] === true
+    && fakeWindow.document!.activeElement === domFor(firstMore));
+  keyNode(petTree, firstMore, 'Escape', { composing: true }); keyNode(petTree, firstMore, 'Escape', { code: 229 }); await renderPet();
+  check('IME Escape does not dismiss the secondary panel or the chat', !!chatPanel('more') && !!chatDialog());
+  keyNode(petTree, chatAction('panel-close'), 'Escape'); await renderPet();
+  check('the first Escape closes More and restores its trigger without losing the draft', !chatPanel('more') && !!chatDialog()
+    && fakeWindow.document!.activeElement === domFor(chatAction('more')) && chatInput().props.value === preservedDraft);
+  const closeFocus = petFocusCount;
+  keyNode(petTree, chatDialog()!, 'Escape'); await renderPet();
+  check('the next Escape closes chat and returns to the actual pet', !chatDialog() && petFocusCount === closeFocus + 1);
+  await petKey('Enter');
+  check('reopening chat restores its draft with secondary panels collapsed', chatInput().props.value === preservedDraft
+    && !findNodes(chatDialog(), node => typeof node.props['data-chat-panel'] === 'string').length);
+  await openChatPanel('more'); await clickChatAction('help');
+  check('long-form help is disclosed on request instead of occupying the main conversation', chatPanel('help')?.props.role === 'group'
+    && !chatPanel('more') && !!chatDialog() && chatInput().props.value === preservedDraft);
+  await clickChatAction('panel-close');
+  check('closing Help restores More while preserving the chat input', !chatPanel('help')
+    && fakeWindow.document!.activeElement === domFor(chatAction('more')) && chatInput().props.value === preservedDraft);
+  await openChatPanel('actions');
+  check('the expression disclosure is an accessible group with native pressed-state choices', chatPanel('actions')?.props.role === 'group'
+    && chatAction('actions').props['aria-expanded'] === true
+    && findNodes(chatPanel('actions'), node => node.type === 'button' && typeof node.props['data-pet-choice'] === 'string').length === 13);
+  pointerDownNode(petTree, chatInput()); await renderPet();
+  check('pointer focus in the input collapses the panel without stealing keyboard focus', !chatPanel('actions')
+    && fakeWindow.document!.activeElement === domFor(chatInput()) && chatInput().props.value === preservedDraft);
+  await openChatPanel('actions');
+  keyNode(petTree, chatAction('panel-close'), 'Escape'); await renderPet();
+  check('Escape in the expression panel returns to its own trigger', !chatPanel('actions') && !!chatDialog()
+    && fakeWindow.document!.activeElement === domFor(chatAction('actions')));
+  await openChatPanel('more');
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  check('hiding the page collapses secondary panels while retaining the unsent draft', !findNodes(chatDialog(), node => typeof node.props['data-chat-panel'] === 'string').length
+    && chatInput().props.value === preservedDraft && petTimers.size === 0);
+  fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  check('returning to chat keeps the draft and does not reopen a stale panel', chatInput().props.value === preservedDraft
+    && !findNodes(chatDialog(), node => typeof node.props['data-chat-panel'] === 'string').length);
+  const writesBeforeNavigation = callLog.filter(call => call.method !== 'GET').length;
+  await clickChat('鲸群社区');
+  check('community navigation from More opens the real community panel without a chat request', !chatDialog() && selectedPanels.at(-1) === 'xiaolanshu'
+    && callLog.filter(call => call.method !== 'GET').length === writesBeforeNavigation);
+  await petKey('Enter'); await clickChat('社交设置');
+  check('social navigation from More opens the existing settings panel without changing authorization', !chatDialog() && selectedPanels.at(-1) === 'xiaolanshu-social'
+    && callLog.filter(call => call.method !== 'GET').length === writesBeforeNavigation);
+} catch (caught) {
+  check('disclosed chat control behavior completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+} finally { unmountTestTree(); Date.now = actualNow; companionFetch = null; inputTarget.scrollHeight = 46; }
+
+try {
+  Date.now = () => petClock;
+  await mountChat();
   const actions = [
     ['idle', 'a', 0, 2600], ['wave', 'a', 1, 180], ['happy', 'a', 2, 240], ['sleep', 'a', 3, 300],
     ['think', 'b', 0, 600], ['drag', 'b', 1, 180], ['read', 'b', 2, 600], ['write', 'b', 3, 260],
     ['talk', 'c', 0, 220], ['walk', 'c', 1, 140], ['stretch', 'c', 2, 300], ['surprised', 'c', 3, 140],
   ] as const;
-  const options = findNodes(petActionSelect(), node => node.type === 'option').map(node => node.props.value);
-  check('the native action selector labels all twelve local actions plus automatic mode', petActionSelect().props['aria-label'] === '鲸鱼娘动作'
+  await openChatPanel('actions');
+  const choices = findNodes(chatPanel('actions'), node => node.type === 'button' && typeof node.props['data-pet-choice'] === 'string');
+  const options = choices.map(node => node.props['data-pet-choice']);
+  check('the native action panel labels all twelve local actions plus automatic mode', choices.every(node => typeof node.props['aria-pressed'] === 'boolean' && !!textOf(node).trim())
     && options.length === 13 && options.includes('auto') && actions.every(([action]) => options.includes(action)));
   petNode().props.onFocus?.(); await renderPet();
   const beforeActions = callLog.length;
@@ -1353,9 +1489,9 @@ try {
   await selectPetAction('idle'); await advancePet(2500); await selectPetAction('read'); await advancePet(100);
   check('switching actions cancels the old atlas frame deadline', petSprite()?.props['data-pet-action'] === 'read' && petSprite()?.props['data-pet-frame'] === 0);
   await advancePet(4399);
-  check('manual selection stays active until its complete expiry window', petActionSelect().props.value === 'read');
+  check('manual selection stays active until its complete expiry window', await selectedPetAction() === 'read');
   await advancePet(1);
-  check('manual expression expiry restores automatic mode instead of replaying the old action', petActionSelect().props.value === 'auto'
+  check('manual expression expiry restores automatic mode instead of replaying the old action', await selectedPetAction() === 'auto'
     && petNode().props['data-pet-action'] !== 'read');
   await selectPetAction('stretch'); motion.matches = true; motionListeners.forEach(fn => fn()); await renderPet(); await advancePet(1200);
   check('all bundled manual expressions respect reduced-motion static frame zero', petSprite()?.props['data-pet-action'] === 'stretch'
@@ -1364,12 +1500,12 @@ try {
   check('hiding clears manual-expression and chat timers together', petTimers.size === 0 && petNode().props['data-still'] === 'true');
   fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach(fn => fn()); motion.matches = false;
   motionListeners.forEach(fn => fn()); await renderPet();
-  check('returning from hidden state drops the old manual choice', petActionSelect().props.value === 'auto'
+  check('returning from hidden state drops the old manual choice', await selectedPetAction() === 'auto'
     && petNode().props['data-pet-action'] !== 'stretch');
   await typeChat('合成 Host 优先级检查'); await clickChat('发送'); await selectPetAction('read');
   finishCompanion('generating'); await advancePet(900);
   check('actual Host generation outranks a local manual expression without changing the chosen menu value', petNode().props['data-pet-action'] === 'think'
-    && petActionSelect().props.value === 'read');
+    && await selectedPetAction() === 'read');
   finishCompanion('completed', '新的合成助手回复'); await advancePet(900);
   check('a newly committed Host reply triggers talk after generation stops', petNode().props['data-pet-action'] === 'talk');
   await clickChat('收起聊天'); await petKey('Enter');
@@ -1428,8 +1564,9 @@ try {
     && findNodes(chatDialog(), (n) => n.props['data-pending-job'] === hostCompanion.job?.id).length === 1
     && chatInput().props.value === '');
   check('preparing does not falsely animate the pet as model generation', petNode().props['data-pet-action'] !== 'think');
-  check('busy chat disables duplicate send and clear actions', chatButton('发送').props.disabled === true
-    && chatButton('清空对话').props.disabled === true && !!chatButton('停止回复'));
+  await openChatPanel('more');
+  check('busy chat prevents duplicate send and clear while exposing Stop', !findNodes(chatDialog(), node => node.props['data-chat-action'] === 'send' && !node.props.disabled).length
+    && chatButton('清空对话').props.disabled === true && chatButton('停止回复').props.disabled !== true);
   finishCompanion('generating'); await advancePet(900);
   check('only actual Host generating state selects the pet thinking animation', petSprite()?.props['data-pet-action'] === 'think');
   check('polling targets the specific accepted job', chatCalls().some((entry) => entry.method === 'GET'
@@ -1440,8 +1577,9 @@ try {
     findNodes(chatDialog(), (n) => typeof n.props['data-message-id'] === 'string').length === 2
     && findNodes(chatDialog(), (n) => typeof n.props['data-pending-job'] === 'string').length === 0);
   check('model content stays plain text without HTML, image nodes or HTML injection props',
-    textOf(chatDialog()).includes('<img src=x onerror=alert(1)>这是纯文本')
-    && findNodes(chatDialog(), (n) => n.type === 'img' || n.props.dangerouslySetInnerHTML !== undefined).length === 0);
+    findNodes(chatDialog(), node => typeof node.props['data-message-id'] === 'string').some(node => textOf(node).includes('<img src=x onerror=alert(1)>这是纯文本'))
+    && findNodes(chatDialog(), node => typeof node.props['data-message-id'] === 'string' || typeof node.props['data-pending-job'] === 'string')
+      .every(message => findNodes(message, node => node.type === 'img' || node.props.dangerouslySetInnerHTML !== undefined).length === 0));
   check('completed generation clears the busy animation and re-enables input', petNode().props['data-pet-action'] !== 'think'
     && chatInput().props.disabled === false);
   const deletesBefore = chatCalls().filter((entry) => entry.method === 'DELETE').length;
