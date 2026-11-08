@@ -73,7 +73,7 @@ img { display: block; }
 .hero .ocean-art { inset: auto; top: 0; right: 0; width: 1200px; height: 600px; object-fit: contain; }
 .hero .white-shore { background: linear-gradient(90deg, white 0%, white 35%, rgba(255,255,255,.88) 42%, rgba(255,255,255,0) 56%); }
 .hero .brand { left: 80px; top: 48px; }
-.hero .edition { top: 65px; right: 80px; }
+.hero .edition { top: 510px; left: 80px; right: auto; font-size: 19px; }
 .hero-copy { position: absolute; left: 80px; top: 175px; width: 730px; }
 .hero h1 { font-size: 78px; font-weight: 800; line-height: 1.23; letter-spacing: -3px; }
 .hero-copy p { margin-top: 30px; font-size: 29px; font-weight: 450; line-height: 1.7; color: var(--muted); }
