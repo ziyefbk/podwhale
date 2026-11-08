@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
 
     const NS = 'xiaolanshu';
     /** Bumped on every visible change; the panel footer prints it. */
-    const BUILD = '0.1.6';
+    const BUILD = '0.1.7';
 
     // ---------------------------------------------------------------- texts
     const ZH: Record<string, string> = {
@@ -160,6 +160,21 @@ window.__ModuleLoader__.load({
       'look.title': '外形',
       'look.hint': '改了立刻同步到社区',
       'pet.title': '大肥鱼 · 点击或 Enter / 空格聊天；拖拽或方向键移动；T 播放本地思考表情',
+      'pet.actionLabel': '鲸鱼娘动作',
+      'pet.actionAuto': '自动',
+      'pet.localOnly': '仅播放本机动作，不读帖、发帖或发送消息；真实回复状态优先，稍后恢复自动。',
+      'pet.action.idle': '待机眨眼',
+      'pet.action.wave': '招手',
+      'pet.action.happy': '开心',
+      'pet.action.sleep': '打盹',
+      'pet.action.think': '思考',
+      'pet.action.drag': '被拖拽',
+      'pet.action.read': '阅读',
+      'pet.action.write': '写字',
+      'pet.action.talk': '聊天表情',
+      'pet.action.walk': '走动表情',
+      'pet.action.stretch': '伸懒腰',
+      'pet.action.surprised': '惊讶',
       'chat.title': '大肥鱼',
       'chat.subtitle': '使用当前 DSH 模型处理消息，敏感信息自动脱敏；本机记录不发布到社区',
       'chat.community': '鲸群社区',
@@ -450,6 +465,21 @@ window.__ModuleLoader__.load({
       'look.title': 'Look',
       'look.hint': 'Changes reach the community immediately',
       'pet.title': 'Whale companion · click or Enter / Space to chat; drag or arrow keys to move; T for a local thinking expression',
+      'pet.actionLabel': 'Whale companion action',
+      'pet.actionAuto': 'Automatic',
+      'pet.localOnly': 'Local animation only: no reading, posting or sending messages. Actual reply status takes priority; automatic mode resumes shortly.',
+      'pet.action.idle': 'Idle blink',
+      'pet.action.wave': 'Wave',
+      'pet.action.happy': 'Happy',
+      'pet.action.sleep': 'Sleep',
+      'pet.action.think': 'Think',
+      'pet.action.drag': 'Dragged pose',
+      'pet.action.read': 'Read',
+      'pet.action.write': 'Write',
+      'pet.action.talk': 'Talking pose',
+      'pet.action.walk': 'Walking pose',
+      'pet.action.stretch': 'Stretch',
+      'pet.action.surprised': 'Surprised',
       'chat.title': 'Whale companion',
       'chat.subtitle': 'Messages use the current DSH model with automatic sensitive-data redaction. Local records are not posted to the community.',
       'chat.community': 'Podwhale community',
@@ -913,6 +943,7 @@ window.__ModuleLoader__.load({
 .xls-chat-hint{font-size:10px;color:var(--dsw-alias-label-secondary,#526478);margin-top:6px;}
 .xls-chat-confirm{padding:10px 14px;border-top:1px solid var(--dsw-alias-border-l2,#dbe2ea);font-size:12px;}
 @media(max-width:600px){.xls-chat{right:16px;bottom:16px;height:min(540px,calc(100dvh - 88px));}}
+@media(max-width:600px) and (min-height:740px){.xls-chat{bottom:224px;height:min(520px,calc(100dvh - 256px));}}
 .xls-tab-dot{margin-left:5px;background:var(--dsw-alias-state-error-primary);color:#fff;border-radius:8px;padding:0 5px;font-size:9.5px;font-weight:600;}
 .xls-author{background:transparent;border:none;padding:0;font:inherit;cursor:pointer;color:inherit;}
 .xls-author:hover{text-decoration:underline;}
@@ -1245,7 +1276,7 @@ window.__ModuleLoader__.load({
       const [failed, setFailed] = useState(false);
       // 阿蓝 herself gets the real artwork at every size; other owners keep the
       // drawn creature so the community still shows a variety of characters.
-      const isAlan = props.ai === 'alan' || (!props.ai && look.shape === 'girl' && look.palette === 'blue');
+      const isAlan = look.shape === 'girl' && (props.ai === 'alan' || (!props.ai && look.palette === 'blue'));
       return h('span', {
         className: props.className || 'xls-ava',
         style: {
@@ -1255,7 +1286,7 @@ window.__ModuleLoader__.load({
       },
         isAlan && !failed
           ? h('img', {
-              src: '/xiaolanshu/face.png',
+              src: '/xiaolanshu/pet-art/v1/face.png',
               alt: '',
               width: size,
               height: size,
@@ -1631,7 +1662,7 @@ window.__ModuleLoader__.load({
       const [failed, setFailed] = useState(false);
       if (look.shape === 'girl' && size >= 48 && !failed) {
         return h('img', {
-          src: '/xiaolanshu/avatar.png',
+          src: '/xiaolanshu/pet-art/v1/portrait.png',
           alt: '',
           width: size,
           height: size,
@@ -1651,31 +1682,47 @@ window.__ModuleLoader__.load({
       sleep: { atlas: 'a', row: 3, sequence: [0, 1, 2, 1, 2, 1], durationMs: [300, 900, 750, 900, 750, 900] },
       think: { atlas: 'b', row: 0, sequence: [0, 1, 2, 3], durationMs: [600, 600, 650, 500] },
       drag: { atlas: 'b', row: 1, sequence: [0, 1, 0, 2, 0, 3], durationMs: [180, 160, 180, 160, 180, 220] },
+      read: { atlas: 'b', row: 2, sequence: [0, 1, 2, 1, 3], durationMs: [600, 220, 600, 220, 700] },
+      write: { atlas: 'b', row: 3, sequence: [0, 1, 2, 1, 3, 1], durationMs: [260, 180, 260, 180, 320, 180] },
+      talk: { atlas: 'c', row: 0, sequence: [0, 1, 2, 1, 3, 1], durationMs: [220, 150, 220, 150, 260, 150] },
+      walk: { atlas: 'c', row: 1, sequence: [0, 1, 2, 3], durationMs: [140, 140, 140, 140] },
+      stretch: { atlas: 'c', row: 2, sequence: [0, 1, 2, 3, 2, 1], durationMs: [300, 280, 600, 500, 280, 280] },
+      surprised: { atlas: 'c', row: 3, sequence: [0, 1, 2, 1, 3], durationMs: [140, 180, 340, 180, 500] },
     };
     const PET_ATLASES = {
-      a: { url: '/xiaolanshu/pet-actions-a.png', rows: 4 },
-      b: { url: '/xiaolanshu/pet-actions-b.png', rows: 2 },
+      a: { url: '/xiaolanshu/pet-art/v1/atlas-a.png', rows: 4 },
+      b: { url: '/xiaolanshu/pet-art/v1/atlas-b.png', rows: 4 },
+      c: { url: '/xiaolanshu/pet-art/v1/atlas-c.png', rows: 4 },
     };
+    const PET_ACTIONS: ClientPetAction[] = ['idle', 'wave', 'happy', 'sleep', 'think', 'drag',
+      'read', 'write', 'talk', 'walk', 'stretch', 'surprised'];
+    const isPetAction = (value: string): value is ClientPetAction => Object.prototype.hasOwnProperty.call(PET_MOTIONS, value);
 
-    /** Only the overlay uses optional atlases; avatars keep their existing rendering. */
+    /** Only the overlay animates the bundled atlases; other portraits stay still. */
     function PetArtwork(props: { look: ClientLook; action: ClientPetAction; still: boolean }) {
       const [available, setAvailable] = useState(false);
       const [frame, setFrame] = useState(0);
       useEffect(() => {
         setAvailable(false);
         if (props.look.shape !== 'girl') return;
-        let alive = true, loaded = 0, failed = false;
-        const images = Object.values(PET_ATLASES).map((atlas) => {
+        let alive = true;
+        const entries = Object.entries(PET_ATLASES);
+        const states = new Map<string, 'loading' | 'ready' | 'failed'>(entries.map(([key]) => [key, 'loading']));
+        const settle = (key: string, valid: boolean) => {
+          if (!alive || states.get(key) !== 'loading') return;
+          states.set(key, valid ? 'ready' : 'failed');
+          if (states.size === entries.length && [...states.values()].every((state) => state === 'ready')) setAvailable(true);
+        };
+        const images = entries.map(([key, atlas]) => {
           const image = new window.Image();
           image.onload = () => {
-            // Fractional cells are intentional (313.5 / 443.5px in the current art).
+            // A fractional cell is valid when the full atlas has a square grid.
             const width = image.naturalWidth, height = image.naturalHeight;
-            if (width < 4 || height < atlas.rows || width > 8192 || height > 8192
-              || width / 4 !== height / atlas.rows) failed = true;
-            loaded += 1;
-            if (alive && loaded === 2 && !failed) setAvailable(true);
+            settle(key, Number.isFinite(width) && Number.isFinite(height)
+              && width >= 4 && height >= atlas.rows && width <= 8192 && height <= 8192
+              && width / 4 === height / atlas.rows);
           };
-          image.onerror = () => { failed = true; };
+          image.onerror = () => settle(key, false);
           image.src = atlas.url;
           return image;
         });
@@ -1700,7 +1747,7 @@ window.__ModuleLoader__.load({
       const visibleFrame = props.still ? 0 : frame;
       return h('span', {
         className: 'xls-pet-sprite', 'aria-hidden': true,
-        'data-pet-artwork': 'classic', 'data-pet-action': props.action, 'data-pet-frame': visibleFrame,
+        'data-pet-artwork': 'bundled-v1', 'data-pet-action': props.action, 'data-pet-frame': visibleFrame,
         style: { backgroundImage: 'url("' + atlas.url + '")', backgroundSize: '400% ' + (atlas.rows * 100) + '%',
           backgroundPosition: (visibleFrame / 3 * 100) + '% ' + (motion.row / (atlas.rows - 1) * 100) + '%' },
       });
@@ -1713,7 +1760,8 @@ window.__ModuleLoader__.load({
         y: Math.min(Math.max(Math.min(64, maxY), value.y), maxY) };
     }
 
-    function Pet(props: { onOpen(): void; chatting?: boolean; generating?: boolean }) {
+    function Pet(props: { onOpen(): void; chatting?: boolean; generating?: boolean;
+      manualAction?: ClientPetAction | null; feedback?: ClientPetFeedback | null }) {
       const [look, setLook] = useState(AI_LOOKS.alan);
       const [dragging, setDragging] = useState(false);
       const [hovered, setHovered] = useState(false);
@@ -1723,6 +1771,7 @@ window.__ModuleLoader__.load({
       const [sleepy, setSleepy] = useState(false);
       const [thinking, setThinking] = useState(false);
       const [happy, setHappy] = useState(false);
+      const [walking, setWalking] = useState(0);
       const [note, setNote] = useState<ClientPetNote | null>(null);
       // Keep the existing storage key and CSS corner anchor when no valid spot exists.
       const [pos, setPos] = useState<ClientPosition | null>(() => {
@@ -1741,8 +1790,11 @@ window.__ModuleLoader__.load({
       const activityInitialized = useRef(false);
       posRef.current = pos;
       const wake = () => { lastTouch.current = Date.now(); setSleepy(false); };
-      const position = (value: ClientPosition, forceSave = false) => {
+      const position = (value: ClientPosition, forceSave = false, animateWalk = false) => {
         const next = clampPetPosition(value);
+        const rect = el.current?.getBoundingClientRect();
+        const previous = posRef.current || (rect ? { x: rect.left, y: rect.top } : null);
+        if (animateWalk && previous && (next.x !== previous.x || next.y !== previous.y)) setWalking((value) => value + 1);
         posRef.current = next;
         setPos(next);
         if (!forceSave && Date.now() - lastSave.current < 500) return;
@@ -1754,7 +1806,13 @@ window.__ModuleLoader__.load({
         const motionChange = () => setReduced(media.matches);
         const visibilityChange = () => {
           setHidden(document.hidden);
-          if (document.hidden) { setThinking(false); setHappy(false); setNote(null); }
+          if (document.hidden) {
+            setThinking(false); setHappy(false); setWalking(0); setNote(null);
+            const held = drag.current;
+            drag.current = null;
+            setDragging(false);
+            if (held && el.current?.hasPointerCapture(held.pointerId)) el.current.releasePointerCapture(held.pointerId);
+          }
         };
         const resize = () => {
           const rect = el.current?.getBoundingClientRect();
@@ -1779,15 +1837,20 @@ window.__ModuleLoader__.load({
         return () => { alive = false; };
       }, []);
       useEffect(() => {
-        if (hidden || props.chatting) { setSleepy(false); return; }
+        if (hidden || props.chatting || props.generating) { setSleepy(false); return; }
         const timer = window.setInterval(() => setSleepy(!drag.current && Date.now() - lastTouch.current >= 60000), 1000);
         return () => window.clearInterval(timer);
-      }, [hidden, props.chatting]);
+      }, [hidden, props.chatting, props.generating]);
       useEffect(() => {
         if (!thinking) return;
         const timer = window.setTimeout(() => setThinking(false), 4000);
         return () => window.clearTimeout(timer);
       }, [thinking]);
+      useEffect(() => {
+        if (!walking) return;
+        const timer = window.setTimeout(() => setWalking(0), 400);
+        return () => window.clearTimeout(timer);
+      }, [walking]);
       useEffect(() => {
         if (!note) return;
         setHappy(true);
@@ -1804,7 +1867,7 @@ window.__ModuleLoader__.load({
             const response = await fetch('/xiaolanshu/api/activity', { headers: { accept: 'application/json' } });
             if (!response.ok) return;
             const data = await response.json();
-            if (!alive) return;
+            if (!alive || document.hidden) return;
             const newest = (data.items || [])[0];
             // The first poll is a baseline, not a newly received event.
             if (!activityInitialized.current) { activityInitialized.current = true; lastSeen.current = newest?.id || null; return; }
@@ -1858,24 +1921,26 @@ window.__ModuleLoader__.load({
           const rect = event.currentTarget.getBoundingClientRect();
           const base = posRef.current || { x: rect.left, y: rect.top };
           position(step ? { x: base.x + step.x, y: base.y + step.y }
-            : { x: window.innerWidth - PET_SIZE - 24, y: window.innerHeight - PET_SIZE - 96 }, true);
+            : { x: window.innerWidth - PET_SIZE - 24, y: window.innerHeight - PET_SIZE - 96 }, true, !!step);
         } else if (event.key.toLowerCase() === 't' && !event.ctrlKey && !event.altKey && !event.metaKey) {
           event.preventDefault(); wake(); setThinking(true);
         }
       };
       // Drift never fights the user's pointer/focus, sleeping, or motion preferences.
       useEffect(() => {
-        if (hidden || reduced || sleepy || focused || hovered || props.chatting) return;
+        if (hidden || reduced || sleepy || focused || hovered || props.chatting || props.generating
+          || props.manualAction || props.feedback || thinking || happy) return;
         const timer = window.setInterval(() => {
-          if (drag.current) return;
+          if (drag.current || document.hidden) return;
           const rect = el.current?.getBoundingClientRect();
           const base = posRef.current || (rect && rect.width > 0 ? { x: rect.left, y: rect.top } : null);
-          if (base) position({ x: base.x + (Math.random() - 0.5) * 90, y: base.y + (Math.random() - 0.5) * 60 });
+          if (base) position({ x: base.x + (Math.random() - 0.5) * 90, y: base.y + (Math.random() - 0.5) * 60 }, false, true);
         }, 7000);
         return () => window.clearInterval(timer);
-      }, [hidden, reduced, sleepy, focused, hovered, props.chatting]);
-      const action: ClientPetAction = dragging ? 'drag' : props.generating ? 'think' : happy ? 'happy' : thinking ? 'think'
-        : hovered || focused ? 'wave' : sleepy ? 'sleep' : 'idle';
+      }, [hidden, reduced, sleepy, focused, hovered, props.chatting, props.generating, props.manualAction, props.feedback, thinking, happy]);
+      const action: ClientPetAction = dragging ? 'drag' : props.generating ? 'think' : props.feedback || (happy ? 'happy' : null)
+        || props.manualAction || (thinking ? 'think' : null) || (walking ? 'walk' : null)
+        || (hovered || focused ? 'wave' : sleepy ? 'sleep' : 'idle');
       return h('div', {
         className: 'xls-pet' + (dragging ? ' drag' : ''), ref: el,
         style: { ...(pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' } : {}),
@@ -1918,7 +1983,9 @@ window.__ModuleLoader__.load({
       constructor(readonly status: number) { super('companion request failed'); }
     }
 
-    function CompanionChat(props: { open: boolean; onClose(): void; onCommunity(): void; onSocial(): void; onGenerating(value: boolean): void }) {
+    function CompanionChat(props: { open: boolean; onClose(): void; onCommunity(): void; onSocial(): void;
+      onGenerating(value: boolean): void; manualAction: ClientPetAction | null;
+      onManualAction(value: ClientPetAction | null): void; onFeedback(value: ClientPetFeedback): void }) {
       const [view, setView] = useState<ClientCompanionView | null>(null);
       const [draft, setDraft] = useState('');
       const [error, setError] = useState('');
@@ -1935,6 +2002,9 @@ window.__ModuleLoader__.load({
       const mutation = useRef(false);
       const watchJob = useRef<string | null>(null);
       const retry = useRef<{ requestId: string; text: string } | null>(null);
+      const feedbackInitialized = useRef(false);
+      const lastAssistant = useRef<string | null>(null);
+      const lastFailedJob = useRef<string | null>(null);
       const job = view?.job || null;
       const running = companionRunning(job);
       const request = async (path: string, method = 'GET', body?: object): Promise<unknown> => {
@@ -1953,6 +2023,16 @@ window.__ModuleLoader__.load({
       const accept = (next: ClientCompanionView) => {
         setView(next);
         props.onGenerating(next.job?.state === 'generating');
+        const assistant = next.messages.findLast((message) => message.role === 'assistant');
+        const failedJob = next.job?.state === 'failed' ? next.job.id : null;
+        if (feedbackInitialized.current) {
+          if (assistant && assistant.id !== lastAssistant.current && next.job?.state === 'completed') props.onFeedback('talk');
+          else if (failedJob && failedJob !== lastFailedJob.current) props.onFeedback('surprised');
+        }
+        // Opening or restoring the window establishes a baseline, rather than replaying old replies.
+        feedbackInitialized.current = true;
+        lastAssistant.current = assistant?.id || null;
+        lastFailedJob.current = failedJob;
         if (next.job) {
           watchJob.current = next.job.id;
           if (next.job.state === 'failed' || next.job.state === 'cancelled') setDraft((current) => current || next.job!.input);
@@ -1968,6 +2048,7 @@ window.__ModuleLoader__.load({
         const version = ++epoch.current;
         active.current = props.open && !hidden;
         if (!active.current) {
+          feedbackInitialized.current = false;
           setWorking(null);
           mutation.current = false;
           props.onGenerating(false);
@@ -2065,6 +2146,17 @@ window.__ModuleLoader__.load({
             h('button', { className: 'xls-chat-button', onClick: props.onSocial, type: 'button' }, tr('social.title')),
             h('button', { className: 'xls-chat-button', onClick: props.onClose, type: 'button', 'aria-label': tr('chat.close') }, '×'))),
         h('div', { className: 'xls-chat-sub' }, tr('chat.subtitle')),
+        h('div', { className: 'xls-chat-sub' },
+          h('label', { htmlFor: 'pw-pet-select' }, tr('pet.actionLabel') + ' ',
+            h('select', { id: 'pw-pet-select', className: 'xls-chat-button', 'aria-label': tr('pet.actionLabel'),
+              'data-pet-select': true, 'aria-describedby': 'pw-pet-local-only', value: props.manualAction || 'auto',
+              onChange: (event: import('react').ChangeEvent<HTMLSelectElement>) => {
+                const value = event.target.value;
+                if (value === 'auto' || isPetAction(value)) props.onManualAction(value === 'auto' ? null : value);
+              } },
+            h('option', { value: 'auto' }, tr('pet.actionAuto')),
+            PET_ACTIONS.map((action) => h('option', { key: action, value: action }, tr('pet.action.' + action))))),
+          h('div', { className: 'xls-chat-hint', id: 'pw-pet-local-only' }, tr('pet.localOnly'))),
         h('div', { className: 'xls-chat-log', ref: log, role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' },
           !view?.messages.length && !job ? h('p', { className: 'xls-chat-empty' }, tr('chat.empty')) : null,
           view?.messages.map((message) => h('div', { key: message.id,
@@ -2104,12 +2196,39 @@ window.__ModuleLoader__.load({
       useLocaleTick();
       const [open, setOpen] = useState(false);
       const [generating, setGenerating] = useState(false);
-      const close = () => { setOpen(false); document.querySelector<HTMLElement>('.xls-pet')?.focus(); };
+      const [manual, setManual] = useState<{ action: ClientPetAction; nonce: number } | null>(null);
+      const [feedback, setFeedback] = useState<{ action: ClientPetFeedback; nonce: number } | null>(null);
+      const expressionSerial = useRef(0);
+      useEffect(() => {
+        if (!manual) return;
+        const timer = window.setTimeout(() => setManual(null), 4500);
+        return () => window.clearTimeout(timer);
+      }, [manual]);
+      useEffect(() => {
+        if (!feedback) return;
+        const timer = window.setTimeout(() => setFeedback(null), 2400);
+        return () => window.clearTimeout(timer);
+      }, [feedback]);
+      useEffect(() => {
+        const visibility = () => {
+          if (document.hidden) { setManual(null); setFeedback(null); }
+        };
+        document.addEventListener('visibilitychange', visibility);
+        return () => document.removeEventListener('visibilitychange', visibility);
+      }, []);
+      const close = () => { setOpen(false); setFeedback(null); document.querySelector<HTMLElement>('.xls-pet')?.focus(); };
       // Overlay styling must work before the community panel has ever mounted.
       return h(React.Fragment, null,
         h('style', null, CSS),
-        h(Pet, { onOpen: () => setOpen(true), chatting: open, generating: open && generating }),
-        h(CompanionChat, { open, onClose: close, onGenerating: setGenerating,
+        h(Pet, { onOpen: () => setOpen(true), chatting: open, generating: open && generating,
+          manualAction: manual?.action || null, feedback: feedback?.action || null }),
+        h(CompanionChat, { open, onClose: close, onGenerating: setGenerating, manualAction: manual?.action || null,
+          onManualAction: (action: ClientPetAction | null) => {
+            if (!document.hidden) setManual(action ? { action, nonce: ++expressionSerial.current } : null);
+          },
+          onFeedback: (action: ClientPetFeedback) => {
+            if (!document.hidden) setFeedback({ action, nonce: ++expressionSerial.current });
+          },
           onCommunity: () => { close(); props.onCommunity(); }, onSocial: () => { close(); props.onSocial(); } }));
     }
 

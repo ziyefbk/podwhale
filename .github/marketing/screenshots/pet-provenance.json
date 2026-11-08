@@ -1,0 +1,137 @@
+{
+  "purpose": "Podwhale 0.1.7 桌面社区与公开鲸鱼娘动作的真实宣传截图",
+  "captureKind": "real-ui-synthetic-local-fixture",
+  "package": {
+    "name": "podwhale",
+    "version": "0.1.7",
+    "sha256": "ace91454a73491c52410e36e47317ae0374a9393ee6f83e3f71cb8b2db38243d",
+    "unmodified": true,
+    "privateArtwork": false
+  },
+  "runtime": "official DSH 0.2.2-rc.1, two separate clean install profiles",
+  "syntheticAccounts": true,
+  "syntheticCommunity": true,
+  "productionRequests": false,
+  "realUserConfigRead": false,
+  "realModelProviderRequests": 0,
+  "realWechatRequests": 0,
+  "domPresentationOverrides": false,
+  "modelTestMode": "正常配置使用本地合成适配器；未配置场景没有模型提供方且模型请求为零。动作选择只改变本机表情。",
+  "nativeAcceptance": {
+    "normal": true,
+    "unconfigured": true,
+    "normalCoreAssertions": 11,
+    "normalUiAssertions": 9,
+    "publicPetAssertions": 35,
+    "unconfiguredAssertions": 11,
+    "syntheticAdapterCalls": 5,
+    "unconfiguredModelRequests": 0,
+    "communityPromo": true,
+    "communityPromoModelRequests": 0,
+    "responsivePet": {
+      "width": 375,
+      "heights": [
+        768,
+        740
+      ],
+      "minimumVisibleArea": 0.95,
+      "centerAndNinePointHits": true
+    },
+    "compactChat": {
+      "width": 375,
+      "height": 640,
+      "controlsUsable": true,
+      "petVisibilityGuaranteed": false
+    },
+    "uncaughtExceptions": 0,
+    "consoleErrors": 0,
+    "sourceEvidence": [
+      "report.json",
+      "public-pet-audit.json",
+      "unconfigured-pet-audit.json",
+      "community-promo/provenance.json"
+    ]
+  },
+  "publicArtwork": {
+    "artworkId": "bundled-v1",
+    "canonicalRoute": "/xiaolanshu/pet-art/v1/",
+    "actions": [
+      "idle",
+      "wave",
+      "happy",
+      "sleep",
+      "think",
+      "drag",
+      "read",
+      "write",
+      "talk",
+      "walk",
+      "stretch",
+      "surprised"
+    ],
+    "assets": [
+      {
+        "route": "/xiaolanshu/pet-art/v1/atlas-a.png",
+        "sha256": "93b93f815a924a8eb00deef48628d0c10de6749442b3c0bf1f356ffb7d0ce0e9",
+        "width": 1254,
+        "height": 1254,
+        "decoded": true
+      },
+      {
+        "route": "/xiaolanshu/pet-art/v1/atlas-b.png",
+        "sha256": "7ff15e5c0bba6c6f0f0a2630b52e0c4d93103b4dd43de14685b85c30ecbe30e3",
+        "width": 1254,
+        "height": 1254,
+        "decoded": true
+      },
+      {
+        "route": "/xiaolanshu/pet-art/v1/atlas-c.png",
+        "sha256": "b96c2bd251054e337ed7ac805b2da23472a01e5f172505ddb227523cc637867d",
+        "width": 1254,
+        "height": 1254,
+        "decoded": true
+      },
+      {
+        "route": "/xiaolanshu/pet-art/v1/portrait.png",
+        "sha256": "905e0dd338201aecff0ac413001e06b3c2630891c7126265727ef04a84255c64",
+        "width": 1254,
+        "height": 1254,
+        "decoded": true
+      },
+      {
+        "route": "/xiaolanshu/pet-art/v1/face.png",
+        "sha256": "7637da18fe0a300388c80ad10c5b5c4d6bb7c2fc4e2b7a5302ea6352af1787f6",
+        "width": 1254,
+        "height": 1254,
+        "decoded": true
+      }
+    ]
+  },
+  "sourceImagePolicy": "直接复制原始 PNG 字节；不重绘界面或覆盖 DOM；不采用失败测试、攻击文字或凭据截图。新公开角色素材不包含旧本地角色图。",
+  "publishedScreenshots": [
+    {
+      "capturedFile": "community-marketing-1600-light.png",
+      "publishedFile": "community.png",
+      "sourceCaptureId": "public-pet-tRYlbE",
+      "role": "fresh DSH limited agent, real synthetic community",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 219840,
+      "sha256": "142a54bc355f5466344a89a257dbf4b6db0afcb8f82214f62b59e6a67e5d28e0",
+      "unmodified": true,
+      "description": "0.1.7 桌面社区与新版公开鲸鱼娘；合成演示内容"
+    },
+    {
+      "capturedFile": "pet-read.png",
+      "publishedFile": "whale-actions.png",
+      "sourceCaptureId": "public-pet-native-accept-PVyd8t",
+      "role": "fresh configured DSH profile, local read expression, empty chat",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 97788,
+      "sha256": "a6941f8bd8603a1041433e728617022edb1db405908255d8bf73ac0100709250",
+      "unmodified": true,
+      "description": "0.1.7 聊天中的本机阅读动作预览；没有因此发送消息或调用模型"
+    }
+  ]
+}

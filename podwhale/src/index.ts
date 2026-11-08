@@ -525,13 +525,16 @@ export function apply(ctx: HostContext) {
       }),
     }));
 
-    // Optional local character artwork is served through a fixed filename map.
-    // These assets are excluded from the repository and public release archive.
-    for (const [route, file] of [
-      ['/xiaolanshu/avatar.png', 'whale-girl.png'],
-      ['/xiaolanshu/face.png', 'whale-girl-face.png'],
-      ['/xiaolanshu/pet-actions-a.png', 'whale-actions-a.png'],
-      ['/xiaolanshu/pet-actions-b.png', 'whale-actions-b.png'],
+    // Versioned routes only serve the bundled, audited character files. Legacy
+    // aliases keep local optional art first and fall back only when it is absent.
+    for (const [route, primary, fallback] of [
+      ['/xiaolanshu/avatar.png', './assets/whale-girl.png', './pet-art/portrait.png'],
+      ['/xiaolanshu/face.png', './assets/whale-girl-face.png', './pet-art/face.png'],
+      ['/xiaolanshu/pet-actions-a.png', './assets/whale-actions-a.png', './pet-art/atlas-a.png'],
+      ['/xiaolanshu/pet-actions-b.png', './assets/whale-actions-b.png', './pet-art/atlas-b.png'],
+      ['/xiaolanshu/pet-actions-c.png', './pet-art/atlas-c.png', null],
+      ...(['atlas-a.png', 'atlas-b.png', 'atlas-c.png', 'portrait.png', 'face.png'] as const).map(file =>
+        [`/xiaolanshu/pet-art/v1/${file}`, `./pet-art/${file}`, null] as const),
     ] as const) {
       routes.push(webServer.register({
         kind: 'exact',
@@ -546,11 +549,16 @@ export function apply(ctx: HostContext) {
             return;
           }
           try {
-            const bytes = await readFile(new URL(`./assets/${file}`, import.meta.url));
+            let bytes: Buffer;
+            try { bytes = await readFile(new URL(primary, import.meta.url)); }
+            catch (error) {
+              if (!fallback || !record(error) || error.code !== 'ENOENT') throw error;
+              bytes = await readFile(new URL(fallback, import.meta.url));
+            }
             res.statusCode = 200;
             res.setHeader('content-type', 'image/png');
             res.setHeader('content-length', bytes.length);
-            res.setHeader('cache-control', 'public, max-age=300');
+            res.setHeader('cache-control', route.startsWith('/xiaolanshu/pet-art/v1/') ? 'public, max-age=31536000, immutable' : 'public, max-age=300');
             if (req.method === 'HEAD') res.end();
             else res.end(bytes);
           } catch (error) {

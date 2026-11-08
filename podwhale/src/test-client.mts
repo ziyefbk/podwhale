@@ -173,18 +173,28 @@ function petTimer(callback: () => void, delay: number, interval: number | null) 
   petTimers.set(id, { callback, due: petClock + delay, interval });
   return id;
 }
-let imageMode: 'good' | 'missing' | 'invalid' = 'good';
+let imageMode: 'good' | 'missing' | 'invalid' | 'deferred' = 'good';
+let imageFaultPath: string | null = null;
 const petImages: TestImage[] = [];
 class TestImage {
+  url = '';
   naturalWidth = 0; naturalHeight = 0;
   onload: (() => void) | null = null; onerror: (() => void) | null = null;
   set src(url: string) {
+    this.url = url;
     petImages.push(this);
-    if (url.endsWith('-b.png') && imageMode === 'missing') { this.onerror?.(); return; }
-    this.naturalWidth = url.endsWith('-a.png') ? 1254 : imageMode === 'invalid' ? 1700 : 1774;
-    this.naturalHeight = url.endsWith('-a.png') ? 1254 : 887;
+    if (imageMode === 'deferred') return;
+    const fails = imageFaultPath ? url.endsWith(imageFaultPath) : url.endsWith('atlas-b.png');
+    if (fails && imageMode === 'missing') { this.onerror?.(); return; }
+    const size = url.endsWith('atlas-a.png') ? 1254 : url.endsWith('atlas-b.png') ? 1774 : 1536;
+    this.complete(fails && imageMode === 'invalid' ? size + 1 : size, size);
+  }
+  complete(width = 1536, height = width) {
+    this.naturalWidth = width;
+    this.naturalHeight = height;
     this.onload?.();
   }
+  fail() { this.onerror?.(); }
 }
 const capturedPointers = new Set<number>();
 let petFocusCount = 0, inputFocusCount = 0, requestSequence = 0;
@@ -1004,9 +1014,9 @@ async function advancePet(milliseconds: number) {
   petClock = target;
   await renderPet();
 }
-async function mountPet(mode: typeof imageMode = 'good', reduced = false) {
+async function mountPet(mode: typeof imageMode = 'good', reduced = false, faultPath: string | null = null) {
   unmountTestTree();
-  imageMode = mode; motion.matches = reduced; fakeWindow.document!.hidden = false;
+  imageMode = mode; imageFaultPath = faultPath; motion.matches = reduced; fakeWindow.document!.hidden = false;
   fakeWindowForModule.innerWidth = 1440; fakeWindowForModule.innerHeight = 900;
   store.delete('xlb-pet-pos'); petLeft = 1200; petTop = 640;
   routes['/api/activity'] = { items: [{ id: 'pet-old', kind: 'post', title: '已有记录' }] };
@@ -1128,6 +1138,14 @@ try {
   check('visibility restoration resumes idle without treating the same activity as new', petSprite()?.props['data-pet-action'] === 'idle'
     && petSprite()?.props['data-pet-frame'] === 1
     && findNodes(petTree, (node) => node.props.className === 'xls-pet-bubble').length === 0);
+  await mountPet(); await petPointer('onPointerDown', 1210, 650, 44);
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  check('hiding an active drag releases pointer capture and its movement state', !capturedPointers.has(44)
+    && petNode().props['data-pet-action'] !== 'drag' && petTimers.size === 0);
+  fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  await petPointer('onPointerUp', 1210, 650, 44);
+  check('a late pointer release after hiding cannot open chat or revive the old drag', !chatDialog()
+    && !capturedPointers.has(44) && petNode().props['data-pet-action'] !== 'drag');
   await mountPet('good', true);
   await advancePet(10000);
   check('reduced motion freezes the first frame and prevents drift', petSprite()?.props['data-pet-frame'] === 0
@@ -1137,14 +1155,58 @@ try {
     && petSprite()?.props['data-pet-frame'] === 0);
   motion.matches = false; motionListeners.forEach((fn) => fn()); await renderPet(); await advancePet(600);
   check('a live motion-preference change resumes the permitted sprite timeline', petSprite()?.props['data-pet-frame'] === 1);
+  await mountPet(); await advancePet(2600);
+  motion.matches = true; motionListeners.forEach((fn) => fn()); await renderPet();
+  check('enabling reduced motion cancels an already running frame timer and resets the visible frame', petSprite()?.props['data-pet-frame'] === 0
+    && ![...petTimers.values()].some(timer => timer.interval === null));
+  await advancePet(5000);
+  check('reduced motion stays static after the cancelled frame deadline', petSprite()?.props['data-pet-frame'] === 0 && !store.has('xlb-pet-pos'));
+
+  const deferredStart = petImages.length; await mountPet('deferred');
+  const staged = petImages.slice(deferredStart);
+  const atlasA = staged.find(image => image.url.endsWith('/atlas-a.png'));
+  const atlasB = staged.find(image => image.url.endsWith('/atlas-b.png'));
+  const atlasC = staged.find(image => image.url.endsWith('/atlas-c.png'));
+  check('bundled artwork preloads exactly the three versioned local atlases', staged.length === 3 && new Set(staged.map(image => image.url)).size === 3
+    && staged.every(image => /^\/xiaolanshu\/pet-art\/v1\/atlas-[abc]\.png$/.test(image.url)));
+  if (!atlasA || !atlasB || !atlasC) throw new Error('Bundled preload fixture missing an atlas');
+  atlasC.complete(); await renderPet(); atlasA.complete(1254); await renderPet();
+  check('out-of-order partial atlas loads keep the portrait until the final atlas succeeds', !petSprite()
+    && findNodes(petTree, node => node.type === 'img' && node.props.src === '/xiaolanshu/pet-art/v1/portrait.png').length === 1);
+  atlasB.complete(1774); await renderPet();
+  check('the last successful atlas enables bundled sprites with fractional grid cells', petSprite()?.props['data-pet-artwork'] === 'bundled-v1'
+    && petSprite()?.props['data-pet-frame'] === 0);
+  const preloadCount = petImages.length; await renderPet(); await advancePet(2600);
+  check('ordinary frame rerenders reuse the completed atlas preload', petImages.length === preloadCount && petSprite()?.props['data-pet-frame'] === 1);
+
+  const hiddenStart = petImages.length; await mountPet('deferred');
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  petImages.slice(hiddenStart).forEach(image => image.complete()); await renderPet();
+  check('finishing image preloads in a hidden document does not restart any timer', petSprite()?.props['data-pet-frame'] === 0
+    && petNode().props['data-still'] === 'true' && petTimers.size === 0);
+  fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet(); await advancePet(2600);
+  check('a visible document resumes its fully loaded sprite timeline', petSprite()?.props['data-pet-frame'] === 1);
+
+  const lateStart = petImages.length; await mountPet('deferred');
+  const lateImages = petImages.slice(lateStart), lateCallback = lateImages[0]?.onload;
+  lateImages.slice(1).forEach(image => image.complete()); await renderPet();
+  lateImages[0]!.naturalWidth = lateImages[0]!.naturalHeight = 1536;
+  unmountTestTree(); dirty = false; lateCallback?.();
+  check('unmounted atlas callbacks cannot update state or resurrect animation timers', !dirty && petTimers.size === 0
+    && lateImages.every(image => image.onload === null && image.onerror === null));
+  for (const failedAtlas of ['atlas-a.png', 'atlas-c.png']) {
+    await mountPet('missing', false, failedAtlas);
+    check('a failed bundled atlas never exposes a partial sprite: ' + failedAtlas, !petSprite()
+      && findNodes(petTree, node => node.type === 'img' && node.props.src === '/xiaolanshu/pet-art/v1/portrait.png').length === 1);
+  }
   await mountPet('missing');
   const missingImageCount = petImages.length;
-  check('a missing optional atlas falls back to the legacy portrait', !petSprite()
-    && findNodes(petTree, (n) => n.type === 'img' && n.props.src === '/xiaolanshu/avatar.png').length === 1);
+  check('a missing bundled atlas falls back to the bundled portrait', !petSprite()
+    && findNodes(petTree, (n) => n.type === 'img' && n.props.src === '/xiaolanshu/pet-art/v1/portrait.png').length === 1);
   await advancePet(5000);
   check('missing atlas loads are not retried on normal rerenders', petImages.length === missingImageCount);
   findNodes(petTree, (n) => n.type === 'img')[0]?.props.onError?.(); await renderPet();
-  check('a missing legacy portrait still falls back to a vector creature', findNodes(petTree, (n) => n.type === 'img').length === 0
+  check('a missing bundled portrait still falls back to a vector creature', findNodes(petTree, (n) => n.type === 'img').length === 0
     && findNodes(petTree, (n) => n.type === 'svg').length > 0);
   await mountPet('invalid');
   check('an image with a non-square grid is rejected rather than sampled', !petSprite());
@@ -1154,7 +1216,7 @@ try {
     && findNodes(petTree, (n) => n.type === 'svg').length > 0);
   const loadedForNonGirl = petImages.length;
   await renderPet();
-  check('non-girl steady state does not keep loading optional girl art', petImages.length === loadedForNonGirl && loadedForNonGirl <= imageCount + 2);
+  check('non-girl steady state does not keep loading bundled girl art', petImages.length === loadedForNonGirl && loadedForNonGirl <= imageCount + 3);
 } catch (error) {
   check('desktop pet behavior suite completes without throwing', false, String(error instanceof Error ? error.stack : error));
 } finally {
@@ -1166,6 +1228,26 @@ check('pet unmount clears all its timers, image handlers and listeners', petTime
   && petImages.every((image) => image.onload === null && image.onerror === null)
   && motionListeners.size === 0 && [...windowListeners.values()].every((listeners) => listeners.size === 0)
   && [...documentListeners.values()].every((listeners) => listeners.size === 0));
+
+const ownAvatarShape = feed.posts[1]!.appearance.shape;
+try {
+  lastRoot = FakeReact.createElement(components.xiaolanshu!, {});
+  petTree = await renderPasses(lastRoot, 8);
+  const card = findNodes(petTree, node => node.props['data-post-id'] === 'x2')[0];
+  const face = findNodes(card, node => node.type === 'img' && node.props.src === '/xiaolanshu/pet-art/v1/face.png')[0];
+  check('the known girl author loads only the bundled canonical face image', !!face);
+  face?.props.onError?.(); petTree = await renderPasses(lastRoot, 6);
+  const fallback = findNodes(petTree, node => node.props['data-post-id'] === 'x2')[0];
+  check('a failed bundled face falls back to the author creature without legacy image retries', !findNodes(fallback, node => node.type === 'img').length
+    && findNodes(fallback, node => node.type === 'svg').length > 0);
+  unmountTestTree(); feed.posts[1]!.appearance.shape = 'cat';
+  lastRoot = FakeReact.createElement(components.xiaolanshu!, {}); petTree = await renderPasses(lastRoot, 8);
+  const catCard = findNodes(petTree, node => node.props['data-post-id'] === 'x2')[0];
+  check('an Alan author who chose a non-girl appearance keeps its vector avatar', !!catCard && !findNodes(catCard, node => node.type === 'img').length
+    && findNodes(catCard, node => node.type === 'svg').length > 0);
+} catch (caught) {
+  check('bundled author avatar behavior completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+} finally { unmountTestTree(); feed.posts[1]!.appearance.shape = ownAvatarShape; }
 
 // A local Host fixture drives the real chat component; no provider or network is called.
 let hostCompanion: CompanionView = { ok: true, ready: true, model: { provider: 'fixture', model: 'synthetic' }, messages: [], job: null };
@@ -1225,6 +1307,91 @@ function finishCompanion(state: CompanionJob['state'], reply = '合成回复') {
     { id: job.id + '-a', role: 'assistant', text: reply, createdAt: job.createdAt },
   ];
 }
+
+function petActionSelect() {
+  const control = findNodes(chatDialog(), node => node.type === 'select' && node.props['data-pet-select'] !== undefined)[0];
+  if (!control) throw new Error('Bundled pet action selector missing');
+  return control;
+}
+async function selectPetAction(action: string) {
+  const control = petActionSelect();
+  if (!control.props.onChange) throw new Error('Pet action selector handler missing');
+  control.props.onChange({ target: { value: action } });
+  await renderPet();
+}
+function petSpriteStyle(name: 'backgroundImage' | 'backgroundSize' | 'backgroundPosition') {
+  const style = petSprite()?.props.style;
+  if (!style || typeof style !== 'object' || !(name in style)) return undefined;
+  const value: unknown = Object.getOwnPropertyDescriptor(style, name)?.value;
+  return typeof value === 'string' ? value : undefined;
+}
+try {
+  Date.now = () => petClock;
+  await mountChat();
+  const actions = [
+    ['idle', 'a', 0, 2600], ['wave', 'a', 1, 180], ['happy', 'a', 2, 240], ['sleep', 'a', 3, 300],
+    ['think', 'b', 0, 600], ['drag', 'b', 1, 180], ['read', 'b', 2, 600], ['write', 'b', 3, 260],
+    ['talk', 'c', 0, 220], ['walk', 'c', 1, 140], ['stretch', 'c', 2, 300], ['surprised', 'c', 3, 140],
+  ] as const;
+  const options = findNodes(petActionSelect(), node => node.type === 'option').map(node => node.props.value);
+  check('the native action selector labels all twelve local actions plus automatic mode', petActionSelect().props['aria-label'] === '鲸鱼娘动作'
+    && options.length === 13 && options.includes('auto') && actions.every(([action]) => options.includes(action)));
+  petNode().props.onFocus?.(); await renderPet();
+  const beforeActions = callLog.length;
+  for (const [action, atlas, row, delay] of actions) {
+    await selectPetAction(action);
+    check('manual local action selects its own bundled atlas row over focus: ' + action, petSprite()?.props['data-pet-action'] === action
+      && petSprite()?.props['data-pet-artwork'] === 'bundled-v1' && petSprite()?.props['data-pet-frame'] === 0
+      && petSpriteStyle('backgroundImage')?.includes('/xiaolanshu/pet-art/v1/atlas-' + atlas + '.png')
+      && petSpriteStyle('backgroundSize') === '400% 400%' && petSpriteStyle('backgroundPosition') === '0% ' + (row / 3 * 100) + '%');
+    await advancePet(delay - 1); const held = petSprite()?.props['data-pet-frame'] === 0;
+    await advancePet(1);
+    check('the manual action advances only at its own first frame deadline: ' + action, held && petSprite()?.props['data-pet-frame'] === 1);
+  }
+  check('choosing local expressions does not submit chat, read posts or write community data', !callLog.slice(beforeActions).some(call => call.method !== 'GET')
+    && !callLog.slice(beforeActions).some(call => ['/api/feed', '/api/patrol', '/api/social/run'].includes(call.path)));
+  await selectPetAction('idle'); await advancePet(2500); await selectPetAction('read'); await advancePet(100);
+  check('switching actions cancels the old atlas frame deadline', petSprite()?.props['data-pet-action'] === 'read' && petSprite()?.props['data-pet-frame'] === 0);
+  await advancePet(4399);
+  check('manual selection stays active until its complete expiry window', petActionSelect().props.value === 'read');
+  await advancePet(1);
+  check('manual expression expiry restores automatic mode instead of replaying the old action', petActionSelect().props.value === 'auto'
+    && petNode().props['data-pet-action'] !== 'read');
+  await selectPetAction('stretch'); motion.matches = true; motionListeners.forEach(fn => fn()); await renderPet(); await advancePet(1200);
+  check('all bundled manual expressions respect reduced-motion static frame zero', petSprite()?.props['data-pet-action'] === 'stretch'
+    && petSprite()?.props['data-pet-frame'] === 0 && petNode().props['data-still'] === 'true');
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  check('hiding clears manual-expression and chat timers together', petTimers.size === 0 && petNode().props['data-still'] === 'true');
+  fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach(fn => fn()); motion.matches = false;
+  motionListeners.forEach(fn => fn()); await renderPet();
+  check('returning from hidden state drops the old manual choice', petActionSelect().props.value === 'auto'
+    && petNode().props['data-pet-action'] !== 'stretch');
+  await typeChat('合成 Host 优先级检查'); await clickChat('发送'); await selectPetAction('read');
+  finishCompanion('generating'); await advancePet(900);
+  check('actual Host generation outranks a local manual expression without changing the chosen menu value', petNode().props['data-pet-action'] === 'think'
+    && petActionSelect().props.value === 'read');
+  finishCompanion('completed', '新的合成助手回复'); await advancePet(900);
+  check('a newly committed Host reply triggers talk after generation stops', petNode().props['data-pet-action'] === 'talk');
+  await clickChat('收起聊天'); await petKey('Enter');
+  check('reopening committed history does not replay an old talk reaction', petNode().props['data-pet-action'] !== 'talk');
+  await selectPetAction('auto'); await typeChat('合成失败反馈'); await clickChat('发送'); finishCompanion('failed'); await advancePet(900);
+  check('a new actual failed Host job triggers the surprised expression', petNode().props['data-pet-action'] === 'surprised');
+  await clickChat('收起聊天'); await petKey('Enter');
+  check('reopening a previously failed job does not replay failure feedback', petNode().props['data-pet-action'] !== 'surprised');
+  await clickChat('收起聊天'); petNode().props.onBlur?.(); petNode().props.onPointerLeave?.(); await renderPet(); await advancePet(4500);
+  const previousX = petLeft; await petKey('ArrowLeft');
+  check('an actual keyboard position change selects a short walk', petLeft < previousX && petNode().props['data-pet-action'] === 'walk');
+  await advancePet(400);
+  check('walking settles back to the automatic expression', petNode().props['data-pet-action'] !== 'walk');
+  fakeWindowForModule.innerWidth = 120; fakeWindowForModule.innerHeight = 200;
+  windowListeners.get('resize')?.forEach(fn => fn()); await renderPet(); await advancePet(400); await petKey('ArrowLeft');
+  check('a clamped key press that does not move the pet cannot invent a walk', petLeft === 0 && petNode().props['data-pet-action'] !== 'walk');
+} catch (caught) {
+  check('bundled local action behavior completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+} finally {
+  unmountTestTree(); Date.now = actualNow; companionFetch = null;
+}
+
 const beforeChatCalls = callLog.length;
 try {
   Date.now = () => petClock;

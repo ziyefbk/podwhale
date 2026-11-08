@@ -3,3 +3,6 @@
 *.ts text eol=lf
 *.mts text eol=lf
 podwhale/tools/*.mjs linguist-generated=false
+podwhale/pet-art/*.png binary
+podwhale/pet-art/*.json text eol=lf
+podwhale/pet-art/SOURCE.md text eol=lf

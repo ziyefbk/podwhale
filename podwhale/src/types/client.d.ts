@@ -69,8 +69,10 @@ interface ClientRemote {
 interface ClientPending { status?: string; executed?: boolean; proposalId?: string }
 interface ClientPosition { x: number; y: number }
 interface ClientDrag { pointerId: number; dx: number; dy: number; startX: number; startY: number; moved: boolean }
-type ClientPetAction = 'idle' | 'wave' | 'happy' | 'sleep' | 'think' | 'drag';
-interface ClientPetMotion { atlas: 'a' | 'b'; row: number; sequence: number[]; durationMs: number[] }
+type ClientPetAction = 'idle' | 'wave' | 'happy' | 'sleep' | 'think' | 'drag'
+  | 'read' | 'write' | 'talk' | 'walk' | 'stretch' | 'surprised';
+type ClientPetFeedback = 'talk' | 'surprised';
+interface ClientPetMotion { atlas: 'a' | 'b' | 'c'; row: number; sequence: number[]; durationMs: number[] }
 /** JSON port matching companion-types.mts; no Node/Host services enter the classic client script. */
 interface ClientCompanionMessage { id: string; role: 'user' | 'assistant'; text: string; createdAt: string }
 interface ClientCompanionJob {

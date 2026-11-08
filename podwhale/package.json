@@ -1,6 +1,6 @@
 {
   "name": "podwhale",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
@@ -55,6 +55,13 @@
     "status.mjs",
     "server/*.mjs",
     "server/static/*.png",
+    "pet-art/atlas-a.png",
+    "pet-art/atlas-b.png",
+    "pet-art/atlas-c.png",
+    "pet-art/portrait.png",
+    "pet-art/face.png",
+    "pet-art/manifest.json",
+    "pet-art/SOURCE.md",
     "miniprogram",
     "docs",
     "ops",

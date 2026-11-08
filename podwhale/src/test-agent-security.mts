@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdir, mkdtemp, readFile, writeFile, rm, access, copyFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, rm, rmdir, access, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deflateSync } from 'node:zlib';
@@ -314,7 +314,9 @@ try {
   // inspect, overwrite or distribute the user's optional local character art.
   const imageRuntime = join(await tempHome(), 'plugin');
   const imageAssets = join(imageRuntime, 'assets');
+  const publicArt = join(imageRuntime, 'pet-art');
   await mkdir(imageAssets, { recursive: true });
+  await mkdir(publicArt, { recursive: true });
   await writeFile(join(imageRuntime, 'package.json'), '{"type":"module"}');
   for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs',
     'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'redact.js',
@@ -324,16 +326,36 @@ try {
   const bluePng = fixturePng([50, 100, 230, 255]);
   const pinkPng = fixturePng([230, 100, 170, 255]);
   const imageRoutes = [
-    ['/xiaolanshu/avatar.png', 'whale-girl.png', bluePng],
-    ['/xiaolanshu/face.png', 'whale-girl-face.png', pinkPng],
-    ['/xiaolanshu/pet-actions-a.png', 'whale-actions-a.png', bluePng],
-    ['/xiaolanshu/pet-actions-b.png', 'whale-actions-b.png', pinkPng],
+    ['/xiaolanshu/avatar.png', 'whale-girl.png', 'portrait.png', bluePng],
+    ['/xiaolanshu/face.png', 'whale-girl-face.png', 'face.png', pinkPng],
+    ['/xiaolanshu/pet-actions-a.png', 'whale-actions-a.png', 'atlas-a.png', bluePng],
+    ['/xiaolanshu/pet-actions-b.png', 'whale-actions-b.png', 'atlas-b.png', pinkPng],
   ] as const;
-  for (const [, name, bytes] of imageRoutes) await writeFile(join(imageAssets, name), bytes);
+  const publicBytes = new Map<string, Buffer>();
+  for (const [, name, publicName, bytes] of imageRoutes) {
+    await writeFile(join(imageAssets, name), bytes);
+    const bundled = bytes === bluePng ? pinkPng : bluePng;
+    publicBytes.set(publicName, bundled); await writeFile(join(publicArt, publicName), bundled);
+  }
+  publicBytes.set('atlas-c.png', bluePng); await writeFile(join(publicArt, 'atlas-c.png'), bluePng);
   await writeFile(join(imageAssets, 'unlisted.png'), bluePng);
+  await writeFile(join(publicArt, 'unlisted.png'), bluePng);
   const imageHost = await host(null, { moduleUrl: pathToFileURL(join(imageRuntime, 'index.js')).href, noRuntime: true });
   const imageCallsBefore = calls.length;
-  for (const [path, name, bytes] of imageRoutes) {
+  for (const [name, bytes] of publicBytes) {
+    const path = '/xiaolanshu/pet-art/v1/' + name;
+    const response = await fetch(imageHost.base + path);
+    check('canonical character route reads only its public fixed PNG: ' + name, response.status === 200
+      && response.headers.get('content-type') === 'image/png' && response.headers.get('x-content-type-options') === 'nosniff'
+      && response.headers.get('cache-control') === 'public, max-age=31536000, immutable' && Buffer.from(await response.arrayBuffer()).equals(bytes));
+    const head = await fetch(imageHost.base + path, { method: 'HEAD' });
+    check('canonical character HEAD has headers and no body: ' + name, head.status === 200 && head.headers.get('content-length') === String(bytes.length) && (await head.arrayBuffer()).byteLength === 0);
+    const rejected = await Promise.all(['POST', 'PUT', 'DELETE'].map(method => fetch(imageHost.base + path, { method })));
+    check('canonical character rejects non-read methods: ' + name, rejected.every(reply => reply.status === 405 && reply.headers.get('allow') === 'GET, HEAD' && reply.headers.get('x-content-type-options') === 'nosniff'));
+  }
+  const thirdAlias = await fetch(imageHost.base + '/xiaolanshu/pet-actions-c.png');
+  check('third atlas legacy-style alias maps only the bundled C image', thirdAlias.status === 200 && Buffer.from(await thirdAlias.arrayBuffer()).equals(bluePng));
+  for (const [path, name, publicName, bytes] of imageRoutes) {
     const response = await fetch(imageHost.base + path + '?v=synthetic-classic-1');
     check('fixed artwork GET returns only its mapped PNG: ' + name, response.status === 200
       && response.headers.get('content-type') === 'image/png' && response.headers.get('x-content-type-options') === 'nosniff'
@@ -349,13 +371,25 @@ try {
       && reply.headers.get('allow') === 'GET, HEAD' && reply.headers.get('cache-control') === 'no-store'
       && reply.headers.get('x-content-type-options') === 'nosniff'));
     await rm(join(imageAssets, name));
+    const fallback = await fetch(imageHost.base + path);
+    check('legacy alias falls back to bundled art only when local file is absent: ' + name, fallback.status === 200 && Buffer.from(await fallback.arrayBuffer()).equals(publicBytes.get(publicName)!));
+    await mkdir(join(imageAssets, name));
+    const inaccessible = await fetch(imageHost.base + path);
+    check('legacy artwork read errors cannot silently choose a different image: ' + name, inaccessible.status === 404 && inaccessible.headers.get('cache-control') === 'no-store');
+    await rmdir(join(imageAssets, name));
+    await rm(join(publicArt, publicName));
     const missing = await fetch(imageHost.base + path);
     check('missing optional artwork returns an uncached 404: ' + name, missing.status === 404
       && missing.headers.get('cache-control') === 'no-store' && (await missing.arrayBuffer()).byteLength === 0);
   }
-  const invalidImagePaths = ['/xiaolanshu/pet-actions-c.png', '/xiaolanshu/unlisted.png',
+  await writeFile(join(imageAssets, 'whale-girl.png'), bluePng);
+  const isolatedCanonical = await fetch(imageHost.base + '/xiaolanshu/pet-art/v1/portrait.png');
+  check('missing canonical art never falls back to private legacy artwork', isolatedCanonical.status === 404 && isolatedCanonical.headers.get('cache-control') === 'no-store');
+  const invalidImagePaths = ['/xiaolanshu/pet-actions-d.png', '/xiaolanshu/unlisted.png',
     '/xiaolanshu/pet-actions-a.png/unlisted.png', '/xiaolanshu/pet-actions-a.png%2f..%2funlisted.png',
-    '/xiaolanshu/assets/unlisted.png', '/xiaolanshu/pet-actions-a.png/%2e%2e%2fpackage.json'];
+    '/xiaolanshu/assets/unlisted.png', '/xiaolanshu/pet-actions-a.png/%2e%2e%2fpackage.json',
+    '/xiaolanshu/pet-art/v1/unlisted.png', '/xiaolanshu/pet-art/v1/manifest.json', '/xiaolanshu/pet-art/v1/SOURCE.md',
+    '/xiaolanshu/pet-art/v1/portrait.png/unlisted.png', '/xiaolanshu/pet-art/v1/portrait.png%2f..%2fpackage.json'];
   const invalidImages = await Promise.all(invalidImagePaths.map((path) => fetch(imageHost.base + path)));
   check('fixed artwork routes never expose unlisted files or encoded traversal', invalidImages.every((reply) => reply.status === 404));
   check('local artwork requests never contact the community or start an agent', calls.length === imageCallsBefore && imageHost.followups() === 0);

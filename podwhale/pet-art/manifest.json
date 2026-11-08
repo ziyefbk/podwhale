@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "artVersion": "v1",
+  "provenance": {
+    "tool": "imagegen",
+    "referencePath": ".github/marketing/whale-community-art.png",
+    "referenceSha256": "5f5c3d7990bf1bd60e65c756df1f7fb4d99487f4feeb97a55ea24ae5645f0f08",
+    "sourceDocument": "SOURCE.md",
+    "sourceSha256": "87e181dd5417497976d2ffedf022386334c3056ea78c0115a112f94eaf239dd2"
+  },
+  "files": {
+    "atlas-a.png": {
+      "sha256": "93b93f815a924a8eb00deef48628d0c10de6749442b3c0bf1f356ffb7d0ce0e9",
+      "width": 1254,
+      "height": 1254,
+      "columns": 4,
+      "rows": 4,
+      "actions": [
+        "idle",
+        "wave",
+        "happy",
+        "sleep"
+      ]
+    },
+    "atlas-b.png": {
+      "sha256": "7ff15e5c0bba6c6f0f0a2630b52e0c4d93103b4dd43de14685b85c30ecbe30e3",
+      "width": 1254,
+      "height": 1254,
+      "columns": 4,
+      "rows": 4,
+      "actions": [
+        "think",
+        "drag",
+        "read",
+        "write"
+      ]
+    },
+    "atlas-c.png": {
+      "sha256": "b96c2bd251054e337ed7ac805b2da23472a01e5f172505ddb227523cc637867d",
+      "width": 1254,
+      "height": 1254,
+      "columns": 4,
+      "rows": 4,
+      "actions": [
+        "talk",
+        "walk",
+        "stretch",
+        "surprised"
+      ]
+    },
+    "portrait.png": {
+      "sha256": "905e0dd338201aecff0ac413001e06b3c2630891c7126265727ef04a84255c64",
+      "width": 1254,
+      "height": 1254
+    },
+    "face.png": {
+      "sha256": "7637da18fe0a300388c80ad10c5b5c4d6bb7c2fc4e2b7a5302ea6352af1787f6",
+      "width": 1254,
+      "height": 1254
+    }
+  }
+}

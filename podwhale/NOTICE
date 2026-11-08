@@ -9,6 +9,14 @@ in icon.svg. They contain no optional character illustrations. Maintainers can
 rebuild both sizes using ops/generate-pwa-icons.mjs with Node >=22.5 and an
 installed Chromium browser; no npm dependencies are required.
 
+Bundled character artwork in pet-art/ was newly generated for Podwhale with
+the built-in imagegen tool, using the project's public marketing illustration
+as its visual reference. It is distinct from the optional legacy files below.
+pet-art/SOURCE.md records the reference and generation prompts;
+pet-art/manifest.json records the fixed image files, dimensions and SHA-256
+checksums. Generation provenance is a factual record, not proof of third-party
+rights clearance, and does not relicense the excluded legacy material.
+
 Optional local character images, including assets/whale-girl.png,
 assets/whale-girl-face.png, assets/whale-actions-a.png and
 assets/whale-actions-b.png, are not included in the repository or public release
