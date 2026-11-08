@@ -15,6 +15,9 @@ import { registerCompanionRoutes } from './companion-http.mjs';
 import { createSocialController } from './social-controller.mjs';
 import { createSocialCommunity, socialFeedView } from './social-community.mjs';
 import { registerSocialRoutes } from './social-http.mjs';
+import { createCommunityConnection } from './community-connection.mjs';
+import { registerCommunityConnectionRoutes } from './community-connection-http.mjs';
+import { DEFAULT_COMMUNITY_URL } from './official-community.mjs';
 function record(value) { return value !== null && typeof value === 'object'; }
 function fields(value) {
     if (!record(value))
@@ -206,6 +209,11 @@ function wirePayload(state) {
 }
 export function apply(ctx) {
     const store = new FeedStore();
+    const communityConnection = createCommunityConnection({ file: join(homeDir(), 'xiaolanshu', 'remote.json'), officialUrl: DEFAULT_COMMUNITY_URL });
+    ctx.inject(['webServer', 'connection'], (runtimeCtx) => {
+        const dispose = registerCommunityConnectionRoutes({ webServer: runtimeCtx.webServer, connection: runtimeCtx.connection, service: communityConnection });
+        runtimeCtx.effect(() => dispose);
+    });
     const socialCommunity = createSocialCommunity({ configuration: remoteConfig });
     let socialControls = null;
     const companionRuntime = createCompanionRuntime();

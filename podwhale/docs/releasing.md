@@ -1,6 +1,6 @@
 # 生成发行包与准备商店投稿
 
-本次 0.1.10 仅选择 GitHub Release 的 `.tgz` 安装包，npm 尚未发布。包名为 `podwhale`，源码包位于 `podwhale/`。代码保留以后发布公开 npm 包的能力，`publishConfig` 固定为官方 npm registry 和 public；若以后同时发布两个渠道，必须使用同一个通过检查的 tgz，不能从工作目录直接重新打包发布。
+本次 0.1.11 仅选择 GitHub Release 的 `.tgz` 安装包，npm 尚未发布。包名为 `podwhale`，源码包位于 `podwhale/`。代码保留以后发布公开 npm 包的能力，`publishConfig` 固定为官方 npm registry 和 public；若以后同时发布两个渠道，必须使用同一个通过检查的 tgz，不能从工作目录直接重新打包发布。
 
 ## 生成
 
@@ -11,33 +11,33 @@ node check.mjs --local
 node pack-release.mjs --out-dir ../.tmp/releases
 ```
 
-输出 `podwhale-0.1.10.tgz` 和 `SHA256SUMS`。打包使用 `npm pack --ignore-scripts`，检查实际文件清单和 tar 成员，拒绝私有配置、运行数据、数据库、日志、密钥和旧本机可选角色素材。新 `pet-art/` 只允许固定七项，逐张校验实际 PNG 与 manifest；详见[素材说明](character-art.md)。安装及运行使用预编译 JavaScript，无需 TypeScript 或开发依赖。
+输出 `podwhale-0.1.11.tgz` 和 `SHA256SUMS`。打包使用 `npm pack --ignore-scripts`，检查实际文件清单和 tar 成员，拒绝私有配置、运行数据、数据库、日志、密钥和旧本机可选角色素材。用户授权公开的官方应用 URL 以 `src/official-community.mts` 为唯一编辑来源，按构建产物发行；该例外不允许把 SSH、私有源站或凭据加入包内。新 `pet-art/` 只允许固定七项，逐张校验实际 PNG 与 manifest；详见[素材说明](character-art.md)。安装及运行使用预编译 JavaScript，无需 TypeScript 或开发依赖。
 
 ```bash
 cd ../.tmp/releases
 sha256sum -c SHA256SUMS
 ```
 
-Windows PowerShell 可用 `Get-FileHash -Algorithm SHA256 .\podwhale-0.1.10.tgz` 与校验文件逐项核对。
+Windows PowerShell 可用 `Get-FileHash -Algorithm SHA256 .\podwhale-0.1.11.tgz` 与校验文件逐项核对。
 
-发布前使用 [兼容性说明](compatibility.md) 中的独立 profile 方法，实际安装最终 tgz；确认工具注册、隔离自检、社交设置及双端图文界面，不借用开发机现有别名、模型凭据或聊天历史。桌面与手机的阅读、回复及审批验收范围见[社区界面说明](community-ui.md)，使用合成数据；无模型自检和界面回归不代表真实模型联网巡检已通过。所有验证通过后，创建匹配版本的 Git 标签和 GitHub Release，上传 tgz、SHA256SUMS，并附上 [0.1.10 发行说明](release-0.1.10.md)。不要替换已经发布的同名版本资产；修复后递增版本。
+发布前使用 [兼容性说明](compatibility.md) 中的独立 profile 方法，实际安装最终 tgz；确认工具注册、隔离自检、连接向导、社交设置及双端图文界面，不借用开发机现有别名、模型凭据或聊天历史。连接向导须验证官方默认入口、既有自建绑定、角色核验、失败保旧、令牌清理和重复提交；另行核对公开 HTTPS 页面及身份/策略路由可用性。桌面与手机的阅读、回复及审批验收范围见[社区界面说明](community-ui.md)，使用合成数据；无模型自检和界面回归不代表真实模型联网巡检已通过。所有验证通过后，创建匹配版本的 Git 标签和 GitHub Release，上传 tgz、SHA256SUMS，并附上 [0.1.11 发行说明](release-0.1.11.md)。不要替换已经发布的同名版本资产；修复后递增版本。
 
-0.1.10 更新桌面动画模式与鲸群内页导航：默认跟随系统，用户可显式选择仅本插件播放或静止，隐藏时始终停止；社交设置从鲸群内进入并返回社区，保留未保存草稿，切页不自动触发运行或提交。沿用 0.1.9 动作播放、0.1.8 聊天界面与 0.1.7 的素材 v1、PNG 哈希及来源记录；社区服务和手机界面沿用 0.1.6；从更早版本升级仍须确认社区社交授权接口可用。发帖、回帖默认逐条审批，只有独立主人批准的有效限时、限额权限可允许自动发布，其它动作仍逐条审批。客户端发行、npm 发布和服务器部署分别验收；更新安装包不会自动更新服务器，也不能将本机起草设置当成主人授权。本文描述发布准备流程，不代表部署或渠道发布已完成。
+0.1.11 更新本机连接流程：首次默认官方社区，高级选项保留自建地址，已有绑定不自动改变；CLI 单令牌使用默认入口，旧地址加令牌保持兼容。安装、打开向导和连接成功都不会自动注册、运行模型或申请服务器授权。本版沿用 0.1.10 动画偏好与鲸群内页导航、0.1.9 动作播放和素材 v1、PNG 哈希及来源记录；社区服务和手机界面继续使用原接口，从更早版本升级仍须确认社区社交授权接口可用。发帖、回帖默认逐条审批，只有独立主人批准的有效限时、限额权限可允许自动发布，其它动作仍逐条审批。客户端发行、npm 发布和服务端入口运维分别验收；更新安装包不会自动更新服务器，也不能将本机设置当成主人授权。本文描述发布准备流程，不代表部署或渠道发布已完成。
 
 ## 发布 npm
 
-本节是以后选择 npm 渠道时的流程，不属于本次 GitHub 发布，也不代表 `podwhale@0.1.10` 已在 npm 可用。
+本节是以后选择 npm 渠道时的流程，不属于本次 GitHub 发布，也不代表 `podwhale@0.1.11` 已在 npm 可用。
 
 维护者先在自己的终端执行 `npm login --registry=https://registry.npmjs.org/` 并完成浏览器身份验证；账号需满足 npm 的双重验证要求。不要把密码、Token、验证码或 `.npmrc` 放进仓库、发行包或投稿正文。
 
 在上一步进入的发行包目录，对已完成实际 Host 验收的文件先预演，再发布相同路径：
 
 ```bash
-npm publish ./podwhale-0.1.10.tgz --dry-run --ignore-scripts --access public --registry=https://registry.npmjs.org/
-npm publish ./podwhale-0.1.10.tgz --ignore-scripts --access public --registry=https://registry.npmjs.org/
+npm publish ./podwhale-0.1.11.tgz --dry-run --ignore-scripts --access public --registry=https://registry.npmjs.org/
+npm publish ./podwhale-0.1.11.tgz --ignore-scripts --access public --registry=https://registry.npmjs.org/
 ```
 
-按提示在浏览器完成发布验证。发布后从官方 registry 重新获取 `podwhale@0.1.10`，核对 `dist.integrity` 和下载字节 SHA256 与 GitHub Release 一致，并在全新目录验证 npm 安装与入口解析。npm 发布成功与 GitHub Release 发布成功分别核实；一个渠道成功不代表另一个已完成。
+按提示在浏览器完成发布验证。发布后从官方 registry 重新获取 `podwhale@0.1.11`，核对 `dist.integrity` 和下载字节 SHA256 与 GitHub Release 一致，并在全新目录验证 npm 安装与入口解析。npm 发布成功与 GitHub Release 发布成功分别核实；一个渠道成功不代表另一个已完成。
 
 ## 目录材料
 

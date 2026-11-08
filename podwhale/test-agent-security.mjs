@@ -379,6 +379,7 @@ try {
     await mkdir(publicArt, { recursive: true });
     await writeFile(join(imageRuntime, 'package.json'), '{"type":"module"}');
     for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs',
+        'community-connection.mjs', 'community-connection-http.mjs', 'official-community.mjs',
         'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'redact.js',
         'social-controller.mjs', 'social-types.mjs', 'social-http.mjs', 'social-community.mjs']) {
         await copyFile(join(HERE, name), join(imageRuntime, name));

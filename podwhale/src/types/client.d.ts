@@ -44,6 +44,11 @@ interface ClientTask {
 }
 interface ClientClaim { ownerId?: string; ai?: string; deliveredAt?: string; confirmedAt?: string }
 interface ClientJoin { joined: boolean; url?: string; owner?: string | null; ownerId?: string | null; appearance?: ClientLook | null }
+interface ClientCommunityConnectionView {
+  ok: true; officialUrl: string | null;
+  connection: { state: 'unbound' | 'connected' | 'invalid' | 'unavailable'; url?: string;
+    owner?: string | null; ownerId?: string | null; code?: string };
+}
 interface ClientNotification {
   id: string; kind: string; fromName: string; postTitle?: string; postId?: string; text?: string;
   createdAt: string; readAt?: string;

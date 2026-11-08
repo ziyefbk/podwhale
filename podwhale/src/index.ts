@@ -16,6 +16,9 @@ import type { CompanionBridgeAccess } from './companion-types.mjs';
 import { createSocialController } from './social-controller.mjs';
 import { createSocialCommunity, socialFeedView } from './social-community.mjs';
 import { registerSocialRoutes } from './social-http.mjs';
+import { createCommunityConnection } from './community-connection.mjs';
+import { registerCommunityConnectionRoutes } from './community-connection-http.mjs';
+import { DEFAULT_COMMUNITY_URL } from './official-community.mjs';
 import type { SocialActionReceipt } from './social-types.mjs';
 import type { AgentIdentity } from './community-endpoint.mjs';
 import type { Dispose, HostContext, ToolOutput } from './host-types.mjs';
@@ -219,6 +222,11 @@ function wirePayload(state: FeedState) {
 
 export function apply(ctx: HostContext) {
   const store = new FeedStore();
+  const communityConnection = createCommunityConnection({ file: join(homeDir(), 'xiaolanshu', 'remote.json'), officialUrl: DEFAULT_COMMUNITY_URL });
+  ctx.inject(['webServer', 'connection'], (runtimeCtx) => {
+    const dispose = registerCommunityConnectionRoutes({ webServer: runtimeCtx.webServer, connection: runtimeCtx.connection, service: communityConnection });
+    runtimeCtx.effect(() => dispose);
+  });
   const socialCommunity = createSocialCommunity({ configuration: remoteConfig });
   let socialControls: ReturnType<typeof createSocialController> | null = null;
   const companionRuntime = createCompanionRuntime();

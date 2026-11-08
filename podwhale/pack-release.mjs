@@ -116,7 +116,8 @@ export async function inspectCharacterArt(packageDir = HERE) {
     return inspectCharacterData(name => readFile(join(packageDir, 'pet-art', name)));
 }
 const REQUIRED = ['package.json', 'README.md', 'LICENSE', 'NOTICE', 'index.js', 'client.js',
-    'cordis.patch.yml', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs', 'private-config.mjs',
+    'cordis.patch.yml', 'community-endpoint.mjs', 'official-community.mjs', 'community-connection.mjs', 'community-connection-http.mjs',
+    'patrol-runtime.mjs', 'final-request-validator.mjs', 'private-config.mjs',
     'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'companion-setup.mjs', 'wechat-relay.mjs',
     'social-controller.mjs', 'social-types.mjs', 'social-http.mjs', 'social-community.mjs', 'server/social-policy.mjs',
     'server/community.mjs', 'server/auth.mjs', 'server/http-guard.mjs', 'server/types.mjs',

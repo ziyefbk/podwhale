@@ -53,6 +53,8 @@ sudo python3 /usr/local/libexec/podwhale-network-guard.py --check --config /etc/
 
 `Caddyfile.community.example` 只提供社区路径的请求体、超时和转发头配置示例。`timeouts` 需实际安装的 Caddy 支持；先用 `caddy validate` 检查候选，再热加载，保留其他网站配置。
 
+同一站点已有不带匹配条件的 `handle` 兜底时，社区代理应放在 `handle /xiaolanshu/*` 内，与兜底互斥匹配；直接把顶层 `reverse_proxy /xiaolanshu/*` 加在兜底后，会使请求先被兜底代理接走并可能返回 404。使用 `handle` 保留原路径，服务端继续处理 `/xiaolanshu/` 前缀。参见 [Caddy handle 说明](https://caddyserver.com/docs/caddyfile/directives/handle)。
+
 单文件 bind mount 的配置要保留原 inode，不能直接 rename 替换后假设容器已看到新文件。若 Caddy 的管理 API 已关闭，确认它以 `caddy run --config` 启动且没有 `--resume` 后，可用 `SIGUSR1` 重新加载文件；无需为重载开放管理 API。候选配置校验和回滚流程都应采用实际可用的重载方式。
 
 这些限制降低源站接口被滥用的风险，不能消除公网 IP 或抵抗超出服务器带宽的大流量攻击。接入 CDN/WAF 需要可管理域名及平台配置，并应限制源站仅接受可信回源。仅添加域名解析不会隐藏 IP。云安全组需单独在云平台核实；UFW 状态不能代表 Docker 发布端口或云安全组的实际策略。

@@ -275,6 +275,7 @@ let companionFetch = null;
 let socialFetch = null;
 let replyFetch = null;
 let feedFetch = null;
+let connectionFetch = null;
 function testResponse(value, status = 200) {
     return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(value), text: () => Promise.resolve(JSON.stringify(value)) };
 }
@@ -298,6 +299,8 @@ function fakeFetch(url, options) {
         return replyFetch(url, options || {});
     if (feedFetch && path === '/api/feed')
         return feedFetch(url, options || {});
+    if (connectionFetch && path === '/api/community-connection')
+        return connectionFetch(url, options || {});
     if (process.env.XLB_DEBUG)
         console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
     const payload = routes[path] !== undefined ? routes[path] : {};
@@ -424,8 +427,11 @@ function renderNode(element, path = 'root') {
         : typeof props['data-chat-action'] === 'string' ? 'chat:' + props['data-chat-action']
             : typeof props['data-pet-choice'] === 'string' ? 'pet-choice:' + props['data-pet-choice']
                 : typeof props['data-motion-choice'] === 'string' ? 'motion-choice:' + props['data-motion-choice']
-                    : typeof props['data-chat-prompt'] === 'string' ? 'chat-prompt:' + props['data-chat-prompt']
-                        : typeof props.id === 'string' ? 'id:' + props.id : type + ':' + path;
+                    : typeof props['data-connection-action'] === 'string' ? 'connection-action:' + props['data-connection-action']
+                        : typeof props['data-connection-field'] === 'string' ? 'connection-field:' + props['data-connection-field']
+                            : typeof props['data-connection-mode'] === 'string' ? 'connection-mode:' + props['data-connection-mode']
+                                : typeof props['data-chat-prompt'] === 'string' ? 'chat-prompt:' + props['data-chat-prompt']
+                                    : typeof props.id === 'string' ? 'id:' + props.id : type + ':' + path;
     let target = stableDom.get(identity);
     if (!target) {
         target = new TestDomTarget(node);
@@ -480,8 +486,8 @@ function eventPath(root, target) {
 function clickNode(root, target) {
     if (target.props.disabled && (target.type === 'button' || target.type === 'input' || target.type === 'textarea'))
         return;
-    let stopped = false;
-    const event = { target: domFor(target), stopPropagation() { stopped = true; }, preventDefault() { } };
+    let stopped = false, prevented = false;
+    const event = { target: domFor(target), stopPropagation() { stopped = true; }, preventDefault() { prevented = true; } };
     if (target.type === 'button' || target.type === 'input' || target.type === 'textarea')
         domFor(target).focus();
     for (const node of eventPath(root, target).reverse()) {
@@ -491,6 +497,13 @@ function clickNode(root, target) {
             continue;
         event.currentTarget = domFor(node);
         node.props.onClick?.(event);
+    }
+    if (!prevented && target.type === 'button' && (!target.props.type || target.props.type === 'submit')) {
+        const form = eventPath(root, target).reverse().find(node => node.type === 'form');
+        if (form) {
+            event.currentTarget = domFor(form);
+            form.props.onSubmit?.(event);
+        }
     }
 }
 function pointerDownNode(root, target) {
@@ -525,6 +538,12 @@ function keyNode(root, target, key, options = {}) {
     // harness reproduces that default action rather than adding a fake handler.
     if (options.nativeActivation && !prevented && target.type === 'button' && !target.props.disabled && (key === 'Enter' || key === ' '))
         clickNode(root, target);
+    if (options.nativeActivation && !prevented && !options.composing && options.code !== 229 && key === 'Enter' && target.type === 'input') {
+        const form = eventPath(root, target).reverse().find(node => node.type === 'form');
+        const submit = findNodes(form, node => node.type === 'button' && node.props.type === 'submit' && !node.props.disabled)[0];
+        if (submit)
+            clickNode(root, submit);
+    }
     return prevented;
 }
 async function renderPasses(root, passes) {
@@ -2750,6 +2769,274 @@ finally {
     feedFetch = null;
     replyFetch = null;
     companionFetch = null;
+    Date.now = actualNow;
+}
+try {
+    Date.now = () => petClock;
+    await mountSocial();
+    const notices = new Map(), beforeUnavailableWrites = socialWrites().length;
+    const connectionNotice = () => textOf(findNodes(mainPane('social'), node => node.props.className === 'xls-social-notice')[0]);
+    for (const code of ['social_not_joined', 'social_configuration_unavailable', 'social_policy_unavailable']) {
+        socialHost.community = { connected: code === 'social_policy_unavailable', available: false, policy: null, code };
+        await advancePet(4000);
+        notices.set(code, connectionNotice());
+        check('unavailable community state cannot start reading or request automatic publishing: ' + code, !!connectionNotice()
+            && socialAction('run').props.disabled === true && socialAction('request').props.disabled === true && socialWrites().length === beforeUnavailableWrites);
+    }
+    check('not joined, unreadable configuration and unavailable policy have distinct actionable notices', new Set(notices.values()).size === 3);
+    socialHost.community = { connected: false, available: false, policy: null, code: 'constructor' };
+    await advancePet(4000);
+    const unknownNotice = connectionNotice();
+    socialHost.community = { connected: false, available: false, policy: null };
+    await advancePet(4000);
+    check('an unknown connection code uses the same safe generic notice as a missing code without enabling writes', !!unknownNotice && unknownNotice === connectionNotice()
+        && socialAction('run').props.disabled === true && socialAction('request').props.disabled === true && socialWrites().length === beforeUnavailableWrites);
+}
+catch (caught) {
+    check('community availability notices complete without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+}
+finally {
+    unmountTestTree();
+    socialFetch = null;
+    Date.now = actualNow;
+}
+const fixtureOfficial = 'https://official.example.test/xiaolanshu', fixtureCustom = 'https://custom.example.test/community';
+const syntheticConnectionToken = 'xlb_' + 'q'.repeat(48);
+let connectionView = { ok: true, officialUrl: fixtureOfficial, connection: { state: 'unbound' } };
+let holdConnectionGet = false, holdConnectionPost = false, rejectConnectionPost = false;
+const heldConnection = { resolve: null, signal: undefined };
+const originalJoinRoute = routes['/api/join'];
+function connectedFixture(url) {
+    return { ok: true, officialUrl: fixtureOfficial, connection: { state: 'connected', url, owner: '合成连接主人', ownerId: 'fixture-connected-owner' } };
+}
+function connectionMeta() {
+    return connectionView.connection.state === 'connected'
+        ? { joined: true, url: connectionView.connection.url, owner: connectionView.connection.owner, ownerId: connectionView.connection.ownerId, appearance: joinInfo.appearance }
+        : { joined: false };
+}
+function installConnectionFixture() {
+    feedFetch = async () => testResponse({ ...structuredClone(feed), join: connectionMeta() });
+    routes['/api/join'] = connectionMeta();
+    connectionFetch = async (_url, options) => {
+        if ((options.method || 'GET') === 'GET') {
+            if (holdConnectionGet) {
+                holdConnectionGet = false;
+                return new Promise(resolve => { heldConnection.resolve = resolve; heldConnection.signal = options.signal; });
+            }
+            return testResponse(structuredClone(connectionView));
+        }
+        if (holdConnectionPost) {
+            holdConnectionPost = false;
+            return new Promise(resolve => { heldConnection.resolve = resolve; heldConnection.signal = options.signal; });
+        }
+        if (rejectConnectionPost) {
+            rejectConnectionPost = false;
+            return testResponse({ ok: false, error: 'UNTRUSTED_REMOTE_DETAIL ' + syntheticConnectionToken }, 401);
+        }
+        const body = JSON.parse(options.body || '{}');
+        if (!body || typeof body !== 'object' || !('mode' in body) || !('token' in body) || typeof body.token !== 'string')
+            return testResponse({ ok: false }, 400);
+        const url = body.mode === 'official' ? fixtureOfficial : 'url' in body && typeof body.url === 'string' ? body.url : null;
+        if (!url)
+            return testResponse({ ok: false }, 400);
+        connectionView = connectedFixture(url);
+        routes['/api/join'] = connectionMeta();
+        return testResponse(structuredClone(connectionView));
+    };
+}
+function connectionDialog() { return findNodes(petTree, node => node.props['data-community-connection'] !== undefined)[0]; }
+function connectionForm() {
+    const dialog = connectionDialog();
+    const form = dialog?.type === 'form' ? dialog : findNodes(dialog, node => node.type === 'form')[0];
+    if (!form)
+        throw new Error('Connection form missing');
+    return form;
+}
+function connectionField(name) {
+    const input = findNodes(connectionDialog(), node => node.props['data-connection-field'] === name)[0];
+    if (!input)
+        throw new Error('Connection input missing: ' + name);
+    return input;
+}
+function connectionAction(name) {
+    const button = findNodes(petTree, node => node.type === 'button' && node.props['data-connection-action'] === name)[0];
+    if (!button)
+        throw new Error('Connection action missing: ' + name);
+    return button;
+}
+async function connectionClick(name) { clickNode(petTree, connectionAction(name)); await renderPet(); }
+async function connectionType(name, text) { connectionField(name).props.onChange?.({ target: { value: text } }); await renderPet(); }
+async function connectionMode(mode) {
+    const radio = findNodes(connectionDialog(), node => node.props['data-connection-mode'] === mode)[0];
+    if (!radio)
+        throw new Error('Connection mode missing: ' + mode);
+    radio.props.onChange?.({ target: { value: mode, checked: true } });
+    await renderPet();
+}
+const connectionCalls = () => callLog.filter(call => call.path === '/api/community-connection');
+const connectionPosts = () => connectionCalls().filter(call => call.method === 'POST');
+const connectionSuiteStart = callLog.length;
+try {
+    Date.now = () => petClock;
+    unmountTestTree();
+    connectionView = { ok: true, officialUrl: fixtureOfficial, connection: { state: 'unbound' } };
+    installConnectionFixture();
+    petTree = await mountMain();
+    const beforeOpen = callLog.length;
+    await connectionClick('open');
+    check('opening the connection wizard only reads sanitized status and never submits or starts work', connectionCalls().filter(call => call.method === 'GET').length === 1
+        && !callLog.slice(beforeOpen).some(call => call.method !== 'GET') && !callLog.slice(beforeOpen).some(call => call.path.startsWith('/api/companion') || call.path === '/api/social/run'));
+    const tokenInput = connectionField('token'), tokenId = tokenInput.props.id;
+    check('first-time official connection needs no URL form and keeps its secret input labelled and masked', !findNodes(connectionDialog(), node => node.props['data-connection-field'] === 'url').length
+        && findNodes(connectionDialog(), node => node.props['data-connection-mode'] === 'official')[0]?.props.checked === true
+        && tokenInput.props.type === 'password' && String(tokenInput.props.autoComplete).toLowerCase() === 'off' && !!tokenId
+        && findNodes(connectionDialog(), node => node.type === 'label' && node.props.htmlFor === tokenId).length === 1);
+    await renderPet();
+    check('ordinary form rerenders do not refetch its status or write a binding', connectionCalls().filter(call => call.method === 'GET').length === 1 && connectionPosts().length === 0);
+    await connectionType('token', syntheticConnectionToken);
+    connectionForm().props.onBlur?.({ currentTarget: domFor(connectionForm()), relatedTarget: domFor(connectionAction('connect')) });
+    await renderPet();
+    check('moving focus from the token to the submit button preserves it for an explicit submission', connectionField('token').props.value === syntheticConnectionToken);
+    const composingSubmit = keyNode(petTree, connectionField('token'), 'Enter', { composing: true, nativeActivation: true });
+    const legacyComposingSubmit = keyNode(petTree, connectionField('token'), 'Enter', { code: 229, nativeActivation: true });
+    await renderPet();
+    check('composition Enter never submits the credential form or consumes its secret', composingSubmit && legacyComposingSubmit && connectionPosts().length === 0
+        && connectionField('token').props.value === syntheticConnectionToken);
+    holdConnectionPost = true;
+    const submit = connectionAction('connect'), implicitInput = connectionField('token');
+    clickNode(petTree, submit);
+    clickNode(petTree, submit);
+    keyNode(petTree, implicitInput, 'Enter', { nativeActivation: true });
+    await renderPet();
+    const officialPost = connectionPosts().at(-1);
+    check('clicks and implicit Enter share one in-flight official binding request without a URL override', connectionPosts().length === 1
+        && officialPost?.body?.mode === 'official' && officialPost.body.token === syntheticConnectionToken && !('url' in officialPost.body)
+        && officialPost.credentials === 'same-origin' && connectionAction('connect').props.disabled === true);
+    const feedsBeforeConnect = callLog.filter(call => call.path === '/api/feed').length;
+    connectionView = connectedFixture(fixtureOfficial);
+    routes['/api/join'] = connectionMeta();
+    heldConnection.resolve?.(testResponse(structuredClone(connectionView)));
+    await renderPet();
+    check('successful connection clears the token and refreshes the real community binding in place', connectionDialog()?.props['data-connection-state'] === 'connected'
+        && connectionField('token').props.value === '' && textOf(connectionDialog()).includes('合成连接主人')
+        && callLog.filter(call => call.path === '/api/feed').length > feedsBeforeConnect
+        && findNodes(mainPane('community'), node => node.props.className === 'xls-joinbtn')[0]?.props.title === fixtureOfficial);
+    check('connection results never render the token as status, error text or an address', !textOf(connectionDialog()).includes(syntheticConnectionToken)
+        && !callLog.slice(connectionSuiteStart).some(call => call.url.includes(syntheticConnectionToken)));
+    await connectionType('token', syntheticConnectionToken);
+    connectionForm().props.onBlur?.({ currentTarget: domFor(connectionForm()), relatedTarget: domFor(mainPane('community')) });
+    await renderPet();
+    check('focus leaving the entire form clears the entered secret without disconnecting the binding', connectionField('token').props.value === ''
+        && connectionView.connection.state === 'connected');
+    await connectionType('token', syntheticConnectionToken);
+    windowListeners.get('blur')?.forEach(listener => listener());
+    await renderPet();
+    check('window deactivation clears the transient token without a network mutation', connectionField('token').props.value === '' && connectionPosts().length === 1);
+    await connectionType('token', syntheticConnectionToken);
+    const staleBeforeHide = connectionForm().props.onSubmit;
+    fakeWindow.document.hidden = true;
+    documentListeners.get('visibilitychange')?.forEach(listener => listener());
+    await renderPet();
+    const hiddenCleared = !connectionDialog() || connectionField('token').props.value === '';
+    fakeWindow.document.hidden = false;
+    documentListeners.get('visibilitychange')?.forEach(listener => listener());
+    await renderPet();
+    staleBeforeHide?.({ target: {}, preventDefault() { }, stopPropagation() { } });
+    await renderPet();
+    check('hiding clears the secret and a stale submit callback cannot replay it after visibility returns', hiddenCleared && connectionPosts().length === 1);
+    if (!connectionDialog())
+        await connectionClick('open');
+    await connectionType('token', syntheticConnectionToken);
+    const staleBeforeClose = connectionForm().props.onSubmit;
+    await connectionClick('close');
+    staleBeforeClose?.({ target: {}, preventDefault() { }, stopPropagation() { } });
+    await renderPet();
+    check('closing the wizard clears its secret and permanently invalidates its old submit callback', !connectionDialog() && connectionPosts().length === 1
+        && !textOf(petTree).includes(syntheticConnectionToken));
+    await connectionClick('open');
+    check('reopening a connected wizard reads status without restoring a previous token', connectionField('token').props.value === '' && connectionDialog()?.props['data-connection-state'] === 'connected');
+    await connectionClick('close');
+    connectionView = connectedFixture(fixtureCustom);
+    installConnectionFixture();
+    unmountTestTree();
+    petTree = await mountMain();
+    const postsBeforeCustom = connectionPosts().length;
+    await connectionClick('open');
+    check('an existing custom binding remains selected and never silently switches to the official default', findNodes(connectionDialog(), node => node.props['data-connection-mode'] === 'custom')[0]?.props.checked === true
+        && connectionField('url').props.value === fixtureCustom && connectionField('token').props.value === '' && connectionPosts().length === postsBeforeCustom);
+    await connectionType('token', syntheticConnectionToken);
+    rejectConnectionPost = true;
+    await connectionClick('connect');
+    check('a rejected replacement preserves the old custom binding and clears the failed secret', connectionView.connection.url === fixtureCustom
+        && connectionField('url').props.value === fixtureCustom && connectionField('token').props.value === ''
+        && textOf(connectionDialog()).includes(fixtureCustom) && findNodes(connectionDialog(), node => node.props['data-connection-error'] !== undefined).length === 1
+        && !textOf(connectionDialog()).includes(syntheticConnectionToken) && !textOf(connectionDialog()).includes('UNTRUSTED_REMOTE_DETAIL'));
+    const customPost = connectionPosts().at(-1);
+    check('custom connection submits only the explicitly selected endpoint and agent token', customPost?.body?.mode === 'custom'
+        && customPost.body.url === fixtureCustom && customPost.body.token === syntheticConnectionToken
+        && Object.keys(customPost.body).sort().join(',') === 'mode,token,url');
+    await connectionType('token', syntheticConnectionToken);
+    await connectionClick('connect');
+    check('retrying a custom connection succeeds without returning or retaining its submitted token', connectionDialog()?.props['data-connection-state'] === 'connected'
+        && connectionView.connection.url === fixtureCustom && connectionField('token').props.value === '');
+    await connectionMode('official');
+    check('choosing the official option is only a form edit until explicitly submitted', !findNodes(connectionDialog(), node => node.props['data-connection-field'] === 'url').length
+        && connectionView.connection.url === fixtureCustom && connectionPosts().length === postsBeforeCustom + 2);
+    await connectionMode('custom');
+    check('custom advanced mode reveals its editable endpoint while preserving the active binding', connectionField('url').props.value === fixtureCustom
+        && connectionView.connection.url === fixtureCustom);
+    await connectionType('token', syntheticConnectionToken);
+    await connectionType('url', 'https://replacement.example.test/xiaolanshu');
+    check('editing a custom destination clears the old transient credential before another host can be selected', connectionField('token').props.value === ''
+        && connectionView.connection.url === fixtureCustom && connectionPosts().length === postsBeforeCustom + 2);
+    await connectionClick('close');
+    const existingCustom = structuredClone(connectionView), loopbackCustom = 'http://127.0.0.2:8787/xiaolanshu';
+    connectionView = connectedFixture(loopbackCustom);
+    installConnectionFixture();
+    unmountTestTree();
+    petTree = await mountMain();
+    const postsBeforeLoopback = connectionPosts().length;
+    await connectionClick('open');
+    check('an existing custom community anywhere in IPv4 loopback remains selected without an official fallback', connectionDialog()?.props['data-connection-state'] === 'connected'
+        && findNodes(connectionDialog(), node => node.props['data-connection-mode'] === 'custom')[0]?.props.checked === true
+        && connectionField('url').props.value === loopbackCustom && connectionView.connection.url === loopbackCustom
+        && connectionField('token').props.value === '' && connectionPosts().length === postsBeforeLoopback);
+    await connectionClick('close');
+    connectionView = existingCustom;
+    installConnectionFixture();
+    unmountTestTree();
+    petTree = await mountMain();
+    holdConnectionGet = true;
+    await connectionClick('open');
+    const staleRead = heldConnection.resolve, staleReadSignal = heldConnection.signal;
+    await connectionClick('close');
+    const feedsBeforeLateRead = callLog.filter(call => call.path === '/api/feed').length;
+    staleRead?.(testResponse(connectedFixture(fixtureOfficial)));
+    await renderPet();
+    check('closing aborts an in-flight status read and ignores its late result', staleReadSignal?.aborted === true && !connectionDialog()
+        && callLog.filter(call => call.path === '/api/feed').length === feedsBeforeLateRead);
+    await connectionClick('open');
+    await connectionType('token', syntheticConnectionToken);
+    holdConnectionPost = true;
+    await connectionClick('connect');
+    const stalePost = heldConnection.resolve, stalePostSignal = heldConnection.signal, feedsBeforeLatePost = callLog.filter(call => call.path === '/api/feed').length;
+    await connectionClick('close');
+    stalePost?.(testResponse(connectedFixture(fixtureOfficial)));
+    await renderPet();
+    check('a submitted request finishing after close cannot reopen the wizard, refill a secret or trigger a stale refresh', stalePostSignal?.aborted === true
+        && !connectionDialog() && !textOf(petTree).includes(syntheticConnectionToken)
+        && callLog.filter(call => call.path === '/api/feed').length === feedsBeforeLatePost);
+    check('the browser sends connection credentials only to its authenticated local Host endpoint', callLog.slice(connectionSuiteStart).filter(call => call.method !== 'GET').every(call => call.path === '/api/community-connection' && call.credentials === 'same-origin')
+        && !callLog.slice(connectionSuiteStart).some(call => call.path === '/api/social/run' || call.path.startsWith('/api/companion/messages')));
+}
+catch (caught) {
+    check('community connection wizard behavior completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+}
+finally {
+    unmountTestTree();
+    connectionFetch = null;
+    feedFetch = null;
+    routes['/api/join'] = originalJoinRoute;
     Date.now = actualNow;
 }
 console.log('');

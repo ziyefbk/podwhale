@@ -1,6 +1,6 @@
 {
   "name": "podwhale",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
@@ -35,6 +35,9 @@
   "files": [
     "index.js",
     "community-endpoint.mjs",
+    "official-community.mjs",
+    "community-connection.mjs",
+    "community-connection-http.mjs",
     "patrol-runtime.mjs",
     "final-request-validator.mjs",
     "companion-runtime.mjs",
@@ -71,6 +74,8 @@
     "test-runtime-security.mjs",
     "test-companion.mjs",
     "test-companion-http.mjs",
+    "test-community-endpoint.mjs",
+    "test-community-connection.mjs",
     "test-wechat-relay.mjs",
     "test-package.mjs",
     "test-private-config.mjs",

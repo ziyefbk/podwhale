@@ -131,6 +131,8 @@ const suites: [string, string, string][] = [
   ['本地', 'test-runtime-security.mjs', '模型出站上下文隔离'],
   ['本地', 'test-companion.mjs', '桌宠对话与本地会话隔离'],
   ['本地', 'test-companion-http.mjs', '桌宠聊天认证与微信接口'],
+  ['本地', 'test-community-endpoint.mjs', '默认社区与地址隔离'],
+  ['本地', 'test-community-connection.mjs', '社区连接与凭据绑定'],
   ['本地', 'test-social-controller.mjs', '社交计划与持久化'],
   ['本地', 'test-social-runtime.mjs', '社交模型与回执隔离'],
   ['本地', 'test-social-http.mjs', '社交设置认证与接口'],

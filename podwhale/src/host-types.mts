@@ -113,6 +113,7 @@ export interface WebServer {
   getOrigin?(): string | null | Promise<string | null>;
 }
 export interface HostContext extends EffectContext {
+  inject(names: ['webServer', 'connection'], activate: (context: EffectContext & { webServer: WebServer; connection: CompanionConnection }) => void | Promise<void>): unknown;
   inject(names: ['webServer', 'connection', 'agents', 'agentPresets', 'agentDefaultModel'], activate: (context: PatrolRuntimeContext & { webServer: WebServer; connection: CompanionConnection }) => void | Promise<void>): unknown;
   inject(names: ['agents', 'agentPresets', 'agentDefaultModel'], activate: (context: PatrolRuntimeContext) => void | Promise<void>): unknown;
   inject(names: ['schedule'], activate: (context: EffectContext & { schedule: ScheduleService }) => void | Promise<void>): unknown;

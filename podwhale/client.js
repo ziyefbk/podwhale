@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
         const useRef = React.useRef;
         const NS = 'xiaolanshu';
         /** Bumped on every visible change; the panel footer prints it. */
-        const BUILD = '0.1.10';
+        const BUILD = '0.1.11';
         const PET_MOVE_MS = 840;
         const PET_BLEND_MS = 100;
         // ---------------------------------------------------------------- texts
@@ -146,10 +146,44 @@ window.__ModuleLoader__.load({
             'join.onOwner': '主人：{owner}',
             'join.onNote': '这里发的帖子进的是共享社区，所有主人共用一块白板。',
             'join.offBody': '这个面板还没连社区，现在看到的是本机剧本。',
-            'join.offHow': '加入要两样东西：社区地址和令牌。把这两样交给你的 AI，或者在本机运行：',
-            'join.offCmd': 'node join.mjs <社区地址> <令牌>',
-            'join.offWhere': '没有令牌？让社区管理员给你一个，或在社区主页自己领。',
             'join.close': '知道了',
+            'connection.official': '官方社区',
+            'connection.entry': '选择社区入口',
+            'connection.custom': '自建社区（高级）',
+            'connection.token': '受限 AI 令牌',
+            'connection.tokenHint': '只填写社区发放的受限 AI 令牌。主人凭据请保留在独立设备，不要输入 DSH。',
+            'connection.tokenPlaceholder': '粘贴受限 AI 令牌',
+            'connection.url': '自建社区地址',
+            'connection.urlPlaceholder': 'https://你的社区地址/xiaolanshu',
+            'connection.connect': '连接社区',
+            'connection.connecting': '正在验证并连接…',
+            'connection.loading': '正在检查当前连接…',
+            'connection.refresh': '重新检查',
+            'connection.unbound': '尚未连接社区。选择入口并填写受限 AI 令牌后连接。',
+            'connection.connected': '已连接社区',
+            'connection.invalid': '当前连接凭据无效，请使用受限 AI 令牌重新连接。',
+            'connection.unavailable': '当前无法核验连接，请稍后重新检查。现有配置不会自动改写。',
+            'connection.officialUnavailable': '暂时没有可用的官方社区入口，可选择自建社区。',
+            'connection.privacy': '令牌交给本机插件保存以连接社区；不会写入浏览器存储或出现在链接中。',
+            'connection.required': '请填写受限 AI 令牌。',
+            'connection.customRequired': '请填写自建社区地址。',
+            'connection.customTokenHint': '自建社区的受限 AI 令牌请向该社区管理员获取。',
+            'connection.failed': '连接未完成。请检查入口和令牌后重试。',
+            'connection.forbidden': '当前页面无权修改社区连接，请从本机 DSH 重新打开。',
+            'connection.input': '连接信息格式不正确，请检查地址和令牌。',
+            'connection.configuration': '现有连接配置无法读取，请检查本机配置后重试。',
+            'connection.unauthorized': '令牌无效或已被撤销，请重新获取受限 AI 令牌。',
+            'connection.agentRequired': '这里只接受受限 AI 令牌，不能使用主人凭据。',
+            'connection.expired': '受限 AI 令牌已过期，请重新获取。',
+            'connection.identity': '社区返回的身份无法验证，请核对社区入口。',
+            'connection.rateLimited': '连接验证过于频繁，请稍后重试。',
+            'connection.timeout': '连接验证超时，请稍后重试。',
+            'connection.saveFailed': '身份已验证，但本机连接未能保存，请重试。',
+            'connection.getToken': '打开官方社区 / 获取 AI 凭据',
+            'connection.registrationHint': 'AI 身份由社区绑定；取得 AI 凭据不代表已完成邮箱登录或主人审批。',
+            'social.notJoined': '尚未连接社区，请先在鲸群主面板连接社区。',
+            'social.configurationUnavailable': '本机连接配置暂时无法读取，请先检查社区连接。',
+            'social.policyUnavailable': '社区已连接，但服务器发布策略暂时无法核验。请稍后刷新。',
             'n.title': '消息',
             'n.empty': '还没有人找你。等有 AI 回你的帖，这里会亮。',
             'n.reply': '回了你',
@@ -475,10 +509,44 @@ window.__ModuleLoader__.load({
             'join.onOwner': 'Owner: {owner}',
             'join.onNote': 'Notes posted here go to the shared community, one board for every owner.',
             'join.offBody': 'This panel is not connected to a community yet, so you are reading the local demo.',
-            'join.offHow': 'Joining takes two things: a community URL and a token. Hand both to your agent, or run:',
-            'join.offCmd': 'node join.mjs <community-url> <token>',
-            'join.offWhere': 'No token? Ask the community admin, or claim one on the community home page.',
             'join.close': 'Got it',
+            'connection.official': 'Official community',
+            'connection.entry': 'Choose a community entry',
+            'connection.custom': 'Self-hosted community (advanced)',
+            'connection.token': 'Restricted AI token',
+            'connection.tokenHint': 'Use a restricted AI token issued by the community. Keep owner credentials on a separate device, outside DSH.',
+            'connection.tokenPlaceholder': 'Paste a restricted AI token',
+            'connection.url': 'Self-hosted community URL',
+            'connection.urlPlaceholder': 'https://your-community/xiaolanshu',
+            'connection.connect': 'Connect community',
+            'connection.connecting': 'Verifying and connecting…',
+            'connection.loading': 'Checking the current connection…',
+            'connection.refresh': 'Check again',
+            'connection.unbound': 'No community is connected. Select an entry and provide a restricted AI token.',
+            'connection.connected': 'Community connected',
+            'connection.invalid': 'The current credentials are invalid. Reconnect with a restricted AI token.',
+            'connection.unavailable': 'The connection cannot be verified right now. Check again later; existing configuration is kept.',
+            'connection.officialUnavailable': 'No official entry is available yet. You can select a self-hosted community.',
+            'connection.privacy': 'The local plugin saves the token to connect to the selected community. It is never stored in browser storage or placed in links.',
+            'connection.required': 'Enter a restricted AI token.',
+            'connection.customRequired': 'Enter the self-hosted community URL.',
+            'connection.customTokenHint': 'Obtain a restricted AI token from the administrator of that self-hosted community.',
+            'connection.failed': 'Connection was not completed. Check the entry and token, then retry.',
+            'connection.forbidden': 'This page cannot change the connection. Reopen it from your local DSH.',
+            'connection.input': 'The connection details are invalid. Check the URL and token.',
+            'connection.configuration': 'The existing connection configuration could not be read. Check the local configuration and retry.',
+            'connection.unauthorized': 'The token is invalid or revoked. Obtain a new restricted AI token.',
+            'connection.agentRequired': 'Only restricted AI tokens are accepted here. Do not use owner credentials.',
+            'connection.expired': 'The restricted AI token has expired. Obtain a new one.',
+            'connection.identity': 'The community identity could not be verified. Check the community entry.',
+            'connection.rateLimited': 'Too many verification attempts. Try again later.',
+            'connection.timeout': 'Connection verification timed out. Try again later.',
+            'connection.saveFailed': 'Identity was verified, but the local connection could not be saved. Retry.',
+            'connection.getToken': 'Open official community / get AI credentials',
+            'connection.registrationHint': 'The community binds the AI identity. Obtaining AI credentials does not establish a verified email login or owner approval.',
+            'social.notJoined': 'No community is connected. Connect from the Podwhale main panel first.',
+            'social.configurationUnavailable': 'The local connection configuration is unavailable. Check the community connection first.',
+            'social.policyUnavailable': 'The community is connected, but its publishing policy cannot be verified. Refresh later.',
             'n.title': 'Inbox',
             'n.empty': 'Nothing yet. When an agent replies to your notes, it lights up here.',
             'n.reply': 'replied to you',
@@ -943,7 +1011,19 @@ window.__ModuleLoader__.load({
 .xls-joinTitle{font-size:14px;font-weight:600;}
 .xls-joinLine{margin-top:9px;font-size:12.5px;line-height:1.7;color:var(--dsw-alias-label-secondary);}
 .xls-joinLine b{color:var(--dsw-alias-label-primary);font-weight:600;}
-.xls-joinCmd{margin-top:9px;padding:9px 12px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-primary);word-break:break-all;}
+.xls-joinForm{display:flex;flex-direction:column;gap:14px;margin-top:14px;color:var(--xls-ink);}
+.xls-joinModes{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;border:0;}
+.xls-joinMode{display:flex;align-items:center;gap:9px;min-height:44px;font-size:13px;cursor:pointer;}
+.xls-joinMode input{width:18px;height:18px;accent-color:var(--xls-accent);}
+.xls-joinField{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:600;}
+.xls-joinInput{box-sizing:border-box;min-width:0;width:100%;height:44px;border:1px solid var(--dsw-alias-border-l1,#cbd0da);border-radius:10px;background:var(--dsw-alias-bg-layer-2,#f1f3f7);color:var(--xls-ink);padding:0 12px;font:inherit;font-size:14px;}
+.xls-joinInput::placeholder{color:var(--xls-muted);opacity:1;}
+.xls-joinHint{margin:0;font-size:12px;line-height:1.65;color:var(--xls-muted);overflow-wrap:anywhere;}
+.xls-joinHint a{display:inline-flex;align-items:center;min-height:44px;color:var(--xls-accent);text-underline-offset:3px;}
+.xls-joinStatus{margin:0;padding:10px 12px;border-radius:10px;background:var(--dsw-alias-bg-layer-2,#f1f3f7);font-size:13px;line-height:1.7;overflow-wrap:anywhere;}
+.xls-joinError{margin:0;font-size:13px;line-height:1.7;color:var(--dsw-alias-state-error-primary,#b42318);}
+.xls-joinActions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
+.xls-joinActions button{width:auto;min-height:44px;margin:0;}
 .xls-bell{position:relative;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:1px solid transparent;background:transparent;color:var(--xls-muted);cursor:pointer;flex:none;}
 .xls-bell:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l1);}
 .xls-bell.has{color:var(--dsw-alias-label-primary);}
@@ -1448,6 +1528,218 @@ window.__ModuleLoader__.load({
                     }
                 },
             }, props.children);
+        }
+        const COMMUNITY_CONNECTION_API = '/xiaolanshu/api/community-connection';
+        function safeCommunityUrl(value) {
+            if (!value)
+                return null;
+            try {
+                const url = new URL(value);
+                if (url.username || url.password || url.search || url.hash)
+                    return null;
+                if (url.protocol !== 'https:' && !(url.protocol === 'http:' && (['localhost', '[::1]'].includes(url.hostname) || /^127(?:\.[0-9]{1,3}){3}$/.test(url.hostname))))
+                    return null;
+                return url.href.replace(/\/$/, '');
+            }
+            catch {
+                return null;
+            }
+        }
+        function communityConnectionView(value) {
+            if (!companionRecord(value) || value.ok !== true || !(value.officialUrl === null
+                || typeof value.officialUrl === 'string' && !!safeCommunityUrl(value.officialUrl)) || !companionRecord(value.connection))
+                return false;
+            const connection = value.connection;
+            return ['unbound', 'connected', 'invalid', 'unavailable'].some((state) => connection.state === state)
+                && (connection.url === undefined || typeof connection.url === 'string' && !!safeCommunityUrl(connection.url))
+                && (connection.owner === undefined || connection.owner === null || typeof connection.owner === 'string')
+                && (connection.ownerId === undefined || connection.ownerId === null || typeof connection.ownerId === 'string')
+                && (connection.code === undefined || typeof connection.code === 'string');
+        }
+        function communityConnectionError(code) {
+            const keys = {
+                community_forbidden: 'connection.forbidden', community_method_not_allowed: 'connection.failed',
+                community_invalid_input: 'connection.input', community_body_too_large: 'connection.input',
+                community_json_required: 'connection.input', community_body_timeout: 'connection.timeout',
+                community_official_unavailable: 'connection.officialUnavailable',
+                community_configuration_invalid: 'connection.configuration', community_configuration_unavailable: 'connection.configuration',
+                community_agent_unauthorized: 'connection.unauthorized', community_agent_required: 'connection.agentRequired',
+                community_agent_expired: 'connection.expired', community_identity_invalid: 'connection.identity',
+                community_rate_limited: 'connection.rateLimited', community_timeout: 'connection.timeout',
+                community_unavailable: 'connection.unavailable', community_save_failed: 'connection.saveFailed',
+            };
+            return typeof code === 'string' && Object.prototype.hasOwnProperty.call(keys, code) ? keys[code] || 'connection.failed' : 'connection.failed';
+        }
+        function CommunityConnectionModal(props) {
+            const [view, setView] = useState(null);
+            const [mode, setMode] = useState('official');
+            const [url, setUrl] = useState('');
+            const [token, setToken] = useState('');
+            const [loading, setLoading] = useState(true);
+            const [working, setWorking] = useState(false);
+            const [hidden, setHidden] = useState(() => document.hidden);
+            const [errorKey, setErrorKey] = useState('');
+            const alive = useRef(false), pending = useRef(false), attempted = useRef(false), edited = useRef(false);
+            const epoch = useRef(0), secret = useRef('');
+            const controllers = useRef(new Set());
+            const clearSecret = () => { secret.current = ''; setToken(''); };
+            const abort = () => { controllers.current.forEach((controller) => controller.abort()); controllers.current.clear(); };
+            const apply = (next, reset) => {
+                setView(next);
+                if (reset || !edited.current) {
+                    const boundUrl = safeCommunityUrl(next.connection.url);
+                    const custom = !!boundUrl && boundUrl !== safeCommunityUrl(next.officialUrl);
+                    setMode(custom ? 'custom' : 'official');
+                    setUrl(custom ? boundUrl : '');
+                    edited.current = false;
+                }
+            };
+            const load = async () => {
+                if (!alive.current || document.hidden || pending.current)
+                    return;
+                attempted.current = true;
+                pending.current = true;
+                setLoading(true);
+                setErrorKey('');
+                const version = ++epoch.current, controller = new AbortController();
+                controllers.current.add(controller);
+                try {
+                    const response = await fetch(COMMUNITY_CONNECTION_API, { credentials: 'same-origin', headers: { accept: 'application/json' }, signal: controller.signal });
+                    const value = await response.json();
+                    if (!alive.current || version !== epoch.current)
+                        return;
+                    if (!response.ok || !communityConnectionView(value)) {
+                        setErrorKey(communityConnectionError(companionRecord(value) ? value.code : undefined));
+                        return;
+                    }
+                    apply(value, false);
+                }
+                catch {
+                    if (alive.current && version === epoch.current)
+                        setErrorKey('connection.unavailable');
+                }
+                finally {
+                    controllers.current.delete(controller);
+                    if (alive.current && version === epoch.current) {
+                        pending.current = false;
+                        setLoading(false);
+                    }
+                }
+            };
+            useEffect(() => {
+                alive.current = true;
+                const blur = () => { if (alive.current)
+                    clearSecret(); };
+                const visibility = () => {
+                    setHidden(document.hidden);
+                    if (document.hidden) {
+                        clearSecret();
+                        epoch.current += 1;
+                        abort();
+                        pending.current = false;
+                        setWorking(false);
+                        setLoading(false);
+                    }
+                    else if (!attempted.current) {
+                        void load();
+                    }
+                };
+                window.addEventListener('blur', blur);
+                document.addEventListener('visibilitychange', visibility);
+                if (!document.hidden)
+                    void load();
+                else
+                    setLoading(false);
+                return () => {
+                    alive.current = false;
+                    secret.current = '';
+                    epoch.current += 1;
+                    abort();
+                    pending.current = false;
+                    window.removeEventListener('blur', blur);
+                    document.removeEventListener('visibilitychange', visibility);
+                };
+            }, []);
+            const close = () => {
+                alive.current = false;
+                epoch.current += 1;
+                clearSecret();
+                abort();
+                pending.current = false;
+                props.onClose();
+            };
+            const connect = async (event) => {
+                event.preventDefault();
+                if (!alive.current || document.hidden || pending.current || !view)
+                    return;
+                const tokenValue = secret.current.trim();
+                if (!tokenValue) {
+                    setErrorKey('connection.required');
+                    return;
+                }
+                if (mode === 'official' && !view.officialUrl) {
+                    setErrorKey('connection.officialUnavailable');
+                    return;
+                }
+                if (mode === 'custom' && !url.trim()) {
+                    setErrorKey('connection.customRequired');
+                    return;
+                }
+                pending.current = true;
+                setWorking(true);
+                setErrorKey('');
+                clearSecret();
+                const version = ++epoch.current, controller = new AbortController();
+                controllers.current.add(controller);
+                try {
+                    const response = await fetch(COMMUNITY_CONNECTION_API, { method: 'POST', credentials: 'same-origin',
+                        headers: { accept: 'application/json', 'content-type': 'application/json' }, signal: controller.signal,
+                        body: JSON.stringify(mode === 'official' ? { mode, token: tokenValue } : { mode, url: url.trim(), token: tokenValue }) });
+                    const value = await response.json();
+                    if (!alive.current || version !== epoch.current)
+                        return;
+                    if (!response.ok || !communityConnectionView(value) || value.connection.state !== 'connected') {
+                        const code = companionRecord(value) ? value.code ?? (companionRecord(value.connection) ? value.connection.code : undefined) : undefined;
+                        setErrorKey(communityConnectionError(code));
+                        return;
+                    }
+                    apply(value, true);
+                    props.onConnected();
+                }
+                catch {
+                    if (alive.current && version === epoch.current)
+                        setErrorKey('connection.unavailable');
+                }
+                finally {
+                    controllers.current.delete(controller);
+                    if (alive.current && version === epoch.current) {
+                        pending.current = false;
+                        setWorking(false);
+                    }
+                }
+            };
+            const state = loading ? 'loading' : view?.connection.state || 'unavailable';
+            const disabled = hidden || loading || working;
+            const officialUrl = safeCommunityUrl(view?.officialUrl);
+            return h('div', { className: 'xls-mask', onClick: close }, h(ModalPanel, { className: 'xls-join', label: tr('join.title'), titleId: 'pw-community-connection-title', onClose: close }, h('h2', { className: 'xls-joinTitle', id: 'pw-community-connection-title' }, tr('join.title')), h('form', { className: 'xls-joinForm', 'data-community-connection': true, 'data-connection-state': state,
+                autoComplete: 'off', onSubmit: connect,
+                onBlur: (event) => { if (!event.currentTarget.contains(event.relatedTarget))
+                    clearSecret(); },
+                onKeyDown: (event) => {
+                    if (event.key === 'Enter' && (event.nativeEvent.isComposing || event.keyCode === 229))
+                        event.preventDefault();
+                } }, h('div', { className: 'xls-joinStatus', role: 'status', 'data-connection-status': state }, tr('connection.' + state), view?.connection.url ? h('p', { className: 'xls-joinHint' }, view.connection.url) : null, view?.connection.owner ? h('p', { className: 'xls-joinHint' }, tpl('join.onOwner', { owner: view.connection.owner })) : null), view?.connection.code && !errorKey ? h('p', { className: 'xls-joinHint' }, tr(communityConnectionError(view.connection.code))) : null, h('fieldset', { className: 'xls-joinModes', disabled, 'aria-label': tr('connection.entry') }, ['official', 'custom'].map((entry) => h('label', { className: 'xls-joinMode', key: entry }, h('input', { type: 'radio', name: 'pw-community-entry', value: entry, checked: mode === entry, disabled,
+                'data-connection-mode': entry, onChange: () => { edited.current = true; setMode(entry); setErrorKey(''); clearSecret(); } }), tr('connection.' + entry)))), mode === 'official' && view && !officialUrl ? h('p', { className: 'xls-joinHint' }, tr('connection.officialUnavailable')) : null, mode === 'custom' ? h('label', { className: 'xls-joinField', htmlFor: 'pw-community-connection-url' }, tr('connection.url'), h('input', { className: 'xls-joinInput', id: 'pw-community-connection-url', type: 'url', value: url, disabled,
+                autoComplete: 'off', spellCheck: false, maxLength: 2048, required: true, placeholder: tr('connection.urlPlaceholder'),
+                'data-connection-field': 'url', onChange: (event) => { edited.current = true; setUrl(event.target.value); setErrorKey(''); clearSecret(); } })) : null, h('label', { className: 'xls-joinField', htmlFor: 'pw-community-connection-token' }, tr('connection.token'), h('input', { className: 'xls-joinInput', id: 'pw-community-connection-token', type: 'password', value: token, disabled,
+                name: 'podwhale-agent-token', autoComplete: 'off', spellCheck: false, maxLength: 256, required: true,
+                placeholder: tr('connection.tokenPlaceholder'), 'aria-describedby': 'pw-community-connection-token-hint',
+                'data-connection-field': 'token', onChange: (event) => {
+                    secret.current = event.target.value;
+                    setToken(event.target.value);
+                    setErrorKey('');
+                } })), h('p', { className: 'xls-joinHint', id: 'pw-community-connection-token-hint' }, tr('connection.tokenHint')), mode === 'official' && officialUrl ? h('p', { className: 'xls-joinHint' }, h('a', { href: officialUrl + '/', target: '_blank', rel: 'noopener noreferrer' }, tr('connection.getToken')), h('br'), tr('connection.registrationHint')) : null, mode === 'custom' ? h('p', { className: 'xls-joinHint' }, tr('connection.customTokenHint')) : null, h('p', { className: 'xls-joinHint' }, tr('connection.privacy')), errorKey ? h('p', { className: 'xls-joinError', role: 'alert', 'data-connection-error': true }, tr(errorKey)) : null, h('div', { className: 'xls-joinActions' }, h('button', { type: 'button', className: 'xls-btn ghost', 'data-connection-action': 'close', onClick: close }, tr('join.close')), h('button', { type: 'button', className: 'xls-btn ghost', 'data-connection-action': 'refresh', disabled, onClick: () => { clearSecret(); void load(); } }, tr('connection.refresh')), h('button', { type: 'submit', className: 'xls-btn', 'data-connection-action': 'connect',
+                disabled: disabled || !view || !token.trim() || mode === 'official' && !officialUrl }, tr(working ? 'connection.connecting' : 'connection.connect'))))));
         }
         function TagList(props) {
             // 标签是入口，不是装饰：点一下就用它去搜。
@@ -2731,6 +3023,9 @@ window.__ModuleLoader__.load({
             const serverPolicy = view?.community.policy || null;
             const stale = policyDirty && policyRevision.current !== serverPolicy?.policy.revision;
             const connected = !!view?.community.connected && !!view.community.available;
+            const connectionNotice = view?.community.code === 'social_not_joined' ? 'social.notJoined'
+                : view?.community.code === 'social_configuration_unavailable' ? 'social.configurationUnavailable'
+                    : view?.community.code === 'social_policy_unavailable' ? 'social.policyUnavailable' : 'social.unavailable';
             const pending = serverPolicy?.pendingRequests || [];
             const submitPolicy = () => {
                 if (!connected || !serverPolicy || mutation.current || pending.length)
@@ -2772,7 +3067,7 @@ window.__ModuleLoader__.load({
             const approvalUrl = socialApprovalUrl(view?.community.approvalUrl);
             const disabled = loading || !!working || hidden || !props.active;
             const last = view?.local.lastResult;
-            return h('div', { className: 'xls-social-page', 'data-social-settings': true, 'data-active': String(props.active) }, h('style', null, CSS), h('div', { className: 'xls-social-content' }, h('div', { className: 'xls-social-head' }, h('div', null, h('h1', { className: 'xls-social-title' }, tr('social.title')), h('p', { className: 'xls-social-muted' }, tr('social.desc'))), h('div', { className: 'xls-social-actions' }, h('button', { type: 'button', className: 'xls-social-button', 'data-social-action': 'back', onClick: props.onBack }, tr('social.back')), h('button', { type: 'button', className: 'xls-social-button', disabled: !!working, onClick: () => setRevision((current) => current + 1) }, tr('social.refresh')))), error ? h('p', { className: 'xls-social-error', role: 'alert' }, error) : null, notice ? h('p', { className: 'xls-social-notice', role: 'status' }, notice) : null, h('section', { className: 'xls-social-box' }, h('h2', null, tr('social.state')), h('p', { role: 'status', 'data-social-runtime': !view ? 'unknown' : view.local.stopping ? 'stopping' : view.local.running ? 'running' : view.local.settings.enabled ? 'enabled' : 'paused' }, loading ? tr('social.loading') : !view ? tr('social.unknownState') : view.local.stopping ? tr('social.stopping') : view.local.running ? tr('social.running') : view.local.settings.enabled ? tr('social.enabled') : tr('social.paused')), view && !connected ? h('p', { className: 'xls-social-notice' }, tr('social.unavailable')) : null, view && !view.local.ready ? h('p', { className: 'xls-social-notice' }, tr('social.notReady')) : null, h('div', { className: 'xls-social-actions' }, h('button', { type: 'button', className: 'xls-social-button xls-social-primary', 'data-social-action': 'run',
+            return h('div', { className: 'xls-social-page', 'data-social-settings': true, 'data-active': String(props.active) }, h('style', null, CSS), h('div', { className: 'xls-social-content' }, h('div', { className: 'xls-social-head' }, h('div', null, h('h1', { className: 'xls-social-title' }, tr('social.title')), h('p', { className: 'xls-social-muted' }, tr('social.desc'))), h('div', { className: 'xls-social-actions' }, h('button', { type: 'button', className: 'xls-social-button', 'data-social-action': 'back', onClick: props.onBack }, tr('social.back')), h('button', { type: 'button', className: 'xls-social-button', disabled: !!working, onClick: () => setRevision((current) => current + 1) }, tr('social.refresh')))), error ? h('p', { className: 'xls-social-error', role: 'alert' }, error) : null, notice ? h('p', { className: 'xls-social-notice', role: 'status' }, notice) : null, h('section', { className: 'xls-social-box' }, h('h2', null, tr('social.state')), h('p', { role: 'status', 'data-social-runtime': !view ? 'unknown' : view.local.stopping ? 'stopping' : view.local.running ? 'running' : view.local.settings.enabled ? 'enabled' : 'paused' }, loading ? tr('social.loading') : !view ? tr('social.unknownState') : view.local.stopping ? tr('social.stopping') : view.local.running ? tr('social.running') : view.local.settings.enabled ? tr('social.enabled') : tr('social.paused')), view && !connected ? h('p', { className: 'xls-social-notice' }, tr(connectionNotice)) : null, view && !view.local.ready ? h('p', { className: 'xls-social-notice' }, tr('social.notReady')) : null, h('div', { className: 'xls-social-actions' }, h('button', { type: 'button', className: 'xls-social-button xls-social-primary', 'data-social-action': 'run',
                 disabled: disabled || !view?.local.ready || !connected || !!view?.local.running || !!view?.local.stopping || dirty,
                 onClick: () => perform('run', {}) }, tr('social.run')), h('button', { type: 'button', className: 'xls-social-button', 'data-social-action': 'pause',
                 disabled: disabled || !view || view.local.stopping || !view.local.running && !view.local.settings.enabled,
@@ -3444,6 +3739,7 @@ window.__ModuleLoader__.load({
                 ? h('span', { className: 'xls-badge-count' }, inbox.unread > 9 ? '9+' : String(inbox.unread))
                 : null) : null, h('button', {
                 className: 'xls-joinbtn',
+                'data-connection-action': 'open',
                 'aria-label': joined ? (offline ? tr('join.offline') : tr('join.joined')) : tr('join.none'),
                 onClick: () => setJoinOpen(true),
                 title: join.joined ? join.url : tr('join.none'),
@@ -3649,15 +3945,9 @@ window.__ModuleLoader__.load({
                 onDraft: updateTaskDraft,
                 onClose: () => setTaskOpen(false),
                 onPublish: publishTask,
-            }) : null, props.active && joinOpen ? h('div', { className: 'xls-mask', onClick: () => setJoinOpen(false) }, h(ModalPanel, { className: 'xls-join', label: tr('join.title'), onClose: () => setJoinOpen(false) }, h('div', { className: 'xls-joinTitle' }, tr('join.title')), joined
-                ? h('div', null, h('div', { className: 'xls-joinLine' }, tpl('join.onBody', { url: join.url || '' })), join.owner ? h('div', { className: 'xls-joinLine' }, tpl('join.onOwner', { owner: join.owner })) : null, offline
-                    ? h('div', { className: 'xls-joinLine', style: { color: 'var(--dsw-alias-state-warn-primary)' } }, tr('join.offNote'))
-                    : h('div', { className: 'xls-joinLine' }, tr('join.onNote')))
-                : h('div', null, h('div', { className: 'xls-joinLine' }, tr('join.offBody')), h('div', { className: 'xls-joinLine' }, tr('join.offHow')), h('div', { className: 'xls-joinCmd' }, tr('join.offCmd')), h('div', { className: 'xls-joinLine' }, tr('join.offWhere'))), h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: '14px' } }, h('button', {
-                className: 'xls-btn',
-                style: { width: 'auto', marginTop: 0 },
-                onClick: () => setJoinOpen(false),
-            }, tr('join.close'))))) : null, props.active && inboxOpen ? h('div', { className: 'xls-mask', onClick: () => setInboxOpen(false) }, h(ModalPanel, { className: 'xls-join', label: tr('n.title'), onClose: () => setInboxOpen(false) }, h('div', { className: 'xls-joinTitle' }, tr('n.title')), h('div', { className: 'xls-chips xls-noteFilter' }, NOTE_FILTERS.map((group) => h('button', {
+            }) : null, props.active && joinOpen ? h(CommunityConnectionModal, {
+                onClose: () => setJoinOpen(false), onConnected: () => setBump((value) => value + 1),
+            }) : null, props.active && inboxOpen ? h('div', { className: 'xls-mask', onClick: () => setInboxOpen(false) }, h(ModalPanel, { className: 'xls-join', label: tr('n.title'), onClose: () => setInboxOpen(false) }, h('div', { className: 'xls-joinTitle' }, tr('n.title')), h('div', { className: 'xls-chips xls-noteFilter' }, NOTE_FILTERS.map((group) => h('button', {
                 key: group.id,
                 className: 'xls-chip',
                 'data-on': noteFilter === group.id ? '1' : '0',

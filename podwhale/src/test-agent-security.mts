@@ -252,9 +252,11 @@ async function host(config: { url: string; token: string } | null, faults: HostF
   type ScheduleInjection = [names: ['schedule'], activate: (context: EffectContext & { schedule: ScheduleService }) => void | Promise<void>];
   type ToolsInjection = [names: ['tools'], activate: (context: { tools: { register(tool: RegisteredTool): Dispose } }) => void];
   type WebInjection = [names: ['webServer'], activate: (context: { webServer: WebServer }) => void];
+  type ConnectionInjection = [names: ['webServer', 'connection'],
+    activate: (context: EffectContext & { webServer: WebServer; connection: CompanionConnection }) => void | Promise<void>];
   type CompanionInjection = [names: ['webServer', 'connection', 'agents', 'agentPresets', 'agentDefaultModel'],
     activate: (context: PatrolRuntimeContext & { webServer: WebServer; connection: CompanionConnection }) => void | Promise<void>];
-  type Injection = RuntimeInjection | ScheduleInjection | ToolsInjection | WebInjection | CompanionInjection;
+  type Injection = RuntimeInjection | ScheduleInjection | ToolsInjection | WebInjection | CompanionInjection | ConnectionInjection;
   const runtimeInjection = (value: Injection): value is RuntimeInjection => value[0][0] === 'agents';
   const scheduleInjection = (value: Injection): value is ScheduleInjection => value[0][0] === 'schedule';
   const toolsInjection = (value: Injection): value is ToolsInjection => value[0][0] === 'tools';
@@ -319,6 +321,7 @@ try {
   await mkdir(publicArt, { recursive: true });
   await writeFile(join(imageRuntime, 'package.json'), '{"type":"module"}');
   for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs',
+    'community-connection.mjs', 'community-connection-http.mjs', 'official-community.mjs',
     'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'redact.js',
     'social-controller.mjs', 'social-types.mjs', 'social-http.mjs', 'social-community.mjs']) {
     await copyFile(join(HERE, name), join(imageRuntime, name));
