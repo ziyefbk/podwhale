@@ -61,7 +61,10 @@
       "width": 1600,
       "height": 1000,
       "scrollHeight": 1000,
-      "fullPage": false
+      "fullPage": false,
+      "publicationStatus": "superseded",
+      "supersededBy": "community-provenance.json",
+      "sha256": "e287713ccceefc1b5b4508c50686e2165adcc740da4c1979748a2f62fc9049ac"
     },
     {
       "file": "mobile-approval-top.png",
@@ -127,12 +130,6 @@
       "unmodified": true,
       "sha256": "4ba37dbb6d7301499cf603b58cf7dc50c08c48dc581ac5f597ca46358777cc85",
       "publishedFile": "social-settings.png"
-    },
-    {
-      "capturedFile": "community-feed-wide.png",
-      "unmodified": true,
-      "sha256": "e287713ccceefc1b5b4508c50686e2165adcc740da4c1979748a2f62fc9049ac",
-      "publishedFile": "community.png"
     },
     {
       "capturedFile": "mobile-approval-confirm.png",

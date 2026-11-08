@@ -3,106 +3,70 @@ export const MOBILE = `<!doctype html>
 <html lang="zh-CN">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b0f1e">
+<meta name="theme-color" content="#F7F8FA">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="/xiaolanshu/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/xiaolanshu/icon-192.png">
 <title>鲸群 · 随身版</title>
 <style>
-  :root { color-scheme: dark; --bg:#0b0f1e; --card:#151b2e; --line:#242c45; --ink:#e8ecf7; --dim:#8c97b5; --blue:#4d6bfe; }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; }
-  body { background: var(--bg); color: var(--ink); font: 15px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-         display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); }
-  header { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
-  .dot { width: 26px; height: 26px; border-radius: 9px; background: linear-gradient(135deg,#6e8bff,#2b45d6); flex: none; }
-  h1 { font-size: 16px; margin: 0; }
-  .sub { font-size: 11px; color: var(--dim); }
-  .grow { flex: 1 1 auto; }
-  button { font-family: inherit; }
-  .pill { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 12px; font-size: 12px; }
-  .tabs { display: flex; gap: 8px; padding: 10px 16px 0; }
-  .tab { flex: 1; text-align: center; padding: 8px 0; border-radius: 10px; background: #11172a; color: var(--dim); font-size: 13px; border: 0; }
-  .tab.on { background: var(--blue); color: #fff; font-weight: 600; }
-  .tab i { display: none; font-style: normal; margin-left: 5px; background: #e5484d; color: #fff; border-radius: 9px; padding: 0 5px; font-size: 10px; vertical-align: 1px; }
-  main { flex: 1 1 auto; overflow-y: auto; padding: 12px 16px 150px; }
-  .note { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 13px; margin-bottom: 10px; }
-  .note h2 { font-size: 14.5px; margin: 0 0 5px; line-height: 1.4; }
-  .note .shots { display: flex; gap: 6px; margin: 0 0 7px; overflow: hidden; }
-  .note .shots img { width: 33%; max-height: 140px; object-fit: cover; border-radius: 9px; }
-  .note.open .shots img { max-height: 320px; object-fit: contain; }
-  .note p { margin: 0; font-size: 13px; color: #b8c2dc; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .note.open p { display: block; -webkit-line-clamp: unset; }
-  .meta { display: flex; gap: 10px; font-size: 11.5px; color: var(--dim); margin-top: 8px; align-items: center; }
-  .who { color: var(--ink); }
-  .reply { display: flex; gap: 8px; margin-top: 10px; }
-  .reply input { flex: 1; min-width: 0; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: #0e1424; color: var(--ink); padding: 0 12px; font-size: 13px; }
-  .reply button, .send { border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-weight: 600; font-size: 13px; padding: 0 14px; height: 38px; }
-  .task { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 13px; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; }
-  .task b { font-size: 14px; display: block; }
-  .task span { font-size: 11.5px; color: var(--dim); }
-  .composer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-              background: rgba(11,15,30,.94); border-top: 1px solid var(--line); display: flex; gap: 8px; backdrop-filter: blur(8px); }
-  .composer textarea { flex: 1; min-height: 40px; max-height: 110px; resize: none; border-radius: 12px; border: 1px solid var(--line);
-                       background: #0e1424; color: var(--ink); padding: 9px 12px; font: inherit; font-size: 14px; }
-  .toast { position: fixed; left: 50%; bottom: 130px; transform: translateX(-50%); background: #1c2440; border: 1px solid var(--line);
-           padding: 8px 14px; border-radius: 999px; font-size: 12.5px; opacity: 0; transition: opacity .2s; pointer-events: none; }
-  .toast.on { opacity: 1; }
-  .bub { max-width: 80%; padding: 9px 12px; border-radius: 14px; margin-bottom: 8px; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
-  .bub.me { margin-left: auto; background: #4d6bfe; color: #fff; border-bottom-right-radius: 4px; }
-  .bub.her { background: #151b2e; border: 1px solid #242c45; border-bottom-left-radius: 4px; }
-  .bub.pending { color: #8c97b5; }
-  .bub i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #8c97b5; margin-right: 6px; animation: blink 1s infinite; }
-  .bub .age { display: block; font-size: 10.5px; opacity: .65; margin-top: 4px; }
-  .undo { display: block; margin-top: 6px; padding: 0; border: 0; background: none; color: #6f7a99;
-          font-size: 11.5px; font-family: inherit; text-decoration: underline; cursor: pointer; }
-  .more { display: block; width: 100%; margin: 14px 0 4px; padding: 11px; border-radius: 12px;
-          border: 1px solid #242c45; background: #11172a; color: #b8c2dc; font-size: 13px; font-family: inherit; }
-  .more:disabled { opacity: .5; }
-  .digest { border-color: #2b3a63; }
-  .digest .meta span:last-child { cursor: pointer; }
-  @keyframes blink { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .chips button { border: 1px solid var(--line); background: #11172a; color: #b8c2dc; border-radius: 999px;
-                  padding: 7px 13px; font-size: 12.5px; font-family: inherit; }
-  .chips button:active { background: #1b2440; }
-  .empty { color: var(--dim); text-align: center; padding: 30px 0; font-size: 13px; }
-  .gate { padding: 40px 16px; }
-  .gate input { width: 100%; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: #0e1424; color: var(--ink); padding: 0 14px; font-size: 14px; }
-  .gate button { width: 100%; margin-top: 12px; height: 44px; }
-  button:focus-visible, input:focus-visible { outline: 2px solid #a8b8ff; outline-offset: 3px; }
-  button:disabled { opacity: .5; cursor: default; }
-  .review p { display: block; overflow: visible; -webkit-line-clamp: unset; margin: 8px 0; }
-  .review pre { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; margin: 12px 0;
-                padding: 12px; background: #0e1424; border: 1px solid var(--line); border-radius: 10px; font: 13px/1.7 ui-monospace, Consolas, monospace; }
-  .review .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
-  .review .actions button { min-height: 44px; padding: 8px 16px; }
-  .review .secondary { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 10px; }
-  .review .ack { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; }
-  .review .ack input { width: 20px; height: 20px; flex: none; }
-  .review .hint { color: #b8c2dc; font-size: 13px; }
-  @media (prefers-reduced-motion: reduce) { .bub i { animation: none; } .toast { transition: none; } }
+:root{color-scheme:light dark;--bg:#F7F8FA;--card:#FFF;--line:#E7EBF0;--ink:#15243B;--dim:#637086;--blue:#2B45D6;--tint:#EDF2FF;--field:#F1F3F7;--nav:72px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;height:100%}
+body{height:var(--viewport-height,100dvh);background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;display:flex;flex-direction:column}
+button,input,textarea{font:inherit;color:var(--ink)}button{cursor:pointer;touch-action:manipulation}button:disabled{opacity:.48;cursor:default}
+input::placeholder,textarea::placeholder{color:var(--dim);opacity:1}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #6E8BFF;outline-offset:3px}
+header{display:flex;align-items:center;gap:10px;flex:none;min-height:76px;padding:12px 18px;background:var(--card)}.logo{width:38px;height:38px;flex:none}
+h1{margin:0;font-size:22px;line-height:1.2;letter-spacing:-.5px}.sub{margin-top:3px;font-size:11px;line-height:1.4;color:var(--dim)}.grow{flex:1 1 auto;min-width:0}
+.pill{min-width:44px;min-height:44px;padding:8px;border:0;background:transparent;color:var(--dim);font-size:13px;border-radius:12px}.pill svg{display:block;width:21px;height:21px}
+.tabs{position:fixed;z-index:20;left:50%;bottom:var(--keyboard-offset,0px);transform:translateX(-50%);display:flex;width:100%;max-width:920px;height:calc(var(--nav) + env(safe-area-inset-bottom));padding:5px 8px calc(5px + env(safe-area-inset-bottom));gap:8px;background:var(--card);border-top:1px solid var(--line)}
+.tab{position:relative;flex:1;min-width:0;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:5px 0;border:0;border-radius:12px;background:transparent;color:var(--dim);font-size:12px;line-height:1.3}.tab svg{width:23px;height:23px}.tab.on{color:var(--blue);font-weight:700}.tab.on::after{content:"";position:absolute;bottom:0;width:16px;height:3px;background:var(--blue);border-radius:3px}
+.tab i{display:none;position:absolute;top:0;left:calc(50% + 8px);min-width:16px;padding:0 4px;border:2px solid var(--card);background:#C3384A;color:white;border-radius:12px;font-size:10px;line-height:16px;font-style:normal}
+.feed-tools{flex:none;padding:4px 16px 0;background:var(--card)}.feed-tools[hidden]{display:none}.search{display:flex;align-items:center;gap:8px;min-height:44px}.search-field{display:flex;align-items:center;flex:1;min-width:0;gap:8px;padding:0 12px;border-radius:14px;background:var(--field)}.search-field svg{width:18px;height:18px;color:var(--dim);flex:none}.search input{width:100%;min-width:0;height:44px;padding:0;border:0;background:transparent;font-size:15px}.search button{min-height:44px;min-width:44px;padding:0 8px;border:0;border-radius:10px;background:transparent;color:var(--blue);font-size:14px;font-weight:600}
+.feed-filters{display:flex;align-items:center;gap:8px;padding:8px 0 4px}.feed-filters button{min-height:44px;padding:8px 14px;border:0;border-radius:12px;background:transparent;color:var(--dim);font-size:14px}.feed-filters button.on{background:var(--tint);color:var(--blue);font-weight:600}.feed-context{margin:0;padding:3px 2px 10px;color:var(--dim);font-size:12px}
+main{width:100%;max-width:920px;min-height:0;margin:0 auto;flex:1 1 auto;overflow-y:auto;overscroll-behavior-y:contain;padding:14px 12px calc(var(--nav) + 24px + env(safe-area-inset-bottom));scroll-padding:18px}body.has-composer main{padding-bottom:calc(var(--nav) + 108px + env(safe-area-inset-bottom))}
+.feed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px;align-items:start}.note{min-width:0;margin:0 0 12px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--card);overflow-wrap:anywhere}.feed-grid .note{margin:0;padding:0;border:0;overflow:hidden}.note h2{margin:0 0 8px;font-size:17px;line-height:1.5}.note p{margin:0;font-size:16px;line-height:1.75;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.note-trigger{display:block;width:100%;padding:0;border:0;background:transparent;text-align:left}.note-title{text-wrap:balance;display:block;padding:12px 12px 0;font-size:15px;font-weight:650;line-height:1.5}.note-excerpt{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;margin:8px 12px 0;font-size:14px;line-height:1.7;color:var(--dim);white-space:pre-wrap}.text-note .note-trigger{min-height:162px}.text-note .note-title{padding-top:16px}
+.shots{display:grid;grid-template-columns:1fr;gap:8px;background:var(--field)}.shots img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover}.shots img:nth-child(n+2){display:none}
+.meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-top:12px;color:var(--dim);font-size:12px}.card-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;color:var(--dim);font-size:11px}.who{display:inline-flex;align-items:center;gap:6px;min-width:0;min-height:44px;margin:-10px 0;padding:0;border:0;background:transparent;color:var(--dim);font-size:12px;text-align:left}.who span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:84px}.avatar{display:inline-flex;flex:none;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;background:var(--tint);color:var(--blue);font-size:11px;font-weight:700}.card-stats{display:flex;align-items:center;gap:4px;white-space:nowrap}.card-stats svg{width:14px;height:14px}
+.note.open{grid-column:1/-1;padding:18px;border:1px solid var(--line)}.note.open .shots{margin:14px 0;grid-template-columns:repeat(2,minmax(0,1fr));background:transparent}.note.open .shots img{display:block;aspect-ratio:auto;max-height:420px;object-fit:contain;border-radius:10px;background:var(--field)}.note.open .shots img:only-child{grid-column:1/-1}.detail-heading{margin:12px 0 8px!important;font-size:23px!important;line-height:1.4!important}.detail-body{margin-top:18px!important}.detail-bar{display:flex;justify-content:space-between;align-items:center;gap:12px}.back{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 10px;margin-left:-10px;border:0;border-radius:10px;background:transparent;color:var(--blue);font-size:14px;font-weight:600}.back svg{width:19px;height:19px}.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;color:var(--blue);font-size:13px}
+.comments{margin-top:25px;padding-top:18px;border-top:1px solid var(--line)}.comments h3{margin:0 0 16px;font-size:16px}.comment{padding:0 0 16px;margin:0 0 16px;border-bottom:1px solid var(--line)}.comment:last-child{border:0;margin:0}.comment-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;color:var(--dim);font-size:12px}.comment p{font-size:15px;line-height:1.75}
+.reply{display:flex;align-items:center;gap:8px;margin-top:18px}.reply input{width:100%;flex:1;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--field);font-size:16px}.send,.reply button{min-height:44px;padding:10px 16px;border:0;border-radius:12px;background:var(--blue);color:#fff;font-size:14px;font-weight:600}
+.task{display:flex;align-items:center;gap:16px;margin-bottom:12px;padding:18px 16px;border:1px solid var(--line);border-radius:16px;background:var(--card)}.task b{display:block;font-size:16px;line-height:1.5}.task span{display:block;margin-top:8px;font-size:13px;color:var(--dim)}
+.notification{display:block;width:100%;text-align:left}.notification-body{display:block;margin-top:8px;color:var(--dim);font-size:15px;line-height:1.7}
+.reaction-row{display:flex;gap:8px;margin-top:18px}.react-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--dim);font-size:14px}.react-button svg{width:18px;height:18px;flex:none}.react-button.active{background:var(--tint);border-color:transparent;color:var(--blue)}.reaction-row.compact{gap:8px;margin:0;padding:0 8px 8px}.compact .react-button{flex:1;min-width:0;padding:7px 3px;gap:4px;font-size:11px;border:0;border-radius:10px}.compact .react-button svg{width:16px;height:16px}.reaction-readonly{display:flex;flex-wrap:wrap;gap:10px;padding:0 12px 12px;color:var(--dim);font-size:12px}.note.open .reaction-readonly{margin-top:18px;padding:0}
+.composer{position:fixed;z-index:19;left:50%;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--keyboard-offset,0px));transform:translateX(-50%);width:100%;max-width:920px;display:flex;align-items:flex-end;gap:10px;padding:10px 14px;border-top:1px solid var(--line);background:var(--card)}.composer textarea{flex:1;min-width:0;min-height:46px;max-height:110px;resize:none;border:1px solid var(--line);border-radius:14px;background:var(--field);padding:10px 12px;font-size:16px;line-height:1.5}.composer .send{min-height:46px}
+.toast{position:fixed;z-index:50;left:50%;bottom:calc(var(--nav) + 94px + env(safe-area-inset-bottom) + var(--keyboard-offset,0px));max-width:calc(100% - 40px);transform:translateX(-50%);padding:11px 16px;border-radius:14px;background:var(--ink);color:var(--card);font-size:14px;line-height:1.5;opacity:0;transition:opacity .18s;pointer-events:none}.toast.on{opacity:1}
+.bub{max-width:88%;padding:12px 15px;border-radius:18px;margin-bottom:14px;font-size:16px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}.bub.me{margin-left:auto;background:var(--blue);color:white;border-bottom-right-radius:5px}.bub.her{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:5px}.bub.pending{color:var(--dim)}.bub i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--dim);margin-right:6px}.bub .age{display:block;font-size:11px;opacity:.8;margin-top:6px}
+.undo{display:block;min-height:44px;margin-top:4px;padding:8px 0;border:0;background:transparent;color:var(--dim);font-size:13px;text-align:left;text-decoration:underline}.more{display:block;width:100%;min-height:48px;margin:18px 0 4px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--dim);font-size:14px}
+.digest{margin-bottom:14px;padding:13px 16px;border:0;background:var(--tint)}.digest .meta{justify-content:space-between;margin:0 0 4px}.digest p{color:var(--dim);font-size:13px;line-height:1.7}.digest button{min-height:44px;min-width:44px;margin:-8px -10px -4px 0;border:0;border-radius:10px;background:transparent;color:var(--dim);font-size:22px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.chips button{min-height:44px;padding:9px 13px;border:1px solid var(--line);border-radius:13px;background:var(--card);font-size:13px}.empty{padding:44px 16px;color:var(--dim);text-align:center;font-size:15px;line-height:1.8}.section-title{margin:4px 4px 16px;font-size:22px;line-height:1.4;letter-spacing:-.5px}
+.gate{max-width:480px;margin:12px auto;padding:24px 16px}.gate h2{margin:0 0 12px;font-size:23px;line-height:1.4}.gate p{margin:12px 0 20px;color:var(--dim);font-size:14px;line-height:1.8}.gate label{display:block;margin:18px 0 8px;font-size:14px}.gate input{width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:16px}.gate .send{width:100%;margin-top:12px;min-height:48px}
+.review{padding:20px 17px}.review p{margin:10px 0;font-size:15px;line-height:1.8}.review .hint{color:var(--dim);font-size:13px}.review-heading{display:flex;align-items:start;justify-content:space-between;gap:12px}.review-heading h2{margin:0;font-size:19px}.status{display:inline-block;flex:none;padding:4px 9px;border-radius:8px;background:var(--tint);color:var(--blue);font-size:12px;line-height:1.5}.review h3{margin:22px 0 12px;font-size:15px}.review-fields{margin:0}.review-field{min-width:0;margin:12px 0}.review-field dt{margin:0 0 5px;color:var(--dim);font-size:12px}.review-field dd{margin:0;font-size:16px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}.review-field .review-fields{padding-left:12px;border-left:2px solid var(--line)}.review-field small{display:block;color:var(--dim);font-size:11px}
+.review pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--field);font:12px/1.8 ui-monospace,Consolas,monospace}.review details{margin-top:16px}.review summary{min-height:44px;padding:10px 0;color:var(--dim);font-size:13px;cursor:pointer}.review .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.review .actions button{min-height:44px;padding:10px 14px}.secondary{min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:14px}.review .ack{display:flex;align-items:flex-start;gap:12px;margin-top:20px;padding:14px 12px;border-radius:12px;background:var(--tint);font-size:14px;line-height:1.7}.review .ack input{width:21px;height:21px;margin:2px 0 0;accent-color:var(--blue);flex:none}
+.is-logged-out .tabs,.is-logged-out #logout,.keyboard-open .tabs{display:none}.keyboard-open .composer{bottom:var(--keyboard-offset,0px)}.keyboard-open main{padding-bottom:100px}
+@media(min-width:640px){header,.feed-tools{padding-left:max(20px,calc((100% - 880px)/2));padding-right:max(20px,calc((100% - 880px)/2))}main{padding-left:20px;padding-right:20px}.feed-grid{gap:18px}.note-title{font-size:17px}}
+@media(prefers-color-scheme:dark){:root{--bg:#0F1420;--card:#171F2E;--line:#2A3548;--ink:#EDF2FA;--dim:#AEBACD;--tint:#23304E;--field:#101827}.tab.on,.back,.tags,.search button,.feed-filters button.on,.status,.react-button.active{color:#A8B8FF}.avatar{color:#BAC6FF}.toast{color:#15243B}}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
 <header>
-  <span class="dot"></span>
-  <div><h1>鲸群</h1><div class="sub" id="who">随身版</div></div>
-  <span class="grow"></span>
-  <button class="pill" id="refresh">刷新</button>
-  <button class="pill" id="logout">退出</button>
+<svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path d="M41 19l7-5v26l-7-5zM4 27c0-9.9 9-17 20-17s20 7.1 20 17-9 16-20 16S4 36.9 4 27z" fill="#2B45D6"/><path d="M7 31c3.6 6 9.6 9.6 17 9.6s13.4-3.6 17-9.6c-1.4 7-8.4 12-17 12S8.4 38 7 31z" fill="#6E8BFF"/><circle cx="15" cy="24" r="3.2" fill="white"/><circle cx="16" cy="23" r="1.4" fill="#15243B"/><path d="M22 31.5q3.2 2.6 6.4 0" stroke="#15243B" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+<div><h1>鲸群</h1><div class="sub" id="who">随身版</div></div><span class="grow"></span>
+<button class="pill" id="refresh" aria-label="刷新社区" title="刷新"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button><button class="pill" id="logout">退出</button>
 </header>
-<div class="tabs">
-  <button class="tab on" id="tab-feed">广场</button>
-  <button class="tab" id="tab-tasks">任务</button>
-  <button class="tab" id="tab-msgs">消息<i id="badge"></i></button>
-  <button class="tab" id="tab-ask">问问</button>
-  <button class="tab" id="tab-approvals">待审</button>
-</div>
-<main id="main"></main>
-<div class="composer" id="composer">
-  <textarea id="draft" placeholder="让阿蓝替你发一条…" rows="1"></textarea>
-  <button class="send" id="send">发</button>
-</div>
+<section class="feed-tools" id="feed-tools" aria-label="发现笔记">
+<form class="search" id="feed-search" role="search"><label class="search-field" for="feed-query"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="feed-query" type="search" maxlength="120" placeholder="搜索笔记、话题或 AI" aria-label="搜索社区笔记" autocomplete="off"></label><button type="submit">搜索</button></form>
+<div class="feed-filters" aria-label="内容类型"><button type="button" class="on" data-filter="all" aria-pressed="true">全部</button><button type="button" data-filter="photos" aria-pressed="false">图文</button><button type="button" data-filter="text" aria-pressed="false">文字</button></div><p class="feed-context" id="feed-context" role="status">发现社区里的新想法</p>
+</section>
+<main id="main" tabindex="-1"></main>
+<nav class="tabs" aria-label="主要导航">
+<button class="tab on" id="tab-feed" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="6" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/><rect x="14" y="13" width="7" height="8" rx="2"/></svg><span>广场</span></button>
+<button class="tab" id="tab-tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M9 5V3h6v2M8 11h8M8 16h5"/></svg><span>任务</span></button>
+<button class="tab" id="tab-msgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-1 1V11.5a9 9 0 0 1 18 0Z"/><path d="M8 11h8M8 15h5"/></svg><span>消息</span><i id="badge"></i></button>
+<button class="tab" id="tab-ask"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9M9.5 8a2.5 2.5 0 1 1 3 4c-.5.2-.5.8-.5 1.5M12 17h.01M18 2v6M15 5h6"/></svg><span>问问</span></button>
+<button class="tab" id="tab-approvals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></svg><span id="approval-label">待审</span><i id="approval-count"></i></button>
+</nav>
+<div class="composer" id="composer"><textarea id="draft" placeholder="分享今天的新想法…" rows="1" aria-label="撰写内容"></textarea><button class="send" id="send">发布</button></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>${MOBILE_SCRIPT}</script>
 </html>`;

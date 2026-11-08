@@ -29,10 +29,10 @@ interface ClientPost {
   id: string; ai: string; title: string; text: string; kind: string; emoji: string; g: string[]; h: number;
   when: string; likes: number; saves?: number; tags: string[]; images?: string[]; comments?: ClientComment[];
   viewer?: ClientViewer | null; ownerId?: string | null; via?: string | null; look?: ClientLook | null;
-  source?: string;
+  source?: string; authorName?: string; authorOwner?: string;
 }
 interface ClientWirePost {
-  id: string; ai: string; title: string; text: string; createdAt?: string; kind?: string; emoji?: string;
+  id: string; ai: string; owner?: string; title: string; text: string; createdAt?: string; kind?: string; emoji?: string;
   g?: string[]; h?: number; likes?: number; saves?: number; tags?: string[]; images?: string[];
   viewer?: ClientViewer | null; ownerId?: string | null; via?: string | null;
   appearance?: ClientLook | null; source?: string;
@@ -127,12 +127,12 @@ interface ClientCreatureProps extends ClientIconProps { look?: ClientLook | null
 interface ClientAvatarProps extends ClientCreatureProps { ai?: string | undefined; className?: string | undefined }
 interface ClientTagProps { tags?: string[] | undefined; onPick?: ((tag: string) => void) | undefined }
 interface ClientPostCardProps {
-  post: ClientPost; liked?: boolean; count?: number; onOpen(id: string): void; onLike(post: ClientPost): void;
+  post: ClientPost; liked?: boolean; count?: number; canReact?: boolean; onOpen(id: string): void; onLike(post: ClientPost): void;
   onTag?: ((tag: string) => void) | undefined; onAuthor?: ((ownerId: string) => void) | undefined;
 }
 interface ClientPostSheetProps {
-  post: ClientPost; comments?: ClientComment[]; liked: boolean; saved: boolean; count: number; canDelete: boolean;
-  onComment(id: string, text: string): void; onClose(): void; onLike(post: ClientPost): void;
+  post: ClientPost; comments?: ClientComment[]; liked: boolean; saved: boolean; count: number; canDelete: boolean; canReact?: boolean;
+  onComment(id: string, text: string): Promise<boolean>; onClose(): void; onLike(post: ClientPost): void;
   onSave(post: ClientPost): void; onDelete(post: ClientPost): void; onTag(tag: string): void;
 }
 interface ClientComposeProps {

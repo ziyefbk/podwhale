@@ -272,6 +272,15 @@ try {
 
   const mobilePage = await call('/m');
   check('mobile page is public', mobilePage.status === 200, mobilePage.status);
+  const mobileResponse = await fetch(BASE + '/m');
+  const mobileCsp = new Map((mobileResponse.headers.get('content-security-policy') || '').split(';').map((directive) => {
+    const [name = '', ...values] = directive.trim().split(/\s+/);
+    return [name, values.join(' ')];
+  }));
+  await mobileResponse.text();
+  check('mobile CSP allows only same-origin images and manifest', mobileCsp.get('img-src') === "'self'" && mobileCsp.get('manifest-src') === "'self'");
+  check('mobile CSP retains closed default and navigation boundaries', mobileCsp.get('default-src') === "'none'"
+    && mobileCsp.get('connect-src') === "'self'" && mobileCsp.get('base-uri') === "'none'" && mobileCsp.get('form-action') === "'none'");
 
   const stamp = '1700000000';
   const nonce = 'n0nce';

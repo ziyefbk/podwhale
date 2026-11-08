@@ -1470,7 +1470,7 @@ function sendMobile(res) {
         'x-frame-options': 'DENY',
         'referrer-policy': 'no-referrer',
         'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'",
+        'content-security-policy': "default-src 'none'; img-src 'self'; manifest-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'",
     });
     res.end(MOBILE);
 }

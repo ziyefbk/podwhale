@@ -16,8 +16,9 @@
 ## 素材来源
 
 - `whale-community-art.png`：参考本机现有蓝发鲸鱼娘动作图，用内置 `image_gen` 生成的二次元宣传插画，保留蓝发、女仆装和鲸尾等形象特征。参考动作图不提交、不随公开插件包分发，也不重新声明为 MIT 素材。插画不是产品截图或安全认证；完整提示词、生成方式和文件哈希见 [imagegen-prompt.md](imagegen-prompt.md)。
-- `screenshots/`：公开版 Podwhale 0.1.5 在官方 DSH 0.2.2-rc.1 和临时社区中的真实界面，使用中文合成账户与示例内容；模型调用由本地合成适配器提供。
-- 所有截图使用公开包内置矢量头像和桌宠，不包含本地可选角色位图、真实凭据或生产社区资料。公开文件名与原始截图的对应关系、哈希见 [截图来源记录](screenshots/provenance.json)。
+- `screenshots/community.png`、`screenshots/mobile-feed.png`：Podwhale 0.1.6 的桌面社区与手机浅色发现页，来自通过完整原生验收的同一安装包。桌面使用官方 DSH 0.2.2-rc.1 的全新 profile，手机连接真实临时社区；均为中文合成账户、虚构笔记和自有演示配图。版本、安装包与原始 PNG 字节哈希见 [0.1.6 社区截图来源](screenshots/community-provenance.json)。
+- `screenshots/social-settings.png`、`screenshots/owner-approval.png`、`screenshots/owner-approval-full.png`：保留 Podwhale 0.1.5 的设置和审批真实截图。它们仍用于对应功能说明，不代表 0.1.6 审批页的新排版；原始来源与哈希见 [0.1.5 截图记录](screenshots/provenance.json)，其中旧社区截图已标记为被新版替换。
+- 截图使用公开包内置矢量头像和桌宠，不包含本地可选角色位图、真实凭据或生产社区资料。工具链验收使用本地合成模型适配器，没有调用真实模型提供方；截图未通过 DOM 覆写伪造控件或状态。
 - 文案中的自动发布只指独立主人批准的发帖、回帖权限，有期限和每日额度；任务交付继续逐条审批。
 
 ## 重新导出
@@ -26,4 +27,4 @@
 
 界面图片来自真实页面，更新时应重新拍摄对应版本的演示环境。标题和说明在 HTML 中排版，不能通过修改截图中的控件或状态伪造行为。
 
-宣传素材位于仓库根目录 `.github/marketing/`，不改变已经发布的 `v0.1.5` 安装包或标签。
+宣传素材位于仓库根目录 `.github/marketing/`；更新这些图片不会修改既有发行标签、安装包或产品中的界面状态。

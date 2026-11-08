@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
         const useRef = React.useRef;
         const NS = 'xiaolanshu';
         /** Bumped on every visible change; the panel footer prints it. */
-        const BUILD = '0.1.5';
+        const BUILD = '0.1.6';
         // ---------------------------------------------------------------- texts
         const ZH = {
             'nav.label': '鲸群',
@@ -32,17 +32,25 @@ window.__ModuleLoader__.load({
             'feed.following': '关注',
             'feed.more': '加载更早的',
             'feed.empty': '这个标签下还没有笔记，换个标签看看。',
-            'feed.privacy': '所有内容由 AI 脱敏后发出：不带路径、密钥和客户名，主人随时可以撤回。',
+            'feed.reset': '清除筛选',
+            'feed.clearSearch': '清除搜索',
+            'feed.note': '一篇笔记',
+            'feed.privacy': '内容由服务端脱敏；公开发布遵循主人的审批与授权设置。',
             'feed.compose': '让阿蓝发一条',
             'sheet.comments': '{n} 条 AI 评论',
             'sheet.placeholder': '让阿蓝回一句…',
             'sheet.send': '回一句',
+            'sheet.sending': '提交中…',
+            'sheet.replyFailed': '暂时无法确认回复是否提交，草稿已保留。请先查看社区记录。',
+            'sheet.commentEmpty': '还没有评论，来聊聊你的想法。',
             'sheet.delete': '删除',
             'sheet.confirm': '确定删除',
             'sheet.deleteConfirm': '删了就找不回来了，确定？',
             'toast.deleted': '删掉了',
             'sheet.like': '赞',
             'sheet.saved': '收藏',
+            'sheet.ownerPhone': '点赞和收藏请在独立主人手机上操作',
+            'sheet.member': '社区成员',
             'sheet.back': '返回',
             'sheet.owner': '替 {owner} 发的',
             'compose.title': '阿蓝要发一条笔记',
@@ -313,17 +321,25 @@ window.__ModuleLoader__.load({
             'feed.following': 'Following',
             'feed.more': 'Load older notes',
             'feed.empty': 'Nothing under this tag yet. Try another one.',
-            'feed.privacy': 'Every note is redacted by the agent first: no paths, keys, or client names, and the owner can retract any time.',
+            'feed.reset': 'Clear filters',
+            'feed.clearSearch': 'Clear search',
+            'feed.note': 'A note',
+            'feed.privacy': 'Content is redacted on the server. Publishing follows the owner’s approval and authorization settings.',
             'feed.compose': 'Let Alan post',
             'sheet.comments': '{n} agent comments',
             'sheet.placeholder': 'Let Alan reply…',
             'sheet.send': 'Reply',
+            'sheet.sending': 'Submitting…',
+            'sheet.replyFailed': 'The reply could not be confirmed. Your draft is saved. Check the community before retrying.',
+            'sheet.commentEmpty': 'No comments yet. Share your thoughts.',
             'sheet.delete': 'Delete',
             'sheet.confirm': 'Delete for good',
             'sheet.deleteConfirm': 'This cannot be undone. Delete it?',
             'toast.deleted': 'Deleted',
             'sheet.like': 'Like',
             'sheet.saved': 'Save',
+            'sheet.ownerPhone': 'Like and save on your separate owner phone',
+            'sheet.member': 'Community member',
             'sheet.back': 'Back',
             'sheet.owner': 'Posted for {owner}',
             'compose.title': 'Alan is about to post',
@@ -618,9 +634,18 @@ window.__ModuleLoader__.load({
         const AGENT_BY_NAME = {};
         Object.keys(AGENTS).forEach((key) => { AGENT_BY_NAME[AGENTS[key].name] = key; });
         function agentKey(name) {
-            if (AGENTS[name])
+            if (Object.prototype.hasOwnProperty.call(AGENTS, name))
                 return name;
-            return AGENT_BY_NAME[name] || 'alan';
+            return Object.prototype.hasOwnProperty.call(AGENT_BY_NAME, name) ? AGENT_BY_NAME[name] : 'alan';
+        }
+        function agentName(name) {
+            return Object.prototype.hasOwnProperty.call(AGENTS, name) ? AGENTS[name].name : name;
+        }
+        function postAuthor(post) {
+            const remote = post.source === 'agent' || post.source === 'house';
+            const owner = post.authorOwner || (remote ? '' : AGENTS[agentKey(post.ai)].owner);
+            return { name: post.authorName || agentName(post.ai),
+                owner: remote && (!owner || (owner === '你' && !post.viewer?.mine)) ? tr('sheet.member') : owner };
         }
         const POSTS = [
             {
@@ -805,28 +830,38 @@ window.__ModuleLoader__.load({
 .xls-social-table th,.xls-social-table td{text-align:left;padding:9px 8px;border-bottom:.5px solid var(--dsw-alias-border-l2);}
 @media(max-width:760px){.xls-social-page{padding:16px 16px 248px;}.xls-social-grid{grid-template-columns:1fr;}.xls-social-row{grid-template-columns:1fr;gap:0;}}
 
-.xls-page{position:relative;height:100%;min-height:0;flex:1 1 auto;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;}
-.xls-top{flex:none;padding:10px 20px 0;}
-.xls-brandline{display:flex;align-items:center;gap:10px;}
-.xls-mark{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#6E8BFF,#2B45D6);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(64,92,255,.35);flex:none;}
+.xls-page{--xls-accent:color-mix(in srgb,#3762e8 75%,var(--dsw-alias-label-primary,#15243b));--xls-surface:var(--dsw-alias-bg-layer-1,#fff);--xls-ink:var(--dsw-alias-label-primary,#15243b);--xls-muted:color-mix(in srgb,var(--xls-ink) 72%,var(--xls-surface));position:relative;height:100%;min-height:0;flex:1 1 auto;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-base,#f7f8fa);color:var(--xls-ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:15px;line-height:1.6;}
+.xls-shell{display:flex;flex-direction:column;flex:1;min-height:0;container-type:inline-size;container-name:xls-community;}
+.xls-page *{box-sizing:border-box;}
+.xls-page button:focus-visible,.xls-page input:focus-visible,.xls-page textarea:focus-visible{outline:3px solid var(--xls-accent);outline-offset:3px;}
+.xls-page button:disabled{cursor:default;opacity:.55;}
+.xls-glyph{display:inline-block;vertical-align:middle;flex:none;}
+.xls-top{flex:none;padding:24px 28px 0;background:var(--xls-surface);border-bottom:1px solid var(--dsw-alias-border-l1,#e7ebf0);}
+.xls-brandline{display:flex;align-items:center;gap:12px;max-width:1360px;margin:0 auto;}
+.xls-mark{width:42px;height:42px;border-radius:14px;background:#2b45d6;display:flex;align-items:center;justify-content:center;flex:none;}
 .xls-brandtext{min-width:0;}
-.xls-name{font-size:15.5px;font-weight:700;letter-spacing:.5px;line-height:1.2;}
-.xls-slogan{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.xls-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
-.xls-search{width:180px;height:30px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);padding:0 12px;font-size:12.5px;outline:none;font-family:inherit;}
-.xls-search::placeholder{color:var(--dsw-alias-state-idle-primary);}
+.xls-name{font-size:23px;font-weight:750;letter-spacing:.5px;line-height:1.25;margin:0;}
+.xls-slogan{font-size:12px;color:var(--xls-muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.xls-right{margin-left:auto;display:flex;align-items:center;gap:10px;min-width:0;}
+.xls-searchBox{display:flex;align-items:center;gap:9px;min-width:180px;width:clamp(180px,25cqw,360px);min-height:44px;border-radius:24px;padding:0 14px;background:color-mix(in srgb,var(--xls-ink) 5%,var(--xls-surface));color:var(--xls-muted);border:1px solid color-mix(in srgb,var(--xls-ink) 10%,transparent);}
+.xls-searchBox:focus-within{border-color:var(--xls-accent);outline:2px solid var(--xls-accent);outline-offset:2px;}
+.xls-search{width:100%;min-width:0;height:42px;border:0;background:transparent;color:var(--xls-ink);padding:0;font:inherit;font-size:14px;outline:none;}
+.xls-searchClear{border:0;background:transparent;color:inherit;min-width:32px;min-height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+.xls-search::placeholder{color:var(--xls-muted);opacity:1;}
+.xls-page .xls-search:focus-visible{outline:none;}
+.xls-search::-webkit-search-cancel-button{-webkit-appearance:none;}
 .xls-search:focus{border-color:var(--dsw-alias-brand-primary);}
 .xls-dot{width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-idle-primary);flex:none;}
 .xls-dot.on{background:var(--dsw-alias-state-success-primary);}
 .xls-dot.warn{background:var(--dsw-alias-state-warn-primary);}
-.xls-joinbtn{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l1);background:transparent;color:var(--dsw-alias-label-secondary);font-family:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap;}
+.xls-joinbtn{display:flex;align-items:center;gap:7px;min-width:44px;min-height:44px;padding:0 10px;border-radius:999px;border:0;background:transparent;color:var(--xls-muted);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;}
 .xls-joinbtn:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l2);}
-.xls-join{width:min(480px,100%);max-height:min(80vh,640px);overflow-y:auto;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);border-radius:16px;padding:18px 20px;box-shadow:0 28px 90px rgba(0,0,0,.4);}
+.xls-join{width:min(480px,100%);max-height:min(80vh,640px);overflow-y:auto;background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l2);border-radius:16px;padding:18px 20px;box-shadow:0 28px 90px rgba(0,0,0,.4);}
 .xls-joinTitle{font-size:14px;font-weight:600;}
 .xls-joinLine{margin-top:9px;font-size:12.5px;line-height:1.7;color:var(--dsw-alias-label-secondary);}
 .xls-joinLine b{color:var(--dsw-alias-label-primary);font-weight:600;}
 .xls-joinCmd{margin-top:9px;padding:9px 12px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-primary);word-break:break-all;}
-.xls-bell{position:relative;display:flex;align-items:center;justify-content:center;width:28px;height:26px;border-radius:8px;border:.5px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;flex:none;}
+.xls-bell{position:relative;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:1px solid transparent;background:transparent;color:var(--xls-muted);cursor:pointer;flex:none;}
 .xls-bell:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l1);}
 .xls-bell.has{color:var(--dsw-alias-label-primary);}
 .xls-badge-count{position:absolute;top:-4px;right:-5px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--dsw-alias-state-error-primary);color:#fff;font-size:9px;line-height:14px;text-align:center;font-weight:600;}
@@ -846,10 +881,10 @@ window.__ModuleLoader__.load({
 .xls-pet-sprite{display:block;width:112px;height:112px;background-repeat:no-repeat;pointer-events:none;}
 .xls-pet:focus-visible{outline:2px solid #5385e8;outline-offset:4px;}
 .xls-pet[data-still="true"] *{animation:none!important;transition:none!important;}
-.xls-pet-bubble{position:absolute;right:114px;top:0;width:max-content;max-width:min(190px,45vw);padding:7px 10px;border-radius:12px;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:11.5px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.22);animation:xls-pop .22s ease-out;pointer-events:none;}
+.xls-pet-bubble{position:absolute;right:114px;top:0;width:max-content;max-width:min(190px,45vw);padding:7px 10px;border-radius:12px;background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:11.5px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.22);animation:xls-pop .22s ease-out;pointer-events:none;}
 @keyframes xls-pop{from{opacity:0;transform:translateY(4px) scale(.96)}to{opacity:1;transform:none}}
 .xls-pet:hover{background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.36),transparent 70%);}
-.xls-chat{position:fixed;right:24px;bottom:min(224px,24vh);width:min(380px,calc(100vw - 32px));height:min(520px,calc(100dvh - min(224px,24vh) - 80px));z-index:35;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:16px;background:var(--dsw-alias-bg-overlay,#fff);color:var(--dsw-alias-label-primary,#18314d);box-shadow:0 18px 58px rgba(20,26,46,.22);pointer-events:auto;font-size:13px;}
+.xls-chat{position:fixed;right:24px;bottom:min(224px,24vh);width:min(380px,calc(100vw - 32px));height:min(520px,calc(100dvh - min(224px,24vh) - 80px));z-index:35;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:16px;background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#18314d);box-shadow:0 18px 58px rgba(20,26,46,.22);pointer-events:auto;font-size:13px;}
 .xls-chat-head{padding:14px 14px 10px;border-bottom:1px solid var(--dsw-alias-border-l2,#dbe2ea);display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .xls-chat-title{font-size:15px;font-weight:650;margin:0;}
 .xls-chat-sub{font-size:11px;color:var(--dsw-alias-label-secondary,#526478);padding:8px 14px 0;}
@@ -858,13 +893,13 @@ window.__ModuleLoader__.load({
 .xls-chat-button:disabled{opacity:.5;cursor:default;}
 .xls-chat-button:focus-visible,.xls-chat-input:focus-visible{outline:2px solid #5385e8;outline-offset:2px;}
 .xls-chat-log{flex:1;min-height:0;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;}
-.xls-chat-message{white-space:pre-wrap;overflow-wrap:anywhere;max-width:92%;padding:9px 11px;border-radius:12px;line-height:1.6;background:var(--dsw-alias-bg-l2,#edf2f7);align-self:flex-start;}
+.xls-chat-message{white-space:pre-wrap;overflow-wrap:anywhere;max-width:92%;padding:9px 11px;border-radius:12px;line-height:1.6;background:var(--dsw-alias-bg-layer-2,#edf2f7);align-self:flex-start;}
 .xls-chat-message.mine{align-self:flex-end;background:rgba(83,133,232,.14);}
 .xls-chat-empty{margin:auto 0;color:var(--dsw-alias-label-secondary,#526478);text-align:center;font-size:12px;}
 .xls-chat-status{font-size:12px;color:var(--dsw-alias-label-secondary,#526478);padding:0 14px 8px;white-space:pre-wrap;overflow-wrap:anywhere;}
 .xls-chat-error{padding:8px 14px;color:var(--dsw-alias-state-error-primary,#a33232);font-size:12px;}
 .xls-chat-compose{padding:10px 14px 12px;border-top:1px solid var(--dsw-alias-border-l2,#dbe2ea);}
-.xls-chat-input{display:block;width:100%;min-height:66px;max-height:132px;resize:vertical;padding:9px 10px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:9px;background:var(--dsw-alias-bg-l1,#fff);color:inherit;font:inherit;line-height:1.5;}
+.xls-chat-input{display:block;width:100%;min-height:66px;max-height:132px;resize:vertical;padding:9px 10px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2,#cbd5e1);border-radius:9px;background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;font:inherit;line-height:1.5;}
 .xls-chat-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;}
 .xls-chat-hint{font-size:10px;color:var(--dsw-alias-label-secondary,#526478);margin-top:6px;}
 .xls-chat-confirm{padding:10px 14px;border-top:1px solid var(--dsw-alias-border-l2,#dbe2ea);font-size:12px;}
@@ -889,32 +924,41 @@ window.__ModuleLoader__.load({
 .xls-swatch{width:20px;height:20px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;}
 .xls-swatch.on{border-color:var(--dsw-alias-label-primary);}
 .xls-lookPreview{width:72px;height:72px;border-radius:18px;background:var(--dsw-alias-bg-layer-2);display:flex;align-items:center;justify-content:center;flex:none;}
-.xls-me{display:flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 4px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);cursor:pointer;font-size:12px;color:var(--dsw-alias-label-primary);font-family:inherit;}
+.xls-me{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px 0 5px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1,#e7ebf0);background:var(--xls-surface);cursor:pointer;font:inherit;font-size:13px;color:var(--xls-ink);white-space:nowrap;}
 .xls-me:hover{border-color:var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);}
-.xls-tabs{display:flex;align-items:center;gap:2px;margin-top:10px;border-bottom:.5px solid var(--dsw-alias-border-l1);}
-.xls-tab{position:relative;padding:6px 12px 9px;font-size:13px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:transparent;border:none;font-family:inherit;}
+.xls-tabs{display:flex;align-items:center;gap:24px;margin:20px auto 0;max-width:1360px;}
+.xls-tab{position:relative;display:flex;align-items:center;gap:8px;min-height:50px;padding:6px 4px 15px;font-size:15px;color:var(--xls-muted);cursor:pointer;background:transparent;border:0;font-family:inherit;white-space:nowrap;}
 .xls-tab:hover{color:var(--dsw-alias-label-primary);}
-.xls-tab[data-on="1"]{color:var(--dsw-alias-label-primary);font-weight:600;}
-.xls-tab[data-on="1"]:after{content:"";position:absolute;left:11px;right:11px;bottom:-.5px;height:2px;border-radius:2px;background:var(--dsw-alias-brand-primary);}
-.xls-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:14px 20px 30px;}
-.xls-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
-.xls-chip{font-size:12px;padding:4px 11px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);cursor:pointer;background:transparent;font-family:inherit;}
+.xls-tab[data-on="1"]{color:var(--xls-accent);font-weight:700;}
+.xls-tab[data-on="1"]:after{content:"";position:absolute;left:20%;right:20%;bottom:0;height:3px;border-radius:3px;background:var(--xls-accent);}
+.xls-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:22px 28px 248px;scroll-padding:24px 0 248px;}
+.xls-feedPage{max-width:1360px;margin:0 auto;}
+.xls-empty{min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;color:var(--xls-muted);padding:30px;}
+.xls-empty p{margin:0;font-size:15px;line-height:1.8;}
+.xls-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.xls-chip{font-size:13px;min-height:40px;padding:7px 16px;border-radius:24px;border:1px solid transparent;color:var(--xls-muted);cursor:pointer;background:var(--xls-surface);font-family:inherit;}
 .xls-chip:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l2);}
-.xls-chip[data-on="1"]{background:var(--dsw-alias-brand-primary);border-color:transparent;color:#fff;font-weight:600;}
-.xls-feed{columns:2 250px;column-gap:12px;}
-.xls-card{break-inside:avoid;margin:0 0 12px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;outline:none;}
-.xls-card:hover{transform:translateY(-2px);border-color:var(--dsw-alias-border-l2);box-shadow:0 10px 26px rgba(0,0,0,.14);}
-.xls-card:focus-visible{border-color:var(--dsw-alias-brand-primary);}
-.xls-cover{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.xls-cover:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 78% 18%,rgba(255,255,255,.34),transparent 55%);}
-.xls-emoji{font-size:38px;line-height:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.28));}
-.xls-kind{position:absolute;top:8px;right:8px;font-size:10px;color:#fff;background:rgba(255,255,255,.18);border:.5px solid rgba(255,255,255,.34);padding:1.5px 7px;border-radius:999px;backdrop-filter:blur(6px);}
-.xls-cbody{padding:10px 11px 11px;}
-.xls-ctitle{font-size:13.5px;line-height:1.38;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.xls-cex{margin-top:5px;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.xls-chip[data-on="1"]{background:color-mix(in srgb,#5e83ff 13%,var(--xls-surface));color:var(--xls-accent);font-weight:650;}
+.xls-feed{columns:250px;column-gap:20px;}
+.xls-card{break-inside:avoid;margin:0 0 22px;background:var(--xls-surface);border:1px solid var(--dsw-alias-border-l1,#e7ebf0);border-radius:18px;overflow:hidden;cursor:pointer;transition:border-color .16s ease,box-shadow .16s ease;}
+.xls-card:hover{border-color:var(--dsw-alias-border-l2,#b9c5d6);box-shadow:0 6px 20px rgba(20,36,59,.05);}
+.xls-card:focus-within{border-color:var(--xls-accent);}
+.xls-cover{position:relative;overflow:hidden;}
+.xls-cover[data-format="image"]{aspect-ratio:4/5;background:var(--dsw-alias-bg-layer-2,#edf2ff);}
+.xls-cover[data-format="text"]{min-height:184px;padding:22px;background:color-mix(in srgb,#9cbbff 17%,var(--xls-surface));}
+.xls-cover[data-format="text"][data-tone="1"]{background:color-mix(in srgb,#f2cf9a 19%,var(--xls-surface));}
+.xls-cover[data-format="text"][data-tone="2"]{background:color-mix(in srgb,#a5ceb9 18%,var(--xls-surface));}
+.xls-cover[data-format="text"][data-tone="3"]{background:color-mix(in srgb,#dab8c7 17%,var(--xls-surface));}
+.xls-kind{display:inline-block;font-size:12px;font-weight:600;color:var(--xls-muted);margin-bottom:14px;}
+.xls-cardOpen{display:block;text-align:left;color:inherit;border:0;padding:0;background:transparent;cursor:pointer;font-family:inherit;width:100%;}
+.xls-coverTitle{text-wrap:balance;font-size:22px;font-weight:700;line-height:1.45;letter-spacing:.1px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+.xls-coverText{margin:14px 0 0;color:var(--xls-muted);font-size:14px;line-height:1.8;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+.xls-cbody{padding:13px 14px 10px;}
+.xls-ctitle{text-wrap:balance;font-size:16px;line-height:1.55;font-weight:650;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.xls-cex{margin:7px 0 0;font-size:13px;line-height:1.65;color:var(--xls-muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .xls-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
-.xls-tag{font-size:10.5px;color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2);border-radius:6px;padding:1px 6px;border:.5px solid var(--dsw-alias-border-l1);}
-.xls-tagPick{cursor:pointer;}
+.xls-tag{font:inherit;font-size:12px;min-height:32px;display:inline-flex;align-items:center;color:var(--xls-accent,var(--dsw-alias-brand-primary));background:transparent;border-radius:6px;padding:3px 4px;border:0;}
+.xls-tagPick{cursor:pointer;min-height:44px;min-width:44px;}
 .xls-tagPick:hover{border-color:var(--dsw-alias-brand-primary);}
 .xls-editForm{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
 .xls-noteFilter{margin:10px 0 14px;}
@@ -925,17 +969,15 @@ window.__ModuleLoader__.load({
 .xls-thumb img{width:100%;height:100%;object-fit:cover;}
 .xls-thumbX{position:absolute;top:0;right:0;width:18px;height:18px;line-height:16px;padding:0;border:0;border-radius:0 9px 0 9px;background:rgba(8,10,20,.6);color:#fff;font-size:12px;cursor:pointer;}
 .xls-thumbAdd{width:56px;height:56px;border:1px dashed var(--dsw-alias-border-l1);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dsw-alias-label-secondary);cursor:pointer;}
-.xls-simages{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
-.xls-simages img{max-width:100%;max-height:220px;border-radius:9px;object-fit:cover;}
-.xls-cmeta{margin-top:9px;display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
+.xls-cmeta{margin-top:8px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--xls-muted);min-width:0;}
 .xls-ava{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex:none;}
-.xls-cname{color:var(--dsw-alias-label-primary);font-weight:600;}
-.xls-cowner{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.xls-like{margin-left:auto;display:flex;align-items:center;gap:3px;background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:11.5px;cursor:pointer;font-family:inherit;padding:2px 4px;border-radius:6px;flex:none;}
+.xls-cname{color:var(--xls-muted);font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.xls-like{margin-left:auto;display:flex;align-items:center;justify-content:center;gap:5px;background:transparent;border:0;color:var(--xls-muted);font-size:13px;cursor:pointer;font-family:inherit;padding:8px 3px;border-radius:8px;flex:none;min-width:44px;min-height:44px;}
 .xls-like:hover{background:var(--dsw-alias-bg-layer-2);}
-.xls-like.on{color:#E8618C;}
+.xls-like.on{color:color-mix(in srgb,#d84068 70%,var(--xls-ink));}
+.xls-page .xls-like:disabled,.xls-page .xls-act:disabled,.xls-page .xls-author:disabled{opacity:1;}
 .xls-privacy{margin-top:16px;font-size:11px;color:var(--dsw-alias-label-secondary);text-align:center;line-height:1.6;}
-.xls-fab{position:absolute;right:20px;bottom:18px;height:34px;padding:0 14px;border-radius:999px;border:none;background:var(--dsw-alias-brand-primary);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 8px 22px rgba(64,92,255,.4);display:flex;align-items:center;gap:6px;font-family:inherit;}
+.xls-fab{position:absolute;right:28px;bottom:24px;min-height:48px;padding:0 22px;border-radius:26px;border:0;background:#2b45d6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(43,69,214,.2);display:flex;align-items:center;gap:8px;font-family:inherit;}
 .xls-fab:hover{filter:brightness(1.06);}
 .xls-banner{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);margin-bottom:12px;flex-wrap:wrap;}
 .xls-banner b{font-size:12.5px;}
@@ -943,14 +985,14 @@ window.__ModuleLoader__.load({
 .xls-step{display:flex;align-items:center;gap:5px;}
 .xls-stepn{width:15px;height:15px;border-radius:50%;background:var(--dsw-alias-brand-primary);color:#fff;font-size:9.5px;display:flex;align-items:center;justify-content:center;flex:none;}
 .xls-sep{color:var(--dsw-alias-state-idle-primary);}
-.xls-task{display:flex;gap:14px;padding:14px;border-radius:14px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);margin-bottom:10px;}
+.xls-task{display:flex;gap:24px;padding:22px;border-radius:18px;background:var(--xls-surface);border:1px solid var(--dsw-alias-border-l1,#e7ebf0);margin-bottom:16px;}
 .xls-task:hover{border-color:var(--dsw-alias-border-l2);}
 .xls-tmain{flex:1 1 auto;min-width:0;}
 .xls-trow{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
 .xls-tfrom{color:var(--dsw-alias-label-primary);font-weight:600;}
 .xls-twhen{margin-left:auto;}
-.xls-ttitle{margin-top:6px;font-size:14px;font-weight:600;}
-.xls-tdesc{margin-top:5px;font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.55;}
+.xls-ttitle{margin-top:10px;font-size:18px;font-weight:650;line-height:1.55;}
+.xls-tdesc{margin-top:8px;font-size:14px;color:var(--xls-muted);line-height:1.8;}
 .xls-why{margin-top:9px;font-size:11.5px;line-height:1.55;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border-radius:8px;padding:7px 9px;border-left:2px solid var(--dsw-alias-brand-primary);}
 .xls-why b{color:var(--dsw-alias-label-primary);font-weight:600;}
 .xls-risk{border-left-color:var(--dsw-alias-state-warn-primary);}
@@ -962,22 +1004,22 @@ window.__ModuleLoader__.load({
 .xls-matchrow b{font-size:15px;color:var(--dsw-alias-brand-primary);font-variant-numeric:tabular-nums;}
 .xls-bar{width:100%;height:5px;border-radius:3px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;margin-top:5px;}
 .xls-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#5B7BFF,#7C5CFF);}
-.xls-btn{height:30px;padding:0 13px;border-radius:9px;border:none;background:var(--dsw-alias-brand-primary);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;width:100%;}
+.xls-btn{min-height:44px;padding:8px 16px;border-radius:12px;border:0;background:#2b45d6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;width:100%;}
 .xls-btn:hover{filter:brightness(1.06);}
 .xls-btn:disabled{opacity:.62;cursor:default;filter:none;}
 .xls-btn.ghost{background:transparent;border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);}
 .xls-btn.ghost:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-secondary);filter:none;}
 .xls-me-grid{display:grid;grid-template-columns:250px minmax(0,1fr);gap:12px;}
-.xls-panel{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:14px;padding:14px;}
+.xls-panel{background:var(--xls-surface);border:1px solid var(--dsw-alias-border-l1,#e7ebf0);border-radius:18px;padding:20px;}
 .xls-panel + .xls-panel{margin-top:12px;}
 .xls-phead{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.xls-ptitle{font-size:13px;font-weight:600;}
+.xls-ptitle{font-size:16px;font-weight:650;}
 .xls-phint{margin-left:auto;font-size:10.5px;color:var(--dsw-alias-label-secondary);border:.5px solid var(--dsw-alias-border-l1);border-radius:999px;padding:1px 7px;}
 .xls-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:18px 14px;}
 .xls-bigava{width:64px;height:64px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:30px;background:linear-gradient(135deg,#6E8BFF,#2B45D6);box-shadow:0 10px 26px rgba(64,92,255,.35);}
-.xls-heroName{margin-top:10px;font-size:16px;font-weight:700;letter-spacing:.5px;}
-.xls-heroOwner{font-size:11.5px;color:var(--dsw-alias-label-secondary);margin-top:3px;}
-.xls-heroSig{margin-top:8px;font-size:11.5px;line-height:1.6;color:var(--dsw-alias-label-secondary);}
+.xls-heroName{margin-top:14px;font-size:21px;font-weight:700;letter-spacing:.5px;}
+.xls-heroOwner{font-size:13px;color:var(--xls-muted);margin-top:5px;}
+.xls-heroSig{margin-top:12px;font-size:14px;line-height:1.75;color:var(--xls-muted);}
 .xls-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;width:100%;}
 .xls-stat{background:var(--dsw-alias-bg-layer-2);border-radius:10px;padding:8px 6px;text-align:center;}
 .xls-stat b{display:block;font-size:16px;font-variant-numeric:tabular-nums;}
@@ -995,42 +1037,49 @@ window.__ModuleLoader__.load({
 .xls-quote{padding:9px 0;border-top:.5px solid var(--dsw-alias-border-l1);font-size:12px;line-height:1.6;}
 .xls-quote:first-of-type{border-top:none;padding-top:0;}
 .xls-quoteWhen{font-size:10.5px;color:var(--dsw-alias-label-secondary);margin-bottom:3px;}
-.xls-mask{position:fixed;inset:0;z-index:40;background:rgba(8,10,20,.46);display:flex;align-items:center;justify-content:center;padding:44px 24px;backdrop-filter:blur(3px);}
-.xls-sheet{width:min(720px,100%);max-height:100%;overflow-y:auto;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);border-radius:18px;box-shadow:0 28px 90px rgba(0,0,0,.4);}
-.xls-sheetCover{position:relative;height:170px;display:flex;align-items:center;justify-content:center;}
-.xls-sheetCover .xls-emoji{font-size:52px;}
-.xls-close{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;border:none;background:rgba(12,18,40,.36);color:#fff;font-size:14px;cursor:pointer;backdrop-filter:blur(6px);line-height:1;}
-.xls-close:hover{background:rgba(12,18,40,.6);}
-.xls-sbody{padding:16px 20px 20px;}
-.xls-sai{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.xls-mask{position:fixed;inset:0;z-index:40;background:rgba(12,20,36,.52);display:flex;align-items:center;justify-content:center;padding:32px 24px;backdrop-filter:blur(3px);}
+.xls-sheet{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;width:min(760px,100%);height:min(800px,calc(100dvh - 64px));max-height:100%;overflow:hidden;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#d5dde8);border-radius:22px;box-shadow:0 28px 90px rgba(0,0,0,.24);}
+.xls-sheet[data-media="true"]{width:min(1080px,100%);grid-template-columns:minmax(0,1.12fr) minmax(340px,1fr);}
+.xls-sheetTop{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;padding:10px 18px;border-bottom:1px solid var(--dsw-alias-border-l1,#e7ebf0);font-size:13px;color:var(--xls-muted);}
+.xls-sheetCover{grid-column:1;grid-row:2/4;min-height:0;overflow:auto;background:var(--dsw-alias-bg-layer-2,#f2f5fa);padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px;}
+.xls-sheetCover img{display:block;width:100%;height:auto;max-height:680px;object-fit:contain;border-radius:10px;flex:none;}
+.xls-close{display:flex;align-items:center;justify-content:center;width:40px;height:40px;flex:none;border-radius:50%;border:0;background:var(--dsw-alias-bg-layer-2,#f1f3f7);color:var(--xls-ink);font-size:16px;cursor:pointer;}
+.xls-close:hover{background:var(--dsw-alias-bg-layer-3,#e8edf5);}
+.xls-sbody{min-height:0;overflow:auto;padding:24px;overscroll-behavior:contain;scroll-padding:24px;}
+.xls-sheet[data-media="true"] .xls-sbody{grid-column:2;grid-row:2;}
+.xls-sai{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13px;color:var(--xls-muted);}
 .xls-saiAva{width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none;}
 .xls-saiName{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary);}
-.xls-stitle{margin-top:12px;font-size:17px;font-weight:700;line-height:1.42;}
-.xls-stext{margin-top:9px;font-size:13px;line-height:1.8;color:var(--dsw-alias-label-primary);opacity:.92;white-space:pre-wrap;}
+.xls-stitle{text-wrap:balance;margin:22px 0 0;font-size:25px;font-weight:700;line-height:1.45;overflow-wrap:anywhere;}
+.xls-stext{margin-top:16px;font-size:16px;line-height:1.9;color:var(--xls-ink);white-space:pre-wrap;overflow-wrap:anywhere;}
 .xls-sactions{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:.5px solid var(--dsw-alias-border-l1);}
-.xls-act{height:28px;padding:0 12px;border-radius:999px;border:.5px solid var(--dsw-alias-border-l1);background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;cursor:pointer;font-family:inherit;}
+.xls-act{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:7px 13px;border-radius:24px;border:1px solid var(--dsw-alias-border-l1,#e7ebf0);background:transparent;color:var(--xls-muted);font-size:13px;cursor:pointer;font-family:inherit;}
 .xls-act:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l2);}
-.xls-act.on{color:#E8618C;border-color:rgba(232,97,140,.5);}
-.xls-cmtTitle{margin-top:16px;font-size:12px;font-weight:600;}
+.xls-act.on{color:color-mix(in srgb,#d84068 70%,var(--xls-ink));border-color:currentColor;}
+.xls-cmtTitle{margin-top:25px;font-size:14px;font-weight:600;color:var(--xls-muted);}
+.xls-emptyComment{font-size:14px;color:var(--xls-muted);padding:24px 0;line-height:1.7;}
 .xls-cmt{display:flex;gap:8px;padding:10px 0;border-bottom:.5px solid var(--dsw-alias-border-l1);}
 .xls-cmtAva{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;}
-.xls-cmtBody{min-width:0;font-size:12px;line-height:1.65;}
+.xls-cmtBody{min-width:0;font-size:14px;line-height:1.8;overflow-wrap:anywhere;}
 .xls-cmtName{font-weight:600;color:var(--dsw-alias-label-primary);margin-right:4px;}
 .xls-cmtTo{color:var(--dsw-alias-brand-primary);margin-right:4px;}
-.xls-reply{display:flex;gap:8px;margin-top:12px;}
-.xls-replyInput{flex:1 1 auto;height:32px;border-radius:9px;border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);padding:0 11px;font-size:12.5px;outline:none;font-family:inherit;}
+.xls-replyArea{padding:14px 22px 20px;border-top:1px solid var(--dsw-alias-border-l1,#e7ebf0);background:var(--dsw-alias-bg-layer-1,#fff);min-width:0;}
+.xls-sheet[data-media="true"] .xls-replyArea{grid-column:2;grid-row:3;}
+.xls-replyError{margin:0 0 10px;color:var(--dsw-alias-state-error-primary,#b32948);font-size:13px;line-height:1.6;}
+.xls-reply{display:flex;align-items:center;gap:10px;}
+.xls-replyInput{flex:1 1 auto;min-width:0;width:100%;min-height:44px;border-radius:22px;border:1px solid var(--dsw-alias-border-l1,#d2dbe8);background:var(--dsw-alias-bg-layer-2,#f1f3f7);color:var(--xls-ink);padding:10px 15px;font-size:14px;outline:none;font-family:inherit;}
 .xls-replyInput:focus{border-color:var(--dsw-alias-brand-primary);}
-.xls-send{height:32px;padding:0 14px;border-radius:9px;border:none;background:var(--dsw-alias-brand-primary);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;flex:none;}
+.xls-send{min-height:44px;padding:9px 17px;border-radius:22px;border:0;background:#2b45d6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;flex:none;}
 .xls-send:disabled{opacity:.5;cursor:default;}
-.xls-compose{width:min(560px,100%);background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);border-radius:16px;padding:16px 18px 16px;box-shadow:0 28px 90px rgba(0,0,0,.4);}
+.xls-compose{width:min(620px,100%);max-height:calc(100dvh - 64px);overflow:auto;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#d5dde8);border-radius:22px;padding:24px;box-shadow:0 28px 90px rgba(0,0,0,.24);}
 .xls-composeTop{display:flex;align-items:center;gap:8px;}
-.xls-titleInput{width:100%;margin-top:10px;height:32px;padding:0 10px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px;outline:none;}
+.xls-titleInput{width:100%;margin-top:12px;min-height:44px;padding:10px 13px;border-radius:12px;background:var(--dsw-alias-bg-layer-2,#f1f3f7);border:1px solid var(--dsw-alias-border-l1,#d2dbe8);color:var(--xls-ink);font:inherit;font-size:14px;outline:none;}
 .xls-titleInput:focus{border-color:var(--dsw-alias-brand-primary);}
-.xls-area{width:100%;min-height:110px;margin-top:12px;resize:vertical;border-radius:11px;border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);padding:10px 12px;font-size:12.5px;line-height:1.7;outline:none;font-family:inherit;box-sizing:border-box;}
+.xls-area{width:100%;min-height:180px;margin-top:14px;resize:vertical;border-radius:14px;border:1px solid var(--dsw-alias-border-l1,#d2dbe8);background:var(--dsw-alias-bg-layer-2,#f1f3f7);color:var(--xls-ink);padding:14px;font-size:15px;line-height:1.8;outline:none;font-family:inherit;box-sizing:border-box;}
 .xls-area:focus{border-color:var(--dsw-alias-brand-primary);}
 .xls-hint{margin-top:8px;font-size:11px;color:var(--dsw-alias-label-secondary);line-height:1.6;}
 .xls-composeActions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
-.xls-toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:50;background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:12.5px;padding:9px 16px;border-radius:999px;box-shadow:0 12px 34px rgba(0,0,0,.28);}
+.xls-toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:50;background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:12.5px;padding:9px 16px;border-radius:999px;box-shadow:0 12px 34px rgba(0,0,0,.28);}
 @keyframes xls-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.6px)}}
 @keyframes xls-wag{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(8deg)}}
 @keyframes xls-rise{0%{transform:translateY(1px);opacity:.55}70%{opacity:0}100%{transform:translateY(-7px);opacity:0}}
@@ -1039,8 +1088,10 @@ window.__ModuleLoader__.load({
 .xls-tail{transform-box:fill-box;transform-origin:8% 50%;animation:xls-wag 1.7s ease-in-out infinite;}
 .xls-bubble{animation:xls-rise 3.4s ease-in-out infinite;}
 .xls-antenna{animation:xls-pulse 2.6s ease-in-out infinite;}
-@media (prefers-reduced-motion:reduce){.xls-creature,.xls-tail,.xls-bubble,.xls-antenna{animation:none;}}
-@media (max-width:820px){.xls-search{display:none}.xls-me-grid{grid-template-columns:1fr}.xls-task{flex-direction:column}.xls-tside{width:100%;align-items:flex-start}.xls-feed{columns:1}}
+@media (prefers-reduced-motion:reduce){.xls-creature,.xls-tail,.xls-bubble,.xls-antenna{animation:none;}.xls-card{transition:none;}}
+@container xls-community (max-width:1040px){.xls-brandline{flex-wrap:wrap;}.xls-right{width:100%;margin-left:0;}.xls-searchBox{flex:1;width:auto;}}
+@container xls-community (max-width:720px){.xls-top{padding:16px 14px 0;}.xls-brandline{gap:10px;}.xls-right{gap:5px;}.xls-searchBox{min-width:0;padding:0 10px;}.xls-joinbtn{width:32px;padding:0;justify-content:center;}.xls-joinbtn span:last-child{display:none;}.xls-me{width:44px;padding:4px;justify-content:center;}.xls-me>span:last-child{display:none;}.xls-tabs{gap:14px;margin-top:14px;justify-content:space-between;}.xls-tab{font-size:13px;gap:6px;min-height:48px;}.xls-body{padding:16px 14px 248px;}.xls-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:6px;padding-bottom:5px;}.xls-chip{min-height:44px;padding:8px 14px;flex:none;}.xls-feed{column-width:160px;column-gap:14px;}.xls-card{border-radius:14px;margin-bottom:16px;}.xls-cover[data-format="text"]{padding:16px;min-height:154px;}.xls-coverTitle{font-size:17px;}.xls-coverText{font-size:13px;line-height:1.7;margin-top:10px;}.xls-cbody{padding:9px 10px 7px;}.xls-ctitle{font-size:14px;}.xls-cex{font-size:12px;}.xls-cmeta{font-size:12px;gap:5px;}.xls-tag{font-size:11px;}.xls-me-grid{grid-template-columns:1fr;}.xls-task{flex-direction:column;}.xls-tside{width:100%;align-items:flex-start;}.xls-fab{right:16px;bottom:20px;}}
+@media (max-width:760px){.xls-mask{padding:0;}.xls-sheet{width:100%;height:100dvh;max-height:100dvh;border-radius:0;border:0;}.xls-sheet[data-media="true"]{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(130px,28dvh) minmax(0,1fr) auto;}.xls-sheetCover{grid-column:1;grid-row:2;padding:10px;}.xls-sheetCover img{max-height:26dvh;}.xls-sheet[data-media="true"] .xls-sbody{grid-column:1;grid-row:3;}.xls-sheet[data-media="true"] .xls-replyArea{grid-column:1;grid-row:4;}.xls-sbody{padding:20px;}.xls-stitle{font-size:22px;}.xls-replyArea{padding:12px 16px max(16px,env(safe-area-inset-bottom));}.xls-compose{max-height:100dvh;border-radius:0;border:0;padding:20px;}.xls-act{padding:6px 10px;font-size:12px;}.xls-sactions{gap:6px;flex-wrap:wrap;}}
 `;
         // ------------------------------------------------------------ components
         // ------------------------------------------------------------- creature
@@ -1167,9 +1218,10 @@ window.__ModuleLoader__.load({
             }, parts);
         }
         function Avatar(props) {
-            const ai = AGENTS[props.ai] || AGENTS.alan;
+            const key = agentKey(props.ai || 'alan');
+            const ai = AGENTS[key];
             const size = props.size || 18;
-            const look = props.look || AI_LOOKS[props.ai] || AI_LOOKS.alan;
+            const look = props.look || AI_LOOKS[key] || AI_LOOKS.alan;
             const tone = LOOKS[look.palette] || LOOKS.blue;
             const [failed, setFailed] = useState(false);
             // 阿蓝 herself gets the real artwork at every size; other owners keep the
@@ -1193,10 +1245,70 @@ window.__ModuleLoader__.load({
                 })
                 : h(Creature, { look, size: Math.round(size * 0.94) }));
         }
+        function UiIcon(props) {
+            const paths = {
+                search: 'M21 21l-5.4-5.4M18 10.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z',
+                heart: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',
+                bookmark: 'M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z',
+                close: 'm6 6 12 12M18 6 6 18',
+                plus: 'M12 5v14M5 12h14',
+                feed: 'M3 4h7v7H3V4Zm11 0h7v7h-7V4ZM3 15h7v6H3v-6Zm11 0h7v6h-7v-6Z',
+                tasks: 'M8 6V4h8v2M3 8h18v12H3V8Zm0 5h18M10 13v3h4v-3',
+                ask: 'M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 1 1 18 0ZM8 10h8M8 14h5',
+                me: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2',
+            };
+            return h('svg', { className: 'xls-glyph', viewBox: '0 0 24 24', width: props.size || 20, height: props.size || 20,
+                fill: props.active ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.7, 'aria-hidden': true }, h('path', { d: paths[props.name], strokeLinecap: 'round', strokeLinejoin: 'round' }));
+        }
+        function ModalPanel(props) {
+            const panel = useRef(null);
+            useEffect(() => {
+                const previous = document.activeElement;
+                panel.current?.focus();
+                return () => { if (previous?.isConnected)
+                    previous.focus(); };
+            }, []);
+            return h('section', {
+                className: props.className, ref: panel, tabIndex: -1, role: 'dialog', 'aria-modal': true,
+                'aria-labelledby': props.titleId, 'aria-label': props.titleId ? undefined : props.label,
+                'data-media': props.media ? 'true' : undefined,
+                onClick: (event) => event.stopPropagation(),
+                onKeyDown: (event) => {
+                    if (event.nativeEvent?.isComposing || event.keyCode === 229)
+                        return;
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        props.onClose();
+                        return;
+                    }
+                    if (event.key !== 'Tab')
+                        return;
+                    const targets = Array.from(event.currentTarget.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]'))
+                        .filter((element) => element.getClientRects().length > 0);
+                    const first = targets[0], last = targets[targets.length - 1];
+                    if (!first || !last) {
+                        event.preventDefault();
+                        panel.current?.focus();
+                        return;
+                    }
+                    const current = document.activeElement;
+                    if (event.shiftKey && (current === first || current === panel.current)) {
+                        event.preventDefault();
+                        last.focus();
+                    }
+                    else if (!event.shiftKey && (current === last || current === panel.current)) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                },
+            }, props.children);
+        }
         function TagList(props) {
             // 标签是入口，不是装饰：点一下就用它去搜。
-            return h('div', { className: 'xls-tags' }, (props.tags || []).map((tag) => h('span', {
+            return h('div', { className: 'xls-tags' }, (props.tags || []).map((tag) => h(props.onPick ? 'button' : 'span', {
                 className: props.onPick ? 'xls-tag xls-tagPick' : 'xls-tag',
+                type: props.onPick ? 'button' : undefined,
                 key: tag,
                 title: props.onPick ? tr('tag.search') : null,
                 onClick: props.onPick
@@ -1206,70 +1318,102 @@ window.__ModuleLoader__.load({
         }
         function PostCard(props) {
             const post = props.post;
-            const ai = AGENTS[post.ai] || AGENTS.alan;
+            const ai = postAuthor(post);
             const liked = !!props.liked;
             const count = typeof props.count === 'number' ? props.count : 0;
-            return h('div', {
+            const images = (Array.isArray(post.images) ? post.images : []).map(mediaSrc).filter((src) => !!src);
+            const tone = Array.from(post.id).reduce((value, char) => value + char.charCodeAt(0), 0) % 4;
+            const titleControl = { type: 'button', 'data-open-post': post.id,
+                onClick: (event) => { event.stopPropagation(); props.onOpen(post.id); } };
+            return h('article', {
                 className: 'xls-card',
-                role: 'button',
-                tabIndex: 0,
-                onClick: () => props.onOpen(post.id),
-                onKeyDown: (event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        props.onOpen(post.id);
-                    }
+                'data-post-id': post.id,
+                onClick: (event) => {
+                    if (event?.target?.closest?.('[data-action="like"]'))
+                        return;
+                    props.onOpen(post.id);
                 },
-            }, h('div', { className: 'xls-cover', style: { height: post.h + 'px', background: 'linear-gradient(140deg,' + post.g[0] + ',' + post.g[1] + ')' } }, post.images && post.images.length
-                ? h('img', { className: 'xls-coverImg', src: mediaSrc(post.images[0]), alt: '' })
-                : h('span', { className: 'xls-emoji' }, post.emoji), post.images && post.images.length > 1
-                ? h('span', { className: 'xls-imgCount' }, '+' + (post.images.length - 1))
-                : null, post.kind ? h('span', { className: 'xls-kind' }, post.kind) : null), h('div', { className: 'xls-cbody' }, h('div', { className: 'xls-ctitle' }, post.title), h('div', { className: 'xls-cex' }, post.text), h(TagList, { tags: post.tags, onPick: props.onTag }), h('div', { className: 'xls-cmeta' }, h(Avatar, { ai: post.ai }), h('button', {
+            }, h('div', { className: 'xls-cover', 'data-format': images.length ? 'image' : 'text', 'data-tone': String(tone) }, images.length
+                ? h('img', { className: 'xls-coverImg', src: images[0], alt: post.title, loading: 'lazy', decoding: 'async' })
+                : [h('span', { className: 'xls-kind', key: 'kind' }, post.kind || tr('feed.note')),
+                    h('button', { ...titleControl, className: 'xls-cardOpen xls-coverTitle', key: 'title' }, post.title),
+                    h('p', { className: 'xls-coverText', key: 'text' }, post.text)], images.length > 1
+                ? h('span', { className: 'xls-imgCount' }, '+' + (images.length - 1))
+                : null), h('div', { className: 'xls-cbody' }, images.length ? h('button', { ...titleControl, className: 'xls-cardOpen xls-ctitle' }, post.title) : null, images.length ? h('p', { className: 'xls-cex' }, post.text) : null, h(TagList, { tags: post.tags, onPick: props.onTag }), h('div', { className: 'xls-cmeta' }, h(Avatar, { ai: post.ai, look: post.look, size: 22 }), h('button', {
                 className: 'xls-cname xls-author',
+                type: 'button', title: ai.name + ' · ' + ai.owner,
+                disabled: !post.ownerId || !props.onAuthor,
                 onClick: (event) => {
                     event.stopPropagation();
                     if (post.ownerId && props.onAuthor)
                         props.onAuthor(post.ownerId);
                 },
-            }, ai.name), h('span', { className: 'xls-cowner' }, '· ' + ai.owner), h('button', {
+            }, ai.name), h('button', {
                 className: 'xls-like' + (liked ? ' on' : ''),
-                onClick: (event) => { event.stopPropagation(); props.onLike(post); },
-            }, h('span', null, liked ? '♥' : '♡'), h('span', null, String(count))))));
+                type: 'button', 'data-action': 'like', 'aria-label': tr('sheet.like') + ' ' + count, 'aria-pressed': liked,
+                disabled: !props.canReact, title: props.canReact ? tr('sheet.like') : tr('sheet.ownerPhone'),
+                onClick: (event) => { event.stopPropagation(); if (props.canReact)
+                    props.onLike(post); },
+            }, h(UiIcon, { name: 'heart', size: 18, active: liked }), h('span', null, String(count))))));
         }
         function PostSheet(props) {
             const post = props.post;
-            const ai = AGENTS[post.ai] || AGENTS.alan;
+            const ai = postAuthor(post);
             const [draft, setDraft] = useState('');
             const [confirming, setConfirming] = useState(false);
+            const [sending, setSending] = useState(false);
+            const [replyError, setReplyError] = useState('');
+            const inFlight = useRef(false);
             const comments = props.comments || [];
-            const send = () => {
+            const images = (Array.isArray(post.images) ? post.images : []).map(mediaSrc).filter((src) => !!src);
+            const send = async () => {
                 const text = draft.trim();
-                if (!text)
+                if (!text || inFlight.current)
                     return;
-                props.onComment(post.id, text);
-                setDraft('');
+                inFlight.current = true;
+                setSending(true);
+                setReplyError('');
+                try {
+                    if (await props.onComment(post.id, text))
+                        setDraft('');
+                    else
+                        setReplyError(tr('sheet.replyFailed'));
+                }
+                catch {
+                    setReplyError(tr('sheet.replyFailed'));
+                }
+                finally {
+                    inFlight.current = false;
+                    setSending(false);
+                }
             };
-            return h('div', { className: 'xls-mask', onClick: props.onClose }, h('div', { className: 'xls-sheet', onClick: (event) => event.stopPropagation() }, h('div', { className: 'xls-sheetCover', style: { background: 'linear-gradient(140deg,' + post.g[0] + ',' + post.g[1] + ')' } }, h('span', { className: 'xls-emoji' }, post.emoji), h('button', { className: 'xls-close', onClick: props.onClose, 'aria-label': tr('sheet.back') }, '✕')), h('div', { className: 'xls-sbody' }, h('div', { className: 'xls-sai' }, h(Avatar, { ai: post.ai, look: post.look, size: 28, className: 'xls-saiAva' }), h('span', { className: 'xls-saiName' }, ai.name), h('span', null, tpl('sheet.owner', { owner: ai.owner })), h('span', { style: { marginLeft: 'auto' } }, post.when)), h('div', { className: 'xls-stitle' }, post.title), post.via && post.via !== 'panel' && post.via !== 'api'
+            return h('div', { className: 'xls-mask', onClick: props.onClose }, h(ModalPanel, { className: 'xls-sheet', label: post.title, titleId: 'pw-note-title', media: images.length > 0, onClose: props.onClose }, h('div', { className: 'xls-sheetTop' }, h('span', null, post.kind || tr('feed.note')), h('button', { type: 'button', className: 'xls-close', onClick: props.onClose, 'aria-label': tr('sheet.back') }, h(UiIcon, { name: 'close' }))), images.length ? h('div', { className: 'xls-sheetCover' }, images.map((src, index) => h('img', { key: src, src, alt: index ? post.title + ' · ' + (index + 1) : post.title, decoding: 'async' }))) : null, h('div', { className: 'xls-sbody' }, h('div', { className: 'xls-sai' }, h(Avatar, { ai: post.ai, look: post.look, size: 28, className: 'xls-saiAva' }), h('span', { className: 'xls-saiName' }, ai.name), h('span', null, tpl('sheet.owner', { owner: ai.owner })), h('span', { style: { marginLeft: 'auto' } }, post.when)), h('h2', { className: 'xls-stitle', id: 'pw-note-title' }, post.title), post.via && post.via !== 'panel' && post.via !== 'api'
                 ? h('div', { className: 'xls-ev' }, tr('via.' + post.via))
-                : null, h('div', { className: 'xls-stext' }, post.text), post.images && post.images.length
-                ? h('div', { className: 'xls-simages' }, post.images.map((url) => h('img', { key: url, src: mediaSrc(url), alt: '' })))
-                : null, h(TagList, { tags: post.tags, onPick: props.onTag }), h('div', { className: 'xls-sactions' }, h('button', { className: 'xls-act' + (props.liked ? ' on' : ''), onClick: () => props.onLike(post) }, (props.liked ? '♥ ' : '♡ ') + tr('sheet.like') + ' ' + (props.count || 0)), h('button', { className: 'xls-act' + (props.saved ? ' on' : ''), onClick: () => props.onSave(post) }, '☆ ' + tr('sheet.saved')), props.canDelete
+                : null, h('div', { className: 'xls-stext' }, post.text), h(TagList, { tags: post.tags, onPick: props.onTag }), h('div', { className: 'xls-sactions' }, h('button', { type: 'button', className: 'xls-act' + (props.liked ? ' on' : ''), 'data-action': 'like', 'aria-pressed': props.liked, disabled: !props.canReact, title: props.canReact ? tr('sheet.like') : tr('sheet.ownerPhone'), onClick: () => { if (props.canReact)
+                    props.onLike(post); } }, h(UiIcon, { name: 'heart', size: 18, active: props.liked }), tr('sheet.like') + ' ' + (props.count || 0)), h('button', { type: 'button', className: 'xls-act' + (props.saved ? ' on' : ''), 'data-action': 'save', 'aria-pressed': props.saved, disabled: !props.canReact, title: props.canReact ? tr('sheet.saved') : tr('sheet.ownerPhone'), onClick: () => { if (props.canReact)
+                    props.onSave(post); } }, h(UiIcon, { name: 'bookmark', size: 17, active: props.saved }), tr('sheet.saved')), props.canDelete
                 ? h('button', {
                     className: 'xls-act',
                     style: { marginLeft: 'auto', color: confirming ? 'var(--dsw-alias-state-error-primary)' : undefined },
                     onClick: () => (confirming ? props.onDelete(post) : setConfirming(true)),
                 }, '⌫ ' + (confirming ? tr('sheet.confirm') : tr('sheet.delete')))
-                : null), h('div', { className: 'xls-cmtTitle' }, tpl('sheet.comments', { n: comments.length })), comments.map((cm, index) => {
-                const author = AGENTS[cm.ai] || AGENTS.alan;
-                return h('div', { className: 'xls-cmt', key: 'c' + index }, h(Avatar, { ai: cm.ai, size: 22, className: 'xls-cmtAva' }), h('div', { className: 'xls-cmtBody' }, h('span', { className: 'xls-cmtName' }, author.name), cm.to ? h('span', { className: 'xls-cmtTo' }, '回复 @' + (AGENTS[cm.to] ? AGENTS[cm.to].name : cm.to)) : null, h('span', null, cm.text)));
-            }), h('div', { className: 'xls-reply' }, h('input', {
+                : null), h('div', { className: 'xls-cmtTitle' }, tpl('sheet.comments', { n: comments.length })), comments.length === 0 ? h('div', { className: 'xls-emptyComment' }, tr('sheet.commentEmpty')) : null, comments.map((cm, index) => {
+                const remote = post.source === 'agent' || post.source === 'house';
+                return h('div', { className: 'xls-cmt', key: 'c' + index }, h(Avatar, { ai: cm.ai, size: 22, className: 'xls-cmtAva' }), h('div', { className: 'xls-cmtBody' }, h('span', { className: 'xls-cmtName' }, remote ? cm.ai : agentName(cm.ai)), cm.to ? h('span', { className: 'xls-cmtTo' }, '回复 @' + (remote ? cm.to : agentName(cm.to))) : null, h('span', null, cm.text)));
+            })), h('div', { className: 'xls-replyArea' }, !props.canReact ? h('p', { className: 'xls-emptyComment' }, tr('sheet.ownerPhone')) : null, replyError ? h('p', { className: 'xls-replyError', role: 'alert' }, replyError) : null, h('div', { className: 'xls-reply' }, h('input', {
                 className: 'xls-replyInput',
                 value: draft,
+                disabled: sending,
+                'aria-label': tr('sheet.placeholder'),
                 placeholder: tr('sheet.placeholder'),
-                onChange: (event) => setDraft(event.target.value),
-                onKeyDown: (event) => { if (event.key === 'Enter')
-                    send(); },
-            }), h('button', { className: 'xls-send', disabled: !draft.trim(), onClick: send }, tr('sheet.send'))))));
+                onChange: (event) => { setDraft(event.target.value); setReplyError(''); },
+                onKeyDown: (event) => {
+                    if (event.key === 'Enter' && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                        event.preventDefault();
+                        void send();
+                    }
+                },
+            }), h('button', { type: 'button', className: 'xls-send', 'data-action': 'reply', disabled: sending || !draft.trim(), onClick: send }, tr(sending ? 'sheet.sending' : 'sheet.send'))))));
         }
         const KINDS = ['技术', '科研', '求帮忙', '生活', '吐槽', '搞钱', '职场', '日常'];
         // 通知按语义分组；number 在按钮上显示，点一下只看这一组。
@@ -1282,10 +1426,10 @@ window.__ModuleLoader__.load({
         ];
         // 服务端给的是 /media/x.png；面板通过宿主的 /xiaolanshu/media/ 前缀拿。
         function mediaSrc(url) {
-            return /^\/media\//.test(String(url || '')) ? '/xiaolanshu' + url : null;
+            return /^\/media\/[A-Za-z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(String(url || '')) ? '/xiaolanshu' + url : null;
         }
         function ComposeSheet(props) {
-            return h('div', { className: 'xls-mask', onClick: props.onClose }, h('div', { className: 'xls-compose', onClick: (event) => event.stopPropagation() }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: AGENTS.alan.color } }, AGENTS.alan.emoji), h('span', { className: 'xls-ptitle' }, tr('compose.title'))), h('div', { className: 'xls-chips' }, KINDS.map((kind) => h('button', {
+            return h('div', { className: 'xls-mask', onClick: props.onClose }, h(ModalPanel, { className: 'xls-compose', label: tr('compose.title'), onClose: props.onClose }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: AGENTS.alan.color } }, AGENTS.alan.emoji), h('span', { className: 'xls-ptitle' }, tr('compose.title'))), h('div', { className: 'xls-chips' }, KINDS.map((kind) => h('button', {
                 key: kind,
                 className: 'xls-chip',
                 'data-on': props.kind === kind ? '1' : '0',
@@ -1313,7 +1457,7 @@ window.__ModuleLoader__.load({
                 : null), h('div', { className: 'xls-hint' }, tr('compose.hint')), h('div', { className: 'xls-composeActions' }, h('button', { className: 'xls-btn ghost', style: { width: 'auto' }, onClick: props.onClose }, tr('compose.cancel')), h('button', { className: 'xls-btn', style: { width: 'auto' }, disabled: !props.draft.trim(), onClick: props.onPublish }, tr('compose.publish')))));
         }
         function TaskSheet(props) {
-            return h('div', { className: 'xls-mask', onClick: props.onClose }, h('div', { className: 'xls-compose', onClick: (event) => event.stopPropagation() }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: '#4D6BFE' } }, '＋'), h('span', { className: 'xls-ptitle' }, tr('task.publish'))), ['title', 'desc', 'budget', 'period'].map((key) => h('input', {
+            return h('div', { className: 'xls-mask', onClick: props.onClose }, h(ModalPanel, { className: 'xls-compose', label: tr('task.publish'), onClose: props.onClose }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: '#4D6BFE' } }, '＋'), h('span', { className: 'xls-ptitle' }, tr('task.publish'))), ['title', 'desc', 'budget', 'period'].map((key) => h('input', {
                 key: key,
                 className: 'xls-replyInput',
                 style: { marginTop: '10px', width: '100%' },
@@ -1332,6 +1476,8 @@ window.__ModuleLoader__.load({
             return {
                 id: post.id,
                 ai: agentKey(post.ai),
+                authorName: post.ai,
+                authorOwner: post.owner || '',
                 kind: post.kind || '日常',
                 emoji: post.emoji || '🐳',
                 g: Array.isArray(post.g) && post.g.length === 2 ? post.g : ['#4D6BFE', '#8E6BFF'],
@@ -1342,7 +1488,7 @@ window.__ModuleLoader__.load({
                 title: post.title,
                 text: post.text,
                 tags: Array.isArray(post.tags) ? post.tags : [],
-                images: Array.isArray(post.images) ? post.images.filter((url) => /^\/media\/[a-z0-9]+\.(png|jpg|webp)$/.test(url)) : [],
+                images: Array.isArray(post.images) ? post.images.filter((url) => !!mediaSrc(url)) : [],
                 comments: [],
                 viewer: post.viewer || null,
                 ownerId: post.ownerId || null,
@@ -2292,7 +2438,7 @@ window.__ModuleLoader__.load({
                 if (!openId && !composing && !joinOpen && !inboxOpen && !taskOpen)
                     return undefined;
                 const onKey = (event) => {
-                    if (event.key === 'Escape') {
+                    if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229) {
                         setOpenId(null);
                         setComposing(false);
                         setJoinOpen(false);
@@ -2406,20 +2552,8 @@ window.__ModuleLoader__.load({
                 return true;
             };
             const toggleLike = async (post) => {
-                if (isServer(post)) {
-                    try {
-                        const response = await fetch('/xiaolanshu/api/react', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ postId: post.id, kind: 'like', on: !(post.viewer && post.viewer.liked) }),
-                        });
-                        if (!response.ok)
-                            throw new Error('http ' + response.status);
-                        setBump((value) => value + 1);
-                    }
-                    catch (error) {
-                        setToast(tr('toast.failed'));
-                    }
+                if (joined || isServer(post)) {
+                    setToast(tr('sheet.ownerPhone'));
                     return;
                 }
                 const next = Object.assign({}, liked);
@@ -2432,20 +2566,8 @@ window.__ModuleLoader__.load({
                 setLiked(next);
             };
             const toggleSave = async (post) => {
-                if (isServer(post)) {
-                    try {
-                        const response = await fetch('/xiaolanshu/api/react', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ postId: post.id, kind: 'save', on: !(post.viewer && post.viewer.saved) }),
-                        });
-                        if (!response.ok)
-                            throw new Error('http ' + response.status);
-                        setBump((value) => value + 1);
-                    }
-                    catch (error) {
-                        setToast(tr('toast.failed'));
-                    }
+                if (joined || isServer(post)) {
+                    setToast(tr('sheet.ownerPhone'));
                     return;
                 }
                 const next = Object.assign({}, saved);
@@ -2776,8 +2898,8 @@ window.__ModuleLoader__.load({
                         return true;
                     if (!q)
                         return true;
-                    const owner = AGENTS[post.ai] ? AGENTS[post.ai].owner : '';
-                    const hay = post.title + ' ' + post.text + ' ' + post.tags.join(' ') + ' ' + owner;
+                    const author = postAuthor(post);
+                    const hay = post.title + ' ' + post.text + ' ' + post.tags.join(' ') + ' ' + author.name + ' ' + author.owner;
                     return hay.indexOf(q) >= 0;
                 });
             }, [allPosts, hits, chip, query, following]);
@@ -2880,27 +3002,29 @@ window.__ModuleLoader__.load({
                     if (!response.ok)
                         throw new Error('http ' + response.status);
                     if (await showPending(response))
-                        return;
+                        return true;
                     setBump((value) => value + 1);
                 }
                 catch (error) {
                     setToast(tr('toast.failed'));
-                    return;
+                    return false;
                 }
                 setToast(tr('toast.replied'));
+                return true;
             };
             const claimedCount = Object.keys(claimed).length + Object.keys(remoteClaims).length;
             // ------------------------------------------------------------- header
             const header = h('div', { className: 'xls-top' }, h('div', { className: 'xls-brandline' }, h('span', { className: 'xls-mark' }, h('svg', {
                 viewBox: '0 0 48 48', width: 22, height: 22, 'aria-hidden': true, className: 'xls-creature',
-            }, h('path', { d: 'M4 27c0-9.9 9-17 20-17s20 7.1 20 17-9 16-20 16S4 36.9 4 27z', fill: '#fff' }), h('path', { className: 'xls-tail', d: 'M41 19l7-5v26l-7-5z', fill: '#fff' }), h('circle', { cx: 16.1, cy: 23.1, r: 2.6, fill: '#2B45D6' }))), h('div', { className: 'xls-brandtext' }, h('div', { className: 'xls-name' }, tr('nav.label')), h('div', { className: 'xls-slogan' }, tr('head.slogan'))), h('div', { className: 'xls-right' }, h('input', {
-                className: 'xls-search',
-                value: query,
-                placeholder: tr('head.search'),
+            }, h('path', { d: 'M4 27c0-9.9 9-17 20-17s20 7.1 20 17-9 16-20 16S4 36.9 4 27z', fill: '#fff' }), h('path', { className: 'xls-tail', d: 'M41 19l7-5v26l-7-5z', fill: '#fff' }), h('circle', { cx: 16.1, cy: 23.1, r: 2.6, fill: '#2B45D6' }))), h('div', { className: 'xls-brandtext' }, h('h1', { className: 'xls-name' }, tr('nav.label')), h('div', { className: 'xls-slogan' }, tr('head.slogan'))), h('div', { className: 'xls-right' }, h('div', { className: 'xls-searchBox' }, h(UiIcon, { name: 'search', size: 18 }), h('input', {
+                className: 'xls-search', type: 'search', 'aria-label': tr('head.search'),
+                value: query, placeholder: tr('head.search'),
                 onChange: (event) => setQuery(event.target.value),
-            }), joined ? h('button', {
+            }), query ? h('button', { className: 'xls-searchClear', type: 'button', 'aria-label': tr('feed.clearSearch'),
+                onClick: () => setQuery('') }, h(UiIcon, { name: 'close', size: 16 })) : null), joined ? h('button', {
                 className: 'xls-bell' + (inbox.unread > 0 ? ' has' : ''),
                 title: tr('n.title'),
+                'aria-label': tr('n.title'),
                 onClick: () => {
                     setInboxOpen(true);
                     markRead();
@@ -2912,29 +3036,33 @@ window.__ModuleLoader__.load({
                 ? h('span', { className: 'xls-badge-count' }, inbox.unread > 9 ? '9+' : String(inbox.unread))
                 : null) : null, h('button', {
                 className: 'xls-joinbtn',
+                'aria-label': joined ? (offline ? tr('join.offline') : tr('join.joined')) : tr('join.none'),
                 onClick: () => setJoinOpen(true),
                 title: join.joined ? join.url : tr('join.none'),
             }, h('span', { className: 'xls-dot' + (joined ? (offline ? ' warn' : ' on') : '') }), h('span', null, joined
                 ? (offline ? tr('join.offline') : tr('join.joined') + ' · ' + tpl('join.count', { n: totalPosts }))
-                : tr('join.none'))), h('button', { className: 'xls-me', onClick: () => setTab('me') }, h(Avatar, { size: 22, look: myLook }), h('span', null, tr('head.me'))))), h('div', { className: 'xls-tabs' }, ['feed', 'tasks', 'ask', 'me'].map((id) => h('button', {
+                : tr('join.none'))), h('button', { className: 'xls-me', 'aria-label': tr('head.me'), onClick: () => setTab('me') }, h(Avatar, { size: 22, look: myLook }), h('span', null, tr('head.me'))))), h('nav', { className: 'xls-tabs', 'aria-label': tr('nav.label') }, ['feed', 'tasks', 'ask', 'me'].map((id) => h('button', {
                 key: id,
                 className: 'xls-tab',
+                type: 'button', 'aria-current': tab === id ? 'page' : undefined,
                 'data-on': tab === id ? '1' : '0',
                 onClick: () => setTab(id),
-            }, tr('tab.' + id), id === 'ask' && pendingAsks > 0 ? h('span', { className: 'xls-tab-dot' }, String(pendingAsks)) : null))));
+            }, h(UiIcon, { name: id, size: 19 }), tr('tab.' + id), id === 'ask' && pendingAsks > 0 ? h('span', { className: 'xls-tab-dot' }, String(pendingAsks)) : null))));
             // --------------------------------------------------------------- feed
-            const feed = h('div', null, h('div', { className: 'xls-chips' }, CHIPS.map((item) => h('button', {
+            const feed = h('div', { className: 'xls-feedPage' }, h('div', { className: 'xls-chips' }, CHIPS.map((item) => h('button', {
                 key: item.id,
                 className: 'xls-chip',
+                'aria-pressed': chip === item.id,
                 'data-on': chip === item.id ? '1' : '0',
                 onClick: () => setChip(item.id),
             }, tr('feed.' + item.id)))), visible.length === 0
-                ? h('div', { className: 'xls-privacy' }, tr('feed.empty'))
+                ? h('div', { className: 'xls-empty' }, h(UiIcon, { name: 'search', size: 36 }), h('p', null, tr('feed.empty')), query || chip !== 'rec' ? h('button', { type: 'button', className: 'xls-chip', onClick: () => { setQuery(''); setChip('rec'); } }, tr('feed.reset')) : null)
                 : h('div', { className: 'xls-feed' }, visible.map((post) => h(PostCard, {
                     key: post.id,
                     post: post,
                     liked: likedOf(post),
                     count: countOfLikes(post),
+                    canReact: !joined && !isServer(post),
                     onOpen: openPost,
                     onLike: toggleLike,
                     onAuthor: setProfileId,
@@ -3053,6 +3181,7 @@ window.__ModuleLoader__.load({
                 post: post,
                 liked: likedOf(post),
                 count: countOfLikes(post),
+                canReact: !joined && !isServer(post),
                 onOpen: openPost,
                 onLike: toggleLike,
                 onAuthor: setProfileId,
@@ -3075,9 +3204,9 @@ window.__ModuleLoader__.load({
                 onClick: sendAsk,
                 disabled: !joined,
             }, tr('ask.send'))));
-            return h('div', { className: 'xls-page' }, h('style', null, CSS), header, h('div', { className: 'xls-body' }, tab === 'feed'
+            return h('div', { className: 'xls-page' }, h('style', null, CSS), h('div', { className: 'xls-shell' }, header, h('div', { className: 'xls-body' }, tab === 'feed'
                 ? (profileId ? profileView : feed)
-                : tab === 'tasks' ? tasks : tab === 'ask' ? askView : me), tab === 'feed' ? h('button', { className: 'xls-fab', onClick: () => setComposing(true) }, '＋ ' + tr('feed.compose')) : null, toast ? h('div', { className: 'xls-toast' }, toast) : null, composing ? h(ComposeSheet, {
+                : tab === 'tasks' ? tasks : tab === 'ask' ? askView : me), tab === 'feed' ? h('button', { className: 'xls-fab', type: 'button', onClick: () => setComposing(true) }, h(UiIcon, { name: 'plus', size: 19 }), tr('feed.compose')) : null), toast ? h('div', { className: 'xls-toast' }, toast) : null, composing ? h(ComposeSheet, {
                 draft: draft,
                 title: draftTitle,
                 kind: draftKind,
@@ -3097,6 +3226,7 @@ window.__ModuleLoader__.load({
                 liked: likedOf(openPostData),
                 saved: savedOf(openPostData),
                 count: countOfLikes(openPostData),
+                canReact: !joined && !isServer(openPostData),
                 canDelete: !!(openPostData.viewer && openPostData.viewer.mine),
                 onLike: toggleLike,
                 onSave: toggleSave,
@@ -3109,7 +3239,7 @@ window.__ModuleLoader__.load({
                 onDraft: updateTaskDraft,
                 onClose: () => setTaskOpen(false),
                 onPublish: publishTask,
-            }) : null, joinOpen ? h('div', { className: 'xls-mask', onClick: () => setJoinOpen(false) }, h('div', { className: 'xls-join', onClick: (event) => event.stopPropagation() }, h('div', { className: 'xls-joinTitle' }, tr('join.title')), joined
+            }) : null, joinOpen ? h('div', { className: 'xls-mask', onClick: () => setJoinOpen(false) }, h(ModalPanel, { className: 'xls-join', label: tr('join.title'), onClose: () => setJoinOpen(false) }, h('div', { className: 'xls-joinTitle' }, tr('join.title')), joined
                 ? h('div', null, h('div', { className: 'xls-joinLine' }, tpl('join.onBody', { url: join.url || '' })), join.owner ? h('div', { className: 'xls-joinLine' }, tpl('join.onOwner', { owner: join.owner })) : null, offline
                     ? h('div', { className: 'xls-joinLine', style: { color: 'var(--dsw-alias-state-warn-primary)' } }, tr('join.offNote'))
                     : h('div', { className: 'xls-joinLine' }, tr('join.onNote')))
@@ -3117,7 +3247,7 @@ window.__ModuleLoader__.load({
                 className: 'xls-btn',
                 style: { width: 'auto', marginTop: 0 },
                 onClick: () => setJoinOpen(false),
-            }, tr('join.close'))))) : null, inboxOpen ? h('div', { className: 'xls-mask', onClick: () => setInboxOpen(false) }, h('div', { className: 'xls-join', onClick: (event) => event.stopPropagation() }, h('div', { className: 'xls-joinTitle' }, tr('n.title')), h('div', { className: 'xls-chips xls-noteFilter' }, NOTE_FILTERS.map((group) => h('button', {
+            }, tr('join.close'))))) : null, inboxOpen ? h('div', { className: 'xls-mask', onClick: () => setInboxOpen(false) }, h(ModalPanel, { className: 'xls-join', label: tr('n.title'), onClose: () => setInboxOpen(false) }, h('div', { className: 'xls-joinTitle' }, tr('n.title')), h('div', { className: 'xls-chips xls-noteFilter' }, NOTE_FILTERS.map((group) => h('button', {
                 key: group.id,
                 className: 'xls-chip',
                 'data-on': noteFilter === group.id ? '1' : '0',

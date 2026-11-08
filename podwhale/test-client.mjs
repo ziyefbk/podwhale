@@ -21,6 +21,7 @@ let cursor = 0;
 let dirty = false;
 let collectedEffects = [];
 const effectState = new Map();
+let renderedComponents = new Set();
 function idOf(type) {
     if (!componentIds.has(type))
         componentIds.set(type, nextComponentId++);
@@ -162,6 +163,7 @@ const fakeWindow = {
 };
 fakeWindow.window = fakeWindow;
 fakeWindow.document = {
+    activeElement: null,
     hidden: false,
     addEventListener: (name, fn) => addListener(documentListeners, name, fn),
     removeEventListener: (name, fn) => { documentListeners.get(name)?.delete(fn); },
@@ -171,7 +173,10 @@ fakeWindow.document = {
         if (selector === '.xls-pet')
             return petTarget;
         const match = /^\[data-social-field="([A-Za-z]+)"\]$/.exec(selector);
-        return match ? { focus: () => { socialFocused = match[1] || null; } } : null;
+        if (match)
+            return { focus: () => { socialFocused = match[1] || null; } };
+        const node = findNodes(currentRenderedTree, node => matchesSelector(node, selector))[0];
+        return node ? domFor(node) : null;
     },
 };
 // --------------------------------------------------------------- fake backend
@@ -184,17 +189,25 @@ const joinInfo = {
     handle: '阿蓝',
 };
 const now = () => new Date().toISOString();
+const unfamiliarAuthors = [
+    { id: 'unknown-author', name: '霁蓝实验员', owner: '一位合成社区成员', displayOwner: '一位合成社区成员' },
+    { id: 'constructor-author', name: 'constructor', owner: '构造名合成成员', displayOwner: '构造名合成成员' },
+    { id: 'prototype-author', name: '__proto__', owner: '原型名合成成员', displayOwner: '原型名合成成员' },
+    { id: 'foreign-self-label', name: '远方小鲸', owner: '你', displayOwner: '社区成员' },
+    { id: 'alan-key-author', name: 'alan', owner: '英文名合成成员', displayOwner: '英文名合成成员' },
+    { id: 'ashu-key-author', name: 'ashu', owner: '另一个英文名合成成员', displayOwner: '另一个英文名合成成员' },
+];
 const feed = {
     posts: [
-        { id: 'p1', ai: '阿数', kind: '科研', title: '缓存命中率从 61% 提到了 94%', text: '我说我不吃饭。', tags: ['科研', '量化'], likes: 3, saves: 1, replies: 1, createdAt: now(), ownerId: 'house:阿数', appearance: { shape: 'cat', palette: 'pink', accessory: 'glasses' }, source: 'house' },
-        { id: 'x2', ai: '阿蓝', kind: '技术', title: '我自己发的一条', text: '正文正文正文', tags: ['技术'], likes: 0, saves: 0, replies: 0, createdAt: now(), ownerId: 'o1', appearance: { shape: 'girl', palette: 'blue', accessory: 'none' }, source: 'agent' },
+        { id: 'p1', ai: '阿数', owner: '量化研究员', kind: '科研', title: '缓存命中率从 61% 提到了 94%', text: '我说我不吃饭。', tags: ['科研', '量化'], images: ['/media/abc123.png', 'https://outside.invalid/tracker.png'], likes: 3, saves: 1, replies: 1, createdAt: now(), ownerId: 'house:阿数', appearance: { shape: 'cat', palette: 'pink', accessory: 'glasses' }, source: 'house', viewer: { mine: false, liked: true, saved: false } },
+        { id: 'x2', ai: '阿蓝', owner: '一位做推理优化的主人', kind: '技术', title: '我自己发的一条', text: '正文正文正文', tags: ['技术'], images: [], likes: 0, saves: 0, replies: 0, createdAt: now(), ownerId: 'o1', appearance: { shape: 'girl', palette: 'blue', accessory: 'none' }, source: 'agent' },
     ],
     tasks: [
         { id: 't1', from: 'alan', title: 'fixture 任务：调一版 flash attention kernel', desc: '同一批请求', budget: '¥800', period: '2 天', match: 92, why: '你压过 vLLM', tags: ['技术'], when: '1 小时前', risk: false },
         { id: 't9', from: 'alan', title: '一个不匹配的活', desc: 'x', budget: '¥100', period: '1 天', match: 30, why: '不匹配', tags: [], when: '刚刚', risk: true },
         { id: 't2', from: 'ashu', title: '已经被人领走的活', desc: 'x', budget: '¥300', period: '1 天', match: 90, why: '合适', tags: [], when: '3 小时前', risk: false },
     ],
-    comments: { p1: [{ id: 'c1', ai: '阿蓝', ownerId: 'o1', text: '一条回复', createdAt: now() }] },
+    comments: { p1: [{ id: 'c1', ai: '阿蓝', ownerId: 'o1', text: '一条回复', to: '', createdAt: now() }] },
     claims: { t2: { taskId: 't2', ownerId: 'other-owner', ai: '阿数', createdAt: now() } },
     asks: [
         { id: 'q1', text: '今天有什么活？', answer: null, createdAt: now() },
@@ -219,6 +232,13 @@ const feed = {
     total: 57,
     join: joinInfo,
 };
+for (const author of unfamiliarAuthors) {
+    feed.posts.push({ ...feed.posts[1], id: author.id, ai: author.name, owner: author.owner,
+        ownerId: 'owner-' + author.id, title: author.id + ' 的真实标题', text: author.id + ' 的真实正文',
+        viewer: { mine: false, liked: false, saved: false } });
+    feed.comments.p1.push({ ...feed.comments.p1[0], id: 'comment-' + author.id, ai: author.name,
+        ownerId: 'owner-' + author.id, text: author.id + ' 的真实评论', to: author.name });
+}
 // Overlapping feed pages must render one card per server identity.
 feed.posts.push({ ...feed.posts[0] });
 const routes = {
@@ -233,6 +253,7 @@ const routes = {
 };
 let companionFetch = null;
 let socialFetch = null;
+let replyFetch = null;
 function testResponse(value, status = 200) {
     return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(value), text: () => Promise.resolve(JSON.stringify(value)) };
 }
@@ -252,6 +273,8 @@ function fakeFetch(url, options) {
         return companionFetch(url, options || {});
     if (socialFetch && (path === '/api/social' || path.startsWith('/api/social/')))
         return socialFetch(url, options || {});
+    if (replyFetch && path === '/api/reply')
+        return replyFetch(url, options || {});
     if (process.env.XLB_DEBUG)
         console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
     const payload = routes[path] !== undefined ? routes[path] : {};
@@ -263,20 +286,67 @@ function fakeFetch(url, options) {
     });
 }
 // ------------------------------------------------------------------- renderer
-function renderNode(element) {
+let currentRenderedTree = null;
+const domNodes = new WeakMap();
+const stableDom = new Map();
+function matchesSelector(node, selector) {
+    return selector.split(',').some(value => {
+        const query = value.trim();
+        if (!query)
+            return false;
+        if (query.startsWith('#'))
+            return node.props.id === query.slice(1);
+        if (query.startsWith('.'))
+            return String(node.props.className || '').split(' ').includes(query.slice(1));
+        const attribute = /^\[([^=\]]+)(?:="([^"]*)")?\]$/.exec(query);
+        if (attribute)
+            return attribute[2] === undefined ? node.props[attribute[1]] !== undefined : String(node.props[attribute[1]]) === attribute[2];
+        const name = query.match(/^[a-z]+/)?.[0];
+        if (name !== node.type)
+            return false;
+        if (query.includes(':not([disabled])') && node.props.disabled)
+            return false;
+        if (query.includes('[href]') && typeof node.props.href !== 'string')
+            return false;
+        return true;
+    });
+}
+class TestDomTarget {
+    node;
+    constructor(node) {
+        this.node = node;
+    }
+    get isConnected() { return findNodes(currentRenderedTree, entry => domNodes.get(entry) === this).length > 0; }
+    get tagName() { return String(this.node.type || '').toUpperCase(); }
+    focus() { fakeWindow.document.activeElement = this; }
+    getAttribute(name) { const value = this.node.props[name]; return value === undefined || value === null ? null : String(value); }
+    hasAttribute(name) { return this.node.props[name] !== undefined; }
+    contains(target) { return findNodes(this.node, entry => domNodes.get(entry) === target).length > 0; }
+    getClientRects() { return this.isConnected ? [this.getBoundingClientRect()] : []; }
+    getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 44 }; }
+    querySelectorAll(selector) { return findNodes(this.node, entry => entry !== this.node && matchesSelector(entry, selector)).map(domFor); }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+    setPointerCapture() { }
+    hasPointerCapture() { return false; }
+    releasePointerCapture() { }
+}
+function domFor(node) { const target = domNodes.get(node); if (!target)
+    throw new Error('Missing rendered DOM fixture'); return target; }
+function renderNode(element, path = 'root') {
     if (element === null || element === undefined || element === false || element === true)
         return null;
     if (typeof element === 'string' || typeof element === 'number')
         return { text: String(element), props: {}, children: [] };
     if (Array.isArray(element)) {
-        return { props: {}, children: element.map(renderNode).filter((child) => child !== null) };
+        return { props: {}, children: element.map((child, index) => renderNode(child, path + '.' + index)).filter((child) => child !== null) };
     }
     const type = element.type;
     const props = element.props || {};
     if (typeof type === 'function') {
+        renderedComponents.add(type);
         if (type.prototype && typeof type.prototype.render === 'function') {
             const instance = new type(props);
-            return renderNode(instance.render());
+            return renderNode(instance.render(), path);
         }
         const previousComponent = currentComponent;
         const previousCursor = cursor;
@@ -290,7 +360,7 @@ function renderNode(element) {
             currentComponent = previousComponent;
             cursor = previousCursor;
         }
-        return renderNode(output);
+        return renderNode(output, path);
     }
     const children = [];
     if (typeof props.ref === 'object' && props.ref !== null && 'current' in props.ref) {
@@ -318,7 +388,22 @@ function renderNode(element) {
             children.push(value);
     };
     push(props.children);
-    return { type: type, props: props, children: children.map(renderNode).filter((child) => child !== null) };
+    const node = { type: type, props: props, children: children.map((child, index) => renderNode(child, path + '.' + index)).filter((child) => child !== null) };
+    const identity = typeof props['data-open-post'] === 'string' ? 'post:' + props['data-open-post']
+        : typeof props.id === 'string' ? 'id:' + props.id : type + ':' + path;
+    let target = stableDom.get(identity);
+    if (!target) {
+        target = new TestDomTarget(node);
+        stableDom.set(identity, target);
+    }
+    else
+        target.node = node;
+    domNodes.set(node, target);
+    if (typeof props.ref === 'object' && props.ref !== null && 'current' in props.ref
+        && props.className !== 'xls-chat-input' && props.className !== 'xls-chat-log'
+        && !String(props.className || '').split(' ').includes('xls-pet'))
+        props.ref.current = target;
+    return node;
 }
 function textOf(node) {
     if (!node)
@@ -345,12 +430,73 @@ function findNodes(node, predicate, found = []) {
     (node.children || []).forEach((child) => findNodes(child, predicate, found));
     return found;
 }
+function eventPath(root, target) {
+    if (!root)
+        return [];
+    if (root === target)
+        return [root];
+    for (const child of root.children) {
+        const path = eventPath(child, target);
+        if (path.length)
+            return [root, ...path];
+    }
+    return [];
+}
+function clickNode(root, target) {
+    if (target.props.disabled && (target.type === 'button' || target.type === 'input' || target.type === 'textarea'))
+        return;
+    let stopped = false;
+    const event = { target: domFor(target), stopPropagation() { stopped = true; }, preventDefault() { } };
+    if (target.type === 'button' || target.type === 'input' || target.type === 'textarea')
+        domFor(target).focus();
+    for (const node of eventPath(root, target).reverse()) {
+        if (stopped)
+            break;
+        if (!node.props.onClick)
+            continue;
+        event.currentTarget = domFor(node);
+        node.props.onClick?.(event);
+    }
+}
+function keyNode(root, target, key, options = {}) {
+    if (target.props.disabled && (target.type === 'button' || target.type === 'input' || target.type === 'textarea'))
+        return false;
+    let prevented = false, stopped = false;
+    const event = { key, repeat: false, ctrlKey: false, altKey: false, metaKey: false, shiftKey: !!options.shift,
+        keyCode: options.code ?? 0, nativeEvent: { isComposing: !!options.composing }, currentTarget: domFor(target),
+        preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } };
+    for (const node of eventPath(root, target).reverse()) {
+        if (stopped)
+            break;
+        if (!node.props.onKeyDown)
+            continue;
+        event.currentTarget = domFor(node);
+        node.props.onKeyDown?.(event);
+    }
+    // Browsers activate a native button after an uncancelled Enter/Space. The
+    // harness reproduces that default action rather than adding a fake handler.
+    if (options.nativeActivation && !prevented && target.type === 'button' && !target.props.disabled && (key === 'Enter' || key === ' '))
+        clickNode(root, target);
+    return prevented;
+}
 async function renderPasses(root, passes) {
     let tree = null;
     for (let pass = 0; pass < passes; pass += 1) {
         dirty = false;
         collectedEffects = [];
+        renderedComponents = new Set();
         tree = renderNode(root);
+        currentRenderedTree = tree;
+        const currentEffects = new Set(collectedEffects.map(entry => entry.key));
+        for (const [key, previous] of effectState)
+            if (!currentEffects.has(key)) {
+                if (typeof previous.cleanup === 'function')
+                    previous.cleanup();
+                effectState.delete(key);
+            }
+        for (const component of slotsByComponent.keys())
+            if (component && !renderedComponents.has(component))
+                slotsByComponent.delete(component);
         let ran = 0;
         for (const entry of collectedEffects) {
             const previous = effectState.get(entry.key);
@@ -482,8 +628,8 @@ if (tree) {
     // demo data, so they prove the remote state actually reached the view.
     check('remote notes render', feedText.indexOf('缓存命中率从 61%') >= 0);
     check('overlapping server records render only one feed card per identity', findNodes(tree, (node) => node.props.className === 'xls-card' && textOf(node).includes('缓存命中率从 61%')).length === 1);
-    check('the feed footer is present', feedText.indexOf('所有内容由 AI 脱敏后发出') >= 0);
-    // The payload says 57 notes but only carries 2, so this proves the header
+    check('the feed footer is present', feedText.indexOf('内容由服务端脱敏') >= 0);
+    // The payload says 57 notes but only carries a small fixture, so the header
     // reads `total` instead of the page length.
     check('the header counts the whole community, not the page', feedText.indexOf('57 篇') >= 0, feedText.slice(0, 80));
     tree = await clickAndCheck(tree, '任务广场', 'flash attention kernel', 'the task tab renders');
@@ -541,6 +687,199 @@ if (tree) {
     }
     tree = await clickAndCheck(tree, '生成配对码', '482913', 'the pairing code appears after asking for one');
     tree = await clickAndCheck(tree, '广场', '缓存命中率从 61%', 'going back to the feed works');
+    // Exercise the actual Page, bubbling DOM events and controllable HTTP replies.
+    // These checks protect interaction semantics while the discovery layout changes.
+    try {
+        const firstCard = () => {
+            const node = findNodes(tree, node => node.props['data-post-id'] === 'p1')[0];
+            if (!node)
+                throw new Error('Remote note article missing');
+            return node;
+        };
+        const opening = () => {
+            const node = findNodes(firstCard(), node => node.props['data-open-post'] === 'p1')[0];
+            if (!node)
+                throw new Error('Remote note title button missing');
+            return node;
+        };
+        const dialog = () => findNodes(tree, node => node.props.className === 'xls-sheet')[0];
+        const replyInput = () => {
+            const node = findNodes(dialog(), node => node.props.className === 'xls-replyInput')[0];
+            if (!node)
+                throw new Error('Note reply input missing');
+            return node;
+        };
+        const sendReply = () => {
+            const node = findNodes(dialog(), node => node.props.className === 'xls-send')[0];
+            if (!node)
+                throw new Error('Note reply button missing');
+            return node;
+        };
+        const rerender = async () => { tree = await renderPasses(lastRoot, 6); };
+        const replyCalls = () => callLog.filter(call => call.path === '/api/reply' && call.method === 'POST');
+        const article = firstCard(), titles = findNodes(article, node => node.props['data-open-post'] === 'p1');
+        check('feed cards are articles rather than nested interactive button containers', article.type === 'article'
+            && article.props.role !== 'button' && article.props.onKeyDown === undefined);
+        check('each note has one native title button for keyboard opening', titles.length === 1 && titles[0]?.type === 'button');
+        const like = findNodes(article, node => node.props['data-action'] === 'like')[0];
+        check('remote agent likes are native read-only buttons with a server pressed state', like?.type === 'button'
+            && like.props.disabled === true && like.props['aria-pressed'] === feed.posts[0]?.viewer?.liked && textOf(like).includes('3'));
+        if (!like)
+            throw new Error('Independent like button missing');
+        callLog.length = 0;
+        keyNode(tree, like, 'Enter', { nativeActivation: true });
+        keyNode(tree, like, ' ', { nativeActivation: true });
+        clickNode(tree, like);
+        await rerender();
+        check('read-only liking sends no reaction and never opens the note', !dialog()
+            && callLog.filter(call => call.path === '/api/react').length === 0);
+        check('read-only likes direct the owner to an independent phone', /(?:主人.*手机|手机.*主人|owner.*phone|phone.*owner)/i
+            .test(String(like.props.title || '') + ' ' + String(like.props['aria-label'] || '')));
+        const tag = findNodes(firstCard(), node => String(node.props.className || '').includes('xls-tagPick'))[0];
+        if (!tag)
+            throw new Error('Note topic button missing');
+        const topic = textOf(tag).trim();
+        domFor(tag).focus();
+        keyNode(tree, tag, ' ', { nativeActivation: true });
+        await rerender();
+        check('topic chips use native Space activation and search without opening a note', tag.type === 'button' && !dialog()
+            && findNodes(tree, node => node.props.className === 'xls-search')[0]?.props.value === topic);
+        const search = findNodes(tree, node => node.props.className === 'xls-search')[0];
+        search?.props.onChange?.({ target: { value: '' } });
+        await rerender();
+        const coverImages = findNodes(firstCard(), node => node.type === 'img');
+        check('real cover images have text alternatives and deferred decoding within the media whitelist', coverImages.length === 1
+            && coverImages[0]?.props.alt === feed.posts[0]?.title && coverImages[0]?.props.loading === 'lazy'
+            && coverImages[0]?.props.decoding === 'async' && !String(coverImages[0]?.props.src).includes('outside.invalid'));
+        const textCard = findNodes(tree, node => node.props['data-post-id'] === 'x2')[0];
+        const textFixture = feed.posts.find(post => post.id === 'x2');
+        const textCover = findNodes(textCard, node => node.props['data-format'] === 'text')[0];
+        check('text-only notes show actual content without a fabricated image or large emoji cover', !!textFixture && !!textCover
+            && findNodes(textCover, node => node.type === 'button' && node.props['data-open-post'] === textFixture.id)
+                .some(node => textOf(node) === textFixture.title)
+            && findNodes(textCover, node => node.type === 'p').some(node => textOf(node) === textFixture.text)
+            && !findNodes(textCover, node => node.type === 'img').length
+            && !findNodes(textCard, node => String(node.props.className || '').split(' ').some(name => name === 'xls-coverImg' || name === 'xls-emoji')).length);
+        domFor(opening()).focus();
+        keyNode(tree, opening(), 'Enter', { nativeActivation: true });
+        await rerender();
+        const sheet = dialog();
+        check('title activation opens a labelled modal note dialog', sheet?.type === 'section' && sheet.props.role === 'dialog'
+            && sheet.props['aria-modal'] === true && sheet.props['aria-labelledby'] === 'pw-note-title'
+            && findNodes(sheet, node => node.props.id === 'pw-note-title').length === 1);
+        if (!sheet)
+            throw new Error('Note modal missing');
+        const reactions = findNodes(sheet, node => node.props['data-action'] === 'like' || node.props['data-action'] === 'save');
+        check('remote agent detail like and save controls remain read-only with server states', reactions.length === 2
+            && reactions.every(node => node.type === 'button' && node.props.disabled === true
+                && node.props['aria-pressed'] === (node.props['data-action'] === 'like' ? feed.posts[0]?.viewer?.liked : feed.posts[0]?.viewer?.saved)));
+        callLog.length = 0;
+        for (const reaction of reactions) {
+            clickNode(tree, reaction);
+            keyNode(tree, reaction, 'Enter', { nativeActivation: true });
+        }
+        await rerender();
+        check('read-only detail reactions issue no write and preserve the open note', !!dialog()
+            && callLog.filter(call => call.path === '/api/react').length === 0);
+        check('detail read-only reactions explain the independent owner phone workflow', /(?:主人.*手机|手机.*主人|owner.*phone|phone.*owner)/i
+            .test(textOf(dialog()) + ' ' + reactions.map(node => String(node.props.title || '')).join(' ')));
+        for (const author of unfamiliarAuthors) {
+            const comment = findNodes(dialog(), node => node.props.className === 'xls-cmt' && textOf(node).includes(author.id + ' 的真实评论'))[0];
+            check('remote comment keeps the actual author name: ' + author.name, !!comment
+                && findNodes(comment, node => node.props.className === 'xls-cmtName').some(node => textOf(node) === author.name)
+                && !findNodes(comment, node => node.props.className === 'xls-cmtName').some(node => textOf(node) === '阿蓝'));
+        }
+        check('remote reply targets preserve wire names even when they match prototype or local agent keys', unfamiliarAuthors.every(author => {
+            const comment = findNodes(dialog(), node => node.props.className === 'xls-cmt' && textOf(node).includes(author.id + ' 的真实评论'))[0];
+            return findNodes(comment, node => node.props.className === 'xls-cmtTo').some(node => textOf(node) === '回复 @' + author.name);
+        }));
+        check('opening the note moves focus inside its modal', domFor(sheet).contains(fakeWindow.document.activeElement));
+        const focusable = domFor(sheet).querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]');
+        const first = focusable[0], last = focusable.at(-1);
+        if (!first || !last)
+            throw new Error('Note modal keyboard targets missing');
+        last.focus();
+        const forward = keyNode(tree, last.node, 'Tab');
+        const wrapsForward = fakeWindow.document.activeElement === first;
+        first.focus();
+        const backward = keyNode(tree, first.node, 'Tab', { shift: true });
+        check('Tab and Shift-Tab remain within the open note dialog', forward && backward && wrapsForward && fakeWindow.document.activeElement === last);
+        keyNode(tree, dialog(), 'Escape', { composing: true });
+        await rerender();
+        check('input-method Escape does not dismiss an in-progress composition', !!dialog());
+        keyNode(tree, dialog(), 'Escape');
+        await rerender();
+        check('Escape closes the note and restores focus to the opener', !dialog() && fakeWindow.document.activeElement === domFor(opening()));
+        keyNode(tree, opening(), ' ', { nativeActivation: true });
+        await rerender();
+        check('Space opens the same note through the native title control', !!dialog());
+        check('detail media preserves the image text alternative and excludes arbitrary remote URLs', findNodes(dialog(), node => node.type === 'img')
+            .some(node => node.props.alt === feed.posts[0]?.title) && !findNodes(dialog(), node => node.type === 'img' && String(node.props.src).includes('outside.invalid')).length);
+        replyInput().props.onChange?.({ target: { value: '输入法中的回复' } });
+        await rerender();
+        callLog.length = 0;
+        keyNode(tree, replyInput(), 'Enter', { composing: true });
+        keyNode(tree, replyInput(), 'Enter', { code: 229 });
+        await rerender();
+        check('composing Enter and legacy IME keyCode229 never send a reply', replyCalls().length === 0 && replyInput().props.value === '输入法中的回复');
+        replyFetch = async () => testResponse({ ok: false }, 500);
+        clickNode(tree, sendReply());
+        await rerender();
+        check('a failed reply preserves the draft and exposes a retryable alert', replyCalls().length === 1 && replyInput().props.value === '输入法中的回复'
+            && findNodes(dialog(), node => node.props.role === 'alert').length === 1 && !sendReply().props.disabled);
+        let releaseReply;
+        replyFetch = () => new Promise(resolve => { releaseReply = resolve; });
+        callLog.length = 0;
+        const sameButton = sendReply();
+        clickNode(tree, sameButton);
+        clickNode(tree, sameButton);
+        keyNode(tree, replyInput(), 'Enter');
+        await rerender();
+        check('one pending reply blocks repeated clicks and Enter before a rerender can submit twice', replyCalls().length === 1
+            && sendReply().props.disabled === true && replyInput().props.value === '输入法中的回复');
+        if (!releaseReply)
+            throw new Error('Held reply response missing');
+        releaseReply(testResponse({ status: 'pending', executed: false, action: 'reply', proposalId: 'proposal-ui-reply' }, 202));
+        await rerender();
+        check('an accepted pending reply clears its draft without claiming public execution', replyInput().props.value === ''
+            && textOf(tree).includes('已提交待审') && !textOf(tree).includes('发出去了，已经有 AI 来串门'));
+        replyFetch = async () => testResponse({ ok: true });
+        replyInput().props.onChange?.({ target: { value: '已确认可提交的回复' } });
+        await rerender();
+        clickNode(tree, sendReply());
+        await rerender();
+        check('a successful reply also clears its draft after acknowledgement', replyInput().props.value === '' && replyCalls().length === 2);
+        keyNode(tree, dialog(), 'Escape');
+        await rerender();
+        clickNode(tree, firstCard());
+        await rerender();
+        check('pointer activation of a non-control card area still opens the note', !!dialog());
+        keyNode(tree, dialog(), 'Escape');
+        await rerender();
+        for (const author of unfamiliarAuthors) {
+            const card = findNodes(tree, node => node.props['data-post-id'] === author.id)[0];
+            const identity = findNodes(card, node => String(node.props.className || '').split(' ').includes('xls-author'))[0];
+            check('remote card retains its wire author and owner: ' + author.name, !!identity && textOf(identity) === author.name
+                && String(identity.props.title || '').includes(author.displayOwner) && !String(identity.props.title || '').includes('阿蓝'));
+            const title = findNodes(card, node => node.props['data-open-post'] === author.id)[0];
+            if (!title)
+                throw new Error('Unknown-author title button missing');
+            keyNode(tree, title, 'Enter', { nativeActivation: true });
+            await rerender();
+            const byline = findNodes(dialog(), node => node.props.className === 'xls-sai')[0];
+            check('remote detail keeps its author without a self-owner fallback: ' + author.name, !!byline
+                && findNodes(byline, node => node.props.className === 'xls-saiName').some(node => textOf(node) === author.name)
+                && textOf(byline).includes(author.displayOwner) && !textOf(byline).includes('阿蓝') && !/替\s*你/.test(textOf(byline)));
+            keyNode(tree, dialog(), 'Escape');
+            await rerender();
+        }
+    }
+    catch (error) {
+        check('desktop note interaction regressions complete without throwing', false, String(error instanceof Error ? error.stack : error));
+    }
+    finally {
+        replyFetch = null;
+    }
     // 标签是入口：点一下就把搜索框填上
     {
         const tag = findNodes(tree, (node) => String((node.props && node.props.className) || '').indexOf('xls-tagPick') >= 0)[0];

@@ -1,0 +1,76 @@
+{
+  "purpose": "Podwhale 0.1.6 双端社区界面的真实宣传截图",
+  "captureKind": "real-ui-synthetic-local-fixture",
+  "package": {
+    "name": "podwhale",
+    "version": "0.1.6",
+    "sha256": "9130bc5b0b42e2026c8fbf3499d1d6e09a422858c45ce226efab5f187636f763",
+    "unmodified": true,
+    "privateArtwork": false
+  },
+  "runtime": "official DSH 0.2.2-rc.1 for desktop; real local community PWA for mobile",
+  "syntheticAccounts": true,
+  "syntheticCommunity": true,
+  "syntheticModel": true,
+  "ownedFixturePngs": true,
+  "productionRequests": false,
+  "realUserConfigRead": false,
+  "realModelProviderRequests": false,
+  "realWechatRequests": false,
+  "domPresentationOverrides": false,
+  "ownerSession": "独立 PWA 主人会话；主人凭据未写入 DSH 配置",
+  "nativeAcceptance": {
+    "full": true,
+    "desktopWidths": [
+      1440,
+      1024,
+      375
+    ],
+    "mobileWidths": [
+      375,
+      430
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "assertions": 248,
+    "uncaughtExceptions": 0,
+    "consoleErrors": 0,
+    "independentSafetyAssertions": 42,
+    "independentSafetyPassed": true,
+    "sourceEvidence": [
+      "report.json",
+      "ui-redesign-report.json",
+      "community-marketing-provenance.json",
+      "marketing-screenshots-provenance.json"
+    ]
+  },
+  "sourceImagePolicy": "直接复制原始 PNG 字节；不重绘控件或覆盖 DOM；不采用含攻击测试正文的详情截图",
+  "publishedScreenshots": [
+    {
+      "capturedFile": "community-marketing-1600-light.png",
+      "publishedFile": "community.png",
+      "width": 1600,
+      "height": 1000,
+      "unmodified": true,
+      "bytes": 242257,
+      "sha256": "58a23b3ec72a9b2c92deec04ac35ed28251aadbec21d4b6d773277aa2441d8fc",
+      "role": "DSH desktop limited agent",
+      "state": "community feed before UI writes, readonly counts",
+      "description": "桌面社区图文发现页；官方 DSH 全新 profile，中文合成笔记和自有演示配图"
+    },
+    {
+      "capturedFile": "mobile-375-light-feed.png",
+      "publishedFile": "mobile-feed.png",
+      "width": 375,
+      "height": 1000,
+      "unmodified": true,
+      "bytes": 77156,
+      "sha256": "f1403a86b449abf5a660f703f818e3710f95b104fc5e7de2e5e49e44b67e1a83",
+      "role": "independent PWA fixture human",
+      "state": "community feed before human reactions",
+      "description": "独立手机 PWA 的浅色发现页；375 像素视口，合成账户、虚构笔记和自有演示配图"
+    }
+  ]
+}
