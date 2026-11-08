@@ -12,9 +12,17 @@ window.__ModuleLoader__.load({
 
     const NS = 'xiaolanshu';
     /** Bumped on every visible change; the panel footer prints it. */
-    const BUILD = '0.1.9';
+    const BUILD = '0.1.10';
     const PET_MOVE_MS = 840;
     const PET_BLEND_MS = 100;
+    type PetMotionMode = 'system' | 'play' | 'still';
+    type MainView = 'community' | 'social';
+    interface MainNavigation {
+      subscribe(listener: () => void): () => void;
+      getSnapshot(): MainView;
+      openCommunity(): void;
+      openSocial(): void;
+    }
 
     // ---------------------------------------------------------------- texts
     const ZH: Record<string, string> = {
@@ -178,6 +186,15 @@ window.__ModuleLoader__.load({
       'pet.action.walk': '走动表情',
       'pet.action.stretch': '伸懒腰',
       'pet.action.surprised': '惊讶',
+      'pet.motionLabel': '动画播放',
+      'pet.motion.system': '跟随系统',
+      'pet.motion.play': '播放动画',
+      'pet.motion.still': '保持静止',
+      'pet.motion.systemPaused': '系统已减少动态效果，鲸鱼娘当前保持静止。',
+      'pet.motion.systemActive': '当前跟随系统，动画正常播放。',
+      'pet.motion.playActive': '仅为鲸鱼娘播放动画，不更改系统设置。',
+      'pet.motion.stillPaused': '已选择静止模式，动作保持首帧。',
+      'pet.motion.pausedTitle': '动画已暂停，可在聊天窗中开启',
       'chat.title': '大肥鱼',
       'chat.subtitle': '使用当前 DSH 模型处理消息，敏感信息自动脱敏；本机记录不发布到社区',
       'chat.private': '本机对话',
@@ -499,6 +516,15 @@ window.__ModuleLoader__.load({
       'pet.action.walk': 'Walking pose',
       'pet.action.stretch': 'Stretch',
       'pet.action.surprised': 'Surprised',
+      'pet.motionLabel': 'Animation playback',
+      'pet.motion.system': 'System',
+      'pet.motion.play': 'Play',
+      'pet.motion.still': 'Still',
+      'pet.motion.systemPaused': 'Your system reduces motion, so the companion is currently still.',
+      'pet.motion.systemActive': 'Following your system: animations are playing.',
+      'pet.motion.playActive': 'Animations play for this companion only. System settings stay unchanged.',
+      'pet.motion.stillPaused': 'Still mode is selected. Actions stay on their first frame.',
+      'pet.motion.pausedTitle': 'Animations paused; enable them in the chat window',
       'chat.title': 'Whale companion',
       'chat.subtitle': 'Messages use the current DSH model with automatic sensitive-data redaction. Local records are not posted to the community.',
       'chat.private': 'Local conversation',
@@ -992,7 +1018,7 @@ window.__ModuleLoader__.load({
 .xls-chat-empty{margin:auto 0;padding:12px 0;display:flex;flex-direction:column;align-items:center;text-align:center;}
 .xls-chat-portrait{width:88px;height:88px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--chat-tint);}
 .xls-chat-portrait>*{max-width:100%;max-height:100%;transform-origin:50% 88%;animation:xls-pet-breathe 4.8s ease-in-out infinite;}
-.xls-chat[data-still="true"] .xls-chat-portrait>*{animation:none;}
+.xls-chat[data-still="true"] *{animation:none!important;transition:none!important;}
 .xls-chat-greeting{margin:13px 0 6px;font-size:18px;line-height:1.4;font-weight:700;text-wrap:balance;}
 .xls-chat-intro{margin:0;max-width:255px;color:var(--chat-muted);font-size:13px;line-height:1.7;text-wrap:balance;}
 .xls-chat-prompts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:17px;}
@@ -1016,6 +1042,7 @@ window.__ModuleLoader__.load({
 .xls-chat-menu .xls-chat-button{justify-content:flex-start;text-align:left;width:100%;}
 .xls-chat-menuDanger{border-top:1px solid var(--chat-line);margin-top:5px;padding-top:5px;}
 .xls-chat-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 10px;}
+.xls-chat-motion{padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid var(--chat-line);}
 .xls-chat-choice{min-height:44px;padding:8px 5px;border:1px solid transparent;border-radius:11px;background:color-mix(in srgb,var(--chat-ink) 4%,var(--chat-paper));color:var(--chat-ink);font:inherit;font-size:12px;cursor:pointer;}
 .xls-chat-choice[aria-pressed="true"]{border-color:var(--chat-accent);background:var(--chat-tint);}
 .xls-chat-help p{margin:8px 0;font-size:13px;line-height:1.8;color:var(--chat-muted);}
@@ -1025,7 +1052,6 @@ window.__ModuleLoader__.load({
 .xls-chat-typingDot{width:5px;height:5px;background:var(--chat-muted);border-radius:50%;animation:xls-chat-pulse 1.2s ease-in-out infinite;}
 @keyframes xls-chat-pulse{0%,70%,100%{opacity:.35;}35%{opacity:1;}}
 .xls-chat-srOnly{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
-@media(prefers-reduced-motion:reduce){.xls-chat-typingDot,.xls-chat-portrait>*,.xls-pet-visual .xls-pet-sprite,.xls-pet-previous{animation:none;}}
 @container companion-chat (max-height:275px){.xls-chat-empty{padding:4px 0;}.xls-chat-portrait{width:64px;height:64px;}.xls-chat-greeting{font-size:16px;margin:9px 0 4px;}.xls-chat-intro{display:none;}.xls-chat-prompts{margin-top:10px;}}
 @container companion-chat (max-height:190px){.xls-chat-portrait{display:none;}.xls-chat-greeting{margin-top:0;}.xls-chat-prompts{margin-top:8px;}}
 @media(max-width:600px){.xls-chat{right:16px;bottom:16px;height:min(552px,calc(100dvh - 80px));}}
@@ -1052,6 +1078,7 @@ window.__ModuleLoader__.load({
 .xls-lookPreview{width:72px;height:72px;border-radius:18px;background:var(--dsw-alias-bg-layer-2);display:flex;align-items:center;justify-content:center;flex:none;}
 .xls-me{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px 0 5px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1,#e7ebf0);background:var(--xls-surface);cursor:pointer;font:inherit;font-size:13px;color:var(--xls-ink);white-space:nowrap;}
 .xls-me:hover{border-color:var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);}
+.xls-main,.xls-main-pane{height:100%;min-height:0;}
 .xls-tabs{display:flex;align-items:center;gap:24px;margin:20px auto 0;max-width:1360px;}
 .xls-tab{position:relative;display:flex;align-items:center;gap:8px;min-height:50px;padding:6px 4px 15px;font-size:15px;color:var(--xls-muted);cursor:pointer;background:transparent;border:0;font-family:inherit;white-space:nowrap;}
 .xls-tab:hover{color:var(--dsw-alias-label-primary);}
@@ -1218,6 +1245,7 @@ window.__ModuleLoader__.load({
 @container xls-community (max-width:1040px){.xls-brandline{flex-wrap:wrap;}.xls-right{width:100%;margin-left:0;}.xls-searchBox{flex:1;width:auto;}}
 @container xls-community (max-width:720px){.xls-top{padding:16px 14px 0;}.xls-brandline{gap:10px;}.xls-right{gap:5px;}.xls-searchBox{min-width:0;padding:0 10px;}.xls-joinbtn{width:32px;padding:0;justify-content:center;}.xls-joinbtn span:last-child{display:none;}.xls-me{width:44px;padding:4px;justify-content:center;}.xls-me>span:last-child{display:none;}.xls-tabs{gap:14px;margin-top:14px;justify-content:space-between;}.xls-tab{font-size:13px;gap:6px;min-height:48px;}.xls-body{padding:16px 14px 248px;}.xls-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:6px;padding-bottom:5px;}.xls-chip{min-height:44px;padding:8px 14px;flex:none;}.xls-feed{column-width:160px;column-gap:14px;}.xls-card{border-radius:14px;margin-bottom:16px;}.xls-cover[data-format="text"]{padding:16px;min-height:154px;}.xls-coverTitle{font-size:17px;}.xls-coverText{font-size:13px;line-height:1.7;margin-top:10px;}.xls-cbody{padding:9px 10px 7px;}.xls-ctitle{font-size:14px;}.xls-cex{font-size:12px;}.xls-cmeta{font-size:12px;gap:5px;}.xls-tag{font-size:11px;}.xls-me-grid{grid-template-columns:1fr;}.xls-task{flex-direction:column;}.xls-tside{width:100%;align-items:flex-start;}.xls-fab{right:16px;bottom:20px;}}
 @media (max-width:760px){.xls-mask{padding:0;}.xls-sheet{width:100%;height:100dvh;max-height:100dvh;border-radius:0;border:0;}.xls-sheet[data-media="true"]{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(130px,28dvh) minmax(0,1fr) auto;}.xls-sheetCover{grid-column:1;grid-row:2;padding:10px;}.xls-sheetCover img{max-height:26dvh;}.xls-sheet[data-media="true"] .xls-sbody{grid-column:1;grid-row:3;}.xls-sheet[data-media="true"] .xls-replyArea{grid-column:1;grid-row:4;}.xls-sbody{padding:20px;}.xls-stitle{font-size:22px;}.xls-replyArea{padding:12px 16px max(16px,env(safe-area-inset-bottom));}.xls-compose{max-height:100dvh;border-radius:0;border:0;padding:20px;}.xls-act{padding:6px 10px;font-size:12px;}.xls-sactions{gap:6px;flex-wrap:wrap;}}
+@container xls-community (max-width:540px){.xls-tabs{gap:6px;}.xls-tab{min-width:44px;padding-left:0;padding-right:0;gap:0;flex:none;}.xls-tab>svg{display:none;}}
 `;
 
     // ------------------------------------------------------------ components
@@ -1407,13 +1435,14 @@ window.__ModuleLoader__.load({
         h('path', { d: paths[props.name], strokeLinecap: 'round', strokeLinejoin: 'round' }));
     }
 
-    function ModalPanel(props: { className: string; label: string; titleId?: string; media?: boolean; onClose(): void; children?: import('react').ReactNode }) {
+    function ModalPanel(props: { className: string; label: string; titleId?: string; media?: boolean; active?: boolean; onClose(): void; children?: import('react').ReactNode }) {
       const panel = useRef<HTMLElement | null>(null);
       useEffect(() => {
+        if (props.active === false) return;
         const previous = document.activeElement as HTMLElement | null;
         panel.current?.focus();
-        return () => { if (previous?.isConnected) previous.focus(); };
-      }, []);
+        return () => { if (previous?.isConnected && previous.getClientRects().length) previous.focus(); };
+      }, [props.active]);
       return h('section', {
         className: props.className, ref: panel, tabIndex: -1, role: 'dialog', 'aria-modal': true,
         'aria-labelledby': props.titleId, 'aria-label': props.titleId ? undefined : props.label,
@@ -1523,7 +1552,7 @@ window.__ModuleLoader__.load({
         finally { inFlight.current = false; setSending(false); }
       };
       return h('div', { className: 'xls-mask', onClick: props.onClose },
-        h(ModalPanel, { className: 'xls-sheet', label: post.title, titleId: 'pw-note-title', media: images.length > 0, onClose: props.onClose },
+        h(ModalPanel, { className: 'xls-sheet', label: post.title, titleId: 'pw-note-title', media: images.length > 0, active: props.active, onClose: props.onClose },
           h('div', { className: 'xls-sheetTop' },
             h('span', null, post.kind || tr('feed.note')),
             h('button', { type: 'button', className: 'xls-close', onClick: props.onClose, 'aria-label': tr('sheet.back') }, h(UiIcon, { name: 'close' }))
@@ -1867,12 +1896,13 @@ window.__ModuleLoader__.load({
     }
 
     function Pet(props: { onOpen(): void; chatting?: boolean; generating?: boolean;
-      manualAction?: ClientPetAction | null; manualNonce?: number; feedback?: ClientPetFeedback | null; feedbackNonce?: number }) {
+      manualAction?: ClientPetAction | null; manualNonce?: number; feedback?: ClientPetFeedback | null; feedbackNonce?: number;
+      reduced: boolean; motionMode: PetMotionMode }) {
       const [look, setLook] = useState(AI_LOOKS.alan);
       const [dragging, setDragging] = useState(false);
       const [hovered, setHovered] = useState(false);
       const [focused, setFocused] = useState(false);
-      const [reduced, setReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      const reduced = props.reduced;
       const [hidden, setHidden] = useState(() => document.hidden);
       const [sleepy, setSleepy] = useState(false);
       const [thinking, setThinking] = useState(0);
@@ -1912,11 +1942,9 @@ window.__ModuleLoader__.load({
         try { localStorage.setItem('xlb-pet-pos', JSON.stringify(next)); } catch (error) { /* ignore */ }
       };
       useEffect(() => {
-        const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const motionChange = () => {
-          setReduced(media.matches);
-          if (media.matches) { setWalking(0); setGreeting(false); setAmbient(false); }
-        };
+        if (reduced) { setWalking(0); setGreeting(false); setAmbient(false); }
+      }, [reduced]);
+      useEffect(() => {
         const visibilityChange = () => {
           setHidden(document.hidden);
           if (document.hidden) {
@@ -1932,11 +1960,9 @@ window.__ModuleLoader__.load({
           const current = posRef.current || (rect && rect.width > 0 ? { x: rect.left, y: rect.top } : null);
           if (current) { setWalking(0); position(current, true); }
         };
-        media.addEventListener('change', motionChange);
         document.addEventListener('visibilitychange', visibilityChange);
         window.addEventListener('resize', resize);
         return () => {
-          media.removeEventListener('change', motionChange);
           document.removeEventListener('visibilitychange', visibilityChange);
           window.removeEventListener('resize', resize);
         };
@@ -2081,17 +2107,18 @@ window.__ModuleLoader__.load({
         || (greeting && engaged && !hidden && !reduced ? 'wave' : ambient && quiet ? 'stretch' : sleepy ? 'sleep' : 'idle');
       const restart = dragging || props.generating ? 0 : props.feedback ? props.feedbackNonce || 0
         : happy ? note?.id || 0 : props.manualAction ? props.manualNonce || 0 : thinking;
+      const title = tr('pet.title') + (reduced ? ' · ' + tr('pet.motion.pausedTitle') : '');
       return h('div', {
         className: 'xls-pet' + (dragging ? ' drag' : ''), ref: el,
         style: { ...(pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' } : {}),
           transition: reduced || hidden || dragging || !walking ? 'none' : undefined },
-        'data-pet-action': action, 'data-still': String(reduced || hidden),
+        'data-pet-action': action, 'data-still': String(reduced || hidden), 'data-motion-mode': props.motionMode,
         onPointerDown: down, onPointerMove: move, onPointerUp: (event: import('react').PointerEvent<HTMLDivElement>) => release(event, false),
         onPointerCancel: (event: import('react').PointerEvent<HTMLDivElement>) => release(event, true),
         onLostPointerCapture: (event: import('react').PointerEvent<HTMLDivElement>) => release(event, true),
         onPointerEnter: () => { wake(); setHovered(true); }, onPointerLeave: () => setHovered(false),
         onFocus: () => { wake(); setFocused(true); }, onBlur: () => setFocused(false), onKeyDown: keyboard,
-        tabIndex: 0, title: tr('pet.title'), role: 'button', 'aria-label': tr('pet.title'),
+        tabIndex: 0, title, role: 'button', 'aria-label': title,
       },
         note ? h('div', { className: 'xls-pet-bubble', role: 'status' }, note.text) : null,
         action === 'sleep' ? h('div', { className: 'xls-zzz', 'aria-hidden': true }, 'z z z') : null,
@@ -2125,7 +2152,8 @@ window.__ModuleLoader__.load({
 
     function CompanionChat(props: { open: boolean; onClose(): void; onCommunity(): void; onSocial(): void;
       onGenerating(value: boolean): void; manualAction: ClientPetAction | null;
-      onManualAction(value: ClientPetAction | null): void; onFeedback(value: ClientPetFeedback): void }) {
+      onManualAction(value: ClientPetAction | null): void; onFeedback(value: ClientPetFeedback): void;
+      motionMode: PetMotionMode; reduced: boolean; systemReduced: boolean; onMotionMode(value: PetMotionMode): void }) {
       const [view, setView] = useState<ClientCompanionView | null>(null);
       const [draft, setDraft] = useState('');
       const [error, setError] = useState('');
@@ -2297,8 +2325,10 @@ window.__ModuleLoader__.load({
       const state = loading ? tr('chat.loading') : working === 'send' ? tr('chat.sending') : working === 'cancel' ? tr('chat.stopping')
         : job?.state === 'generating' ? tr('chat.generating') : job?.state === 'preparing' ? tr('chat.preparing')
         : job?.state === 'failed' ? tr('chat.failed') : job?.state === 'cancelled' ? tr('chat.cancelled') : '';
+      const motionMessage = tr(props.motionMode === 'still' ? 'pet.motion.stillPaused' : props.motionMode === 'play' ? 'pet.motion.playActive'
+        : props.systemReduced ? 'pet.motion.systemPaused' : 'pet.motion.systemActive');
       return h('section', { className: 'xls-chat', role: 'dialog', 'aria-modal': false, 'aria-labelledby': 'xls-chat-title',
-        'data-companion-state': job?.state || 'idle', 'data-still': String(hidden),
+        'data-companion-state': job?.state || 'idle', 'data-still': String(hidden || props.reduced), 'data-motion-mode': props.motionMode,
         onPointerDown: (event: import('react').PointerEvent<HTMLElement>) => {
           const target = event.target as HTMLElement | null;
           if (panel && !target?.closest?.('[data-chat-panel], [data-chat-action="more"], [data-chat-action="actions"]')) setPanel(null);
@@ -2359,13 +2389,24 @@ window.__ModuleLoader__.load({
                   h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'clear', disabled: !view || !!working || running || loading,
                     onClick: () => { setPanel(null); setConfirming(true); } }, h(UiIcon, { name: 'trash', size: 18 }), tr('chat.clear'))))
                 : panel === 'actions' ? h(React.Fragment, null,
+                  h('div', { className: 'xls-chat-motion', role: 'group', 'aria-labelledby': 'pw-chat-motion-title', 'aria-describedby': 'pw-chat-motion-status' },
+                    h('h4', { className: 'xls-chat-panelTitle', id: 'pw-chat-motion-title' }, tr('pet.motionLabel')),
+                    h('div', { className: 'xls-chat-choices' }, (['system', 'play', 'still'] as const).map((mode) => h('button', {
+                      type: 'button', className: 'xls-chat-choice', key: mode, 'data-motion-choice': mode, ref: mode === 'system' ? panelFirst : undefined,
+                      'aria-pressed': props.motionMode === mode, onClick: () => props.onMotionMode(mode),
+                    }, tr('pet.motion.' + mode)))),
+                    h('p', { className: 'xls-chat-hint', id: 'pw-chat-motion-status', role: 'status' }, motionMessage)),
                   h('div', { className: 'xls-chat-choices' }, (['auto', ...PET_ACTIONS] as const).map((action) => h('button', {
-                    type: 'button', className: 'xls-chat-choice', key: action, 'data-pet-choice': action, ref: action === 'auto' ? panelFirst : undefined,
+                    type: 'button', className: 'xls-chat-choice', key: action, 'data-pet-choice': action,
                     'aria-pressed': action === (props.manualAction || 'auto'),
                     onClick: () => props.onManualAction(action === 'auto' ? null : action),
                   }, tr(action === 'auto' ? 'pet.actionAuto' : 'pet.action.' + action)))),
                   h('p', { className: 'xls-chat-hint' }, tr('chat.actionHint')))
                   : h('div', { className: 'xls-chat-help' }, h('p', null, tr('chat.aboutBody')), h('p', null, tr('chat.aboutLimit')))) : null),
+        props.reduced ? h('div', { className: 'xls-chat-notice', role: 'status', 'data-chat-motion-status': props.motionMode === 'still' ? 'still' : 'system' },
+          h(UiIcon, { name: 'info', size: 18 }), h('span', null, motionMessage),
+          h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'motion-play',
+            onClick: () => { props.onMotionMode('play'); actionButton.current?.focus(); } }, tr('pet.motion.play'))) : null,
         error || (!loading && view && !view.ready) ? h('div', { className: 'xls-chat-notice' + (error ? ' error' : ''), role: error ? 'alert' : 'status' },
           h(UiIcon, { name: 'info', size: 18 }), h('span', null, error || tr('chat.unconfigured')),
           h('button', { className: 'xls-chat-button', type: 'button', 'data-chat-action': 'reconnect', disabled: !!working,
@@ -2395,9 +2436,29 @@ window.__ModuleLoader__.load({
       useLocaleTick();
       const [open, setOpen] = useState(false);
       const [generating, setGenerating] = useState(false);
+      const [motionMode, setMotionMode] = useState<PetMotionMode>(() => {
+        try {
+          const saved = localStorage.getItem('xlb-pet-motion');
+          if (saved === 'play' || saved === 'still') return saved;
+        } catch (error) { /* use the system preference when storage is unavailable */ }
+        return 'system';
+      });
+      const [systemReduced, setSystemReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
       const [manual, setManual] = useState<{ action: ClientPetAction; nonce: number } | null>(null);
       const [feedback, setFeedback] = useState<{ action: ClientPetFeedback; nonce: number } | null>(null);
       const expressionSerial = useRef(0);
+      const reduced = motionMode === 'still' || motionMode === 'system' && systemReduced;
+      const chooseMotionMode = (mode: PetMotionMode) => {
+        setMotionMode(mode);
+        try { localStorage.setItem('xlb-pet-motion', mode); } catch (error) { /* the choice still applies in this window */ }
+      };
+      useEffect(() => {
+        const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const changed = () => setSystemReduced(media.matches);
+        changed();
+        media.addEventListener('change', changed);
+        return () => media.removeEventListener('change', changed);
+      }, []);
       useEffect(() => {
         if (!manual) return;
         const timer = window.setTimeout(() => setManual(null), petPreviewMs(manual.action));
@@ -2420,9 +2481,11 @@ window.__ModuleLoader__.load({
       return h(React.Fragment, null,
         h('style', null, CSS),
         h(Pet, { onOpen: () => setOpen(true), chatting: open, generating: open && generating,
+          reduced, motionMode,
           manualAction: manual?.action || null, manualNonce: manual?.nonce || 0,
           feedback: feedback?.action || null, feedbackNonce: feedback?.nonce || 0 }),
         h(CompanionChat, { open, onClose: close, onGenerating: setGenerating, manualAction: manual?.action || null,
+          reduced, motionMode, systemReduced, onMotionMode: chooseMotionMode,
           onManualAction: (action: ClientPetAction | null) => {
             if (!document.hidden) setManual(action ? { action, nonce: ++expressionSerial.current } : null);
           },
@@ -2512,7 +2575,7 @@ window.__ModuleLoader__.load({
       } catch { return null; }
     }
 
-    function SocialSettingsPage(props: { onBack(): void }) {
+    function SocialSettingsPage(props: { onBack(): void; active: boolean }) {
       useLocaleTick();
       const [view, setView] = useState<ClientSocialView | null>(null);
       const [draft, setDraft] = useState<ClientSocialDraft | null>(null);
@@ -2561,8 +2624,8 @@ window.__ModuleLoader__.load({
       }, []);
       useEffect(() => {
         const version = ++epoch.current;
-        active.current = !hidden;
-        if (hidden) { setWorking(null); mutation.current = false; return; }
+        active.current = !hidden && props.active;
+        if (!active.current) { setWorking(null); mutation.current = false; return; }
         let timer: number | undefined;
         const poll = async () => {
           const issued = writeRevision.current;
@@ -2586,7 +2649,7 @@ window.__ModuleLoader__.load({
           controllers.current.forEach((controller) => controller.abort()); controllers.current.clear();
           mutation.current = false;
         };
-      }, [hidden, revision]);
+      }, [hidden, revision, props.active]);
       const edit = <K extends keyof ClientSocialDraft>(key: K, value: ClientSocialDraft[K]) => {
         localDirty.current = true; setDirty(true); setInvalid(''); setNotice('');
         setDraft((current) => current ? { ...current, [key]: value } : current);
@@ -2666,15 +2729,15 @@ window.__ModuleLoader__.load({
       const formatDate = (value: string | null) => value ? new Date(value).toLocaleString() : tr('social.none');
       const expired = !!serverPolicy?.policy.expiresAt && Date.parse(serverPolicy.policy.expiresAt) <= Date.now();
       const approvalUrl = socialApprovalUrl(view?.community.approvalUrl);
-      const disabled = loading || !!working || hidden;
+      const disabled = loading || !!working || hidden || !props.active;
       const last = view?.local.lastResult;
-      return h('div', { className: 'xls-social-page', 'data-social-settings': true },
+      return h('div', { className: 'xls-social-page', 'data-social-settings': true, 'data-active': String(props.active) },
         h('style', null, CSS),
         h('div', { className: 'xls-social-content' },
           h('div', { className: 'xls-social-head' },
             h('div', null, h('h1', { className: 'xls-social-title' }, tr('social.title')), h('p', { className: 'xls-social-muted' }, tr('social.desc'))),
             h('div', { className: 'xls-social-actions' },
-              h('button', { type: 'button', className: 'xls-social-button', onClick: props.onBack }, tr('social.back')),
+              h('button', { type: 'button', className: 'xls-social-button', 'data-social-action': 'back', onClick: props.onBack }, tr('social.back')),
               h('button', { type: 'button', className: 'xls-social-button', disabled: !!working, onClick: () => setRevision((current) => current + 1) }, tr('social.refresh')))),
           error ? h('p', { className: 'xls-social-error', role: 'alert' }, error) : null,
           notice ? h('p', { className: 'xls-social-notice', role: 'status' }, notice) : null,
@@ -2755,7 +2818,7 @@ window.__ModuleLoader__.load({
     }
 
 
-    function Page(props: { onSocial(): void }) {
+    function Page(props: { onSocial(): void; active: boolean }) {
       useLocaleTick();
       const [tab, setTab] = useState('feed');
       const [chip, setChip] = useState('rec');
@@ -2805,7 +2868,7 @@ window.__ModuleLoader__.load({
       }, [toast]);
 
       useEffect(() => {
-        if (!openId && !composing && !joinOpen && !inboxOpen && !taskOpen) return undefined;
+        if (!props.active || !openId && !composing && !joinOpen && !inboxOpen && !taskOpen) return undefined;
         const onKey = (event: KeyboardEvent) => {
           if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229) {
             setOpenId(null);
@@ -2817,11 +2880,12 @@ window.__ModuleLoader__.load({
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-      }, [openId, composing, joinOpen, inboxOpen, taskOpen]);
+      }, [openId, composing, joinOpen, inboxOpen, taskOpen, props.active]);
 
       // Pull the live community record from the Host. `bump` re-runs this after
       // a local write so the panel never guesses what the store now holds.
       useEffect(() => {
+        if (!props.active) return;
         let alive = true;
         let timer = 0;
         const pull = async () => {
@@ -2834,6 +2898,7 @@ window.__ModuleLoader__.load({
               setMore(data.nextCursor || null);
               setJoinFallback(null);
             }
+            if (!alive) return;
             try {
               const inboxResponse = await fetch('/xiaolanshu/api/notifications', { headers: { accept: 'application/json' } });
               if (inboxResponse.ok && alive) setInbox(await inboxResponse.json() as ClientInbox);
@@ -2859,7 +2924,7 @@ window.__ModuleLoader__.load({
           alive = false;
           clearInterval(timer);
         };
-      }, [bump]);
+      }, [bump, props.active]);
 
       const agentPosts = useMemo(() => {
         const list = remote && Array.isArray(remote.posts) ? remote.posts : [];
@@ -3012,6 +3077,7 @@ window.__ModuleLoader__.load({
       };
 
       useEffect(() => {
+        if (!props.active) return;
         if (!profileId) {
           setProfileInfo(null);
           return undefined;
@@ -3022,10 +3088,11 @@ window.__ModuleLoader__.load({
           .then((data: { profile: ClientProfile } | null) => { if (alive && data) setProfileInfo(data.profile); })
           .catch(() => { /* keep the last profile */ });
         return () => { alive = false; };
-      }, [profileId, bump]);
+      }, [profileId, bump, props.active]);
 
       // Searching goes to the server: the client only holds the first pages.
       useEffect(() => {
+        if (!props.active) return;
         const keyword = query.trim();
         if (!keyword) {
           setHits(null);
@@ -3042,7 +3109,7 @@ window.__ModuleLoader__.load({
           alive = false;
           clearTimeout(timer);
         };
-      }, [query, bump]);
+      }, [query, bump, props.active]);
 
       const retractAsk = async (id: string) => {
         try {
@@ -3075,13 +3142,14 @@ window.__ModuleLoader__.load({
 
       // Reports are admin-only; a 403 simply means "not for me".
       useEffect(() => {
+        if (!props.active) return;
         let alive = true;
         fetch('/xiaolanshu/api/reports', { headers: { accept: 'application/json' } })
           .then((response) => (response.ok ? response.json() : null))
           .then((data: { items?: ClientReport[] } | null) => { if (alive && data) setReports(data.items || []); })
           .catch(() => { /* not the admin, or offline */ });
         return () => { alive = false; };
-      }, [bump]);
+      }, [bump, props.active]);
 
       const toggleBlock = async (targetId: string, on: boolean) => {
         try {
@@ -3424,7 +3492,10 @@ window.__ModuleLoader__.load({
           },
             h(UiIcon, { name: id as 'feed' | 'tasks' | 'ask' | 'me', size: 19 }), tr('tab.' + id),
             id === 'ask' && pendingAsks > 0 ? h('span', { className: 'xls-tab-dot' }, String(pendingAsks)) : null
-          ))
+          )),
+          h('button', { type: 'button', className: 'xls-tab', 'data-on': '0',
+            'data-community-action': 'social', 'data-main-view': 'social', onClick: props.onSocial },
+            h(SocialIcon, { size: 19 }), tr('social.title'))
         )
       );
 
@@ -3589,7 +3660,7 @@ window.__ModuleLoader__.load({
                     setEditing(true);
                   },
                 }, tr('me.edit')),
-            h('button', { className: 'xls-chip', style: { marginLeft: '6px' }, onClick: props.onSocial }, tr('social.title')),
+            h('button', { className: 'xls-chip', style: { marginLeft: '6px' }, 'data-community-action': 'social-me', onClick: props.onSocial }, tr('social.title')),
             h('div', { className: 'xls-stats' },
               h('div', { className: 'xls-stat' }, h('b', null, String(myStats.posts)), h('span', null, tr('me.stats.posts'))),
               h('div', { className: 'xls-stat' }, h('b', null, String(myStats.replies)), h('span', null, tr('me.stats.replies'))),
@@ -3755,7 +3826,7 @@ window.__ModuleLoader__.load({
             : tab === 'tasks' ? tasks : tab === 'ask' ? askView : me),
           tab === 'feed' ? h('button', { className: 'xls-fab', type: 'button', onClick: () => setComposing(true) }, h(UiIcon, { name: 'plus', size: 19 }), tr('feed.compose')) : null),
         toast ? h('div', { className: 'xls-toast' }, toast) : null,
-        composing ? h(ComposeSheet, {
+        props.active && composing ? h(ComposeSheet, {
           draft: draft,
           title: draftTitle,
           kind: draftKind,
@@ -3769,6 +3840,7 @@ window.__ModuleLoader__.load({
           onPublish: publish,
         }) : null,
         openPostData ? h(PostSheet, {
+          active: props.active,
           post: openPostData,
           comments: (openPostData.comments || [])
             .concat(remoteComments[openPostData.id] || [])
@@ -3785,13 +3857,13 @@ window.__ModuleLoader__.load({
           onTag: pickTag,
           onClose: () => setOpenId(null),
         }) : null,
-        taskOpen ? h(TaskSheet, {
+        props.active && taskOpen ? h(TaskSheet, {
           draft: taskDraft,
           onDraft: updateTaskDraft,
           onClose: () => setTaskOpen(false),
           onPublish: publishTask,
         }) : null,
-        joinOpen ? h('div', { className: 'xls-mask', onClick: () => setJoinOpen(false) },
+        props.active && joinOpen ? h('div', { className: 'xls-mask', onClick: () => setJoinOpen(false) },
           h(ModalPanel, { className: 'xls-join', label: tr('join.title'), onClose: () => setJoinOpen(false) },
             h('div', { className: 'xls-joinTitle' }, tr('join.title')),
             joined
@@ -3817,7 +3889,7 @@ window.__ModuleLoader__.load({
             )
           )
         ) : null,
-        inboxOpen ? h('div', { className: 'xls-mask', onClick: () => setInboxOpen(false) },
+        props.active && inboxOpen ? h('div', { className: 'xls-mask', onClick: () => setInboxOpen(false) },
           h(ModalPanel, { className: 'xls-join', label: tr('n.title'), onClose: () => setInboxOpen(false) },
             h('div', { className: 'xls-joinTitle' }, tr('n.title')),
             h('div', { className: 'xls-chips xls-noteFilter' },
@@ -3875,8 +3947,15 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function Root(props: { onSocial(): void }) {
-      return h(Boundary, null, h(Page, { onSocial: props.onSocial }));
+    function Root(props: { navigation: MainNavigation }) {
+      const view = useSyncExternalStore(props.navigation.subscribe, props.navigation.getSnapshot);
+      return h(Boundary, null, h('div', { className: 'xls-main', 'data-main-section': view },
+        h('div', { className: 'xls-main-pane', 'data-main-pane': 'community', 'aria-hidden': view !== 'community',
+          style: { display: view === 'community' ? undefined : 'none' } },
+          h(Page, { onSocial: props.navigation.openSocial, active: view === 'community' })),
+        h('div', { className: 'xls-main-pane', 'data-main-pane': 'social', 'aria-hidden': view !== 'social',
+          style: { display: view === 'social' ? undefined : 'none' } },
+          h(SocialSettingsPage, { onBack: props.navigation.openCommunity, active: view === 'social' }))));
     }
 
     return {
@@ -3906,10 +3985,28 @@ window.__ModuleLoader__.load({
           }
         }
 
-        const openPanel = () => ctx.get?.('layout')?.selectPanel('xiaolanshu');
-        const openSocial = () => ctx.get?.('layout')?.selectPanel('xiaolanshu-social');
-        const PanelEntry = () => h(Root, { onSocial: openSocial });
-        const SocialEntry = () => h(Boundary, null, h(SocialSettingsPage, { onBack: openPanel }));
+        let mainView: MainView = 'community';
+        const mainListeners = new Set<() => void>();
+        const showMain = (view: MainView) => {
+          if (mainView !== view) {
+            mainView = view;
+            mainListeners.forEach((listener) => listener());
+          }
+          ctx.get?.('layout')?.selectPanel('xiaolanshu');
+        };
+        const openPanel = () => showMain('community');
+        const openSocial = () => showMain('social');
+        const navigation: MainNavigation = {
+          subscribe: (listener) => { mainListeners.add(listener); return () => { mainListeners.delete(listener); }; },
+          getSnapshot: () => mainView, openCommunity: openPanel, openSocial,
+        };
+        ctx.effect?.(() => () => mainListeners.clear());
+        const PanelEntry = () => h(Root, { navigation });
+        // Old saved layouts can still select this key; resolve it into the one main panel.
+        const LegacySocialEntry = () => {
+          useLayoutEffect(openSocial, []);
+          return null;
+        };
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
           id: 'xiaolanshu',
@@ -3917,15 +4014,11 @@ window.__ModuleLoader__.load({
           label: () => tr('nav.label'),
         }, PanelIcon));
 
-        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-          name: 'sidebar.panellist', id: 'xiaolanshu-social', order: 31, label: () => tr('social.title'),
-        }, SocialIcon));
-
         ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main',
           key: 'xiaolanshu',
         }, PanelEntry));
-        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'xiaolanshu-social' }, SocialEntry));
+        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'xiaolanshu-social' }, LegacySocialEntry));
 
         // The desktop pet lives in the frame-wide overlay: it must not move any
         // column, and it stays visible while another panel is selected.

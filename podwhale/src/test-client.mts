@@ -150,7 +150,10 @@ const FakeReact = {
   useEffect,
   useLayoutEffect: useEffect,
   useRef,
-  useSyncExternalStore: <T,>(_subscribe: (callback: () => void) => () => void, snapshot: () => T): T => snapshot(),
+  useSyncExternalStore: <T,>(subscribe: (callback: () => void) => () => void, snapshot: () => T): T => {
+    useEffect(() => subscribe(() => { dirty = true; }), [subscribe]);
+    return snapshot();
+  },
   useCallback: <T,>(fn: T): T => fn,
   Component,
   Fragment: 'fragment',
@@ -329,6 +332,7 @@ interface TestFetchResponse { ok: boolean; status: number; json(): Promise<unkno
 let companionFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
 let socialFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
 let replyFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
+let feedFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
 function testResponse(value: unknown, status = 200): TestFetchResponse {
   return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(value), text: () => Promise.resolve(JSON.stringify(value)) };
 }
@@ -342,6 +346,7 @@ function fakeFetch(url: string, options?: TestFetchOptions): Promise<TestFetchRe
   if (companionFetch && (path === '/api/companion' || path.startsWith('/api/companion/'))) return companionFetch(url, options || {});
   if (socialFetch && (path === '/api/social' || path.startsWith('/api/social/'))) return socialFetch(url, options || {});
   if (replyFetch && path === '/api/reply') return replyFetch(url, options || {});
+  if (feedFetch && path === '/api/feed') return feedFetch(url, options || {});
   if (process.env.XLB_DEBUG) console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
   const payload = routes[path] !== undefined ? routes[path] : {};
   return Promise.resolve({
@@ -375,12 +380,18 @@ class TestDomTarget implements TestPetTarget {
   constructor(public node: RenderedNode) {}
   get isConnected() { return findNodes(currentRenderedTree, entry => domNodes.get(entry) === this).length > 0; }
   get tagName() { return String(this.node.type || '').toUpperCase(); }
-  focus() { fakeWindow.document!.activeElement = this; }
+  focus() { if (this.getClientRects().length) fakeWindow.document!.activeElement = this; }
   getAttribute(name: string) { const value = this.node.props[name]; return value === undefined || value === null ? null : String(value); }
   hasAttribute(name: string) { return this.node.props[name] !== undefined; }
   contains(target: unknown) { return findNodes(this.node, entry => domNodes.get(entry) === target).length > 0; }
   closest(selector: string) { return eventPath(currentRenderedTree, this.node).reverse().filter(node => matchesSelector(node, selector)).map(domFor)[0] ?? null; }
-  getClientRects() { return this.isConnected ? [this.getBoundingClientRect()] : []; }
+  getClientRects() {
+    const visible = eventPath(currentRenderedTree, this.node).every(node => {
+      const style = node.props.style;
+      return node.props.hidden !== true && !(style && typeof style === 'object' && 'display' in style && style.display === 'none');
+    });
+    return this.isConnected && visible ? [this.getBoundingClientRect()] : [];
+  }
   getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 44 }; }
   querySelectorAll(selector: string) { return findNodes(this.node, entry => entry !== this.node && matchesSelector(entry, selector)).map(domFor); }
   querySelector(selector: string) { return this.querySelectorAll(selector)[0] ?? null; }
@@ -436,6 +447,7 @@ function renderNode(element: TestValue, path = 'root'): RenderedNode | null {
   const identity = typeof props['data-open-post'] === 'string' ? 'post:' + props['data-open-post']
     : typeof props['data-chat-action'] === 'string' ? 'chat:' + props['data-chat-action']
     : typeof props['data-pet-choice'] === 'string' ? 'pet-choice:' + props['data-pet-choice']
+    : typeof props['data-motion-choice'] === 'string' ? 'motion-choice:' + props['data-motion-choice']
     : typeof props['data-chat-prompt'] === 'string' ? 'chat-prompt:' + props['data-chat-prompt']
     : typeof props.id === 'string' ? 'id:' + props.id : type + ':' + path;
   let target = stableDom.get(identity);
@@ -523,6 +535,8 @@ async function renderPasses(root: TestValue, passes: number): Promise<RenderedNo
     renderedComponents = new Set();
     tree = renderNode(root);
     currentRenderedTree = tree;
+    const focused = fakeWindow.document!.activeElement;
+    if (focused instanceof TestDomTarget && focused.getClientRects().length === 0) fakeWindow.document!.activeElement = null;
     const currentEffects = new Set(collectedEffects.map(entry => entry.key));
     for (const [key, previous] of effectState) if (!currentEffects.has(key)) { if (typeof previous.cleanup === 'function') previous.cleanup(); effectState.delete(key); }
     for (const component of slotsByComponent.keys()) if (component && !renderedComponents.has(component)) slotsByComponent.delete(component);
@@ -571,12 +585,14 @@ const fakeWindowForModule = Object.assign({}, fakeWindow, {
   },
 });
 
-new Function('window', 'document', 'localStorage', 'fetch', 'setTimeout', source)(
+new Function('window', 'document', 'localStorage', 'fetch', 'setTimeout', 'setInterval', 'clearInterval', source)(
   fakeWindowForModule,
   fakeWindow.document,
   fakeWindow.localStorage,
   fakeFetch,
   setTimeout,
+  fakeWindow.setInterval,
+  fakeWindow.clearInterval,
 );
 
 const failures = [];
@@ -588,12 +604,14 @@ function check(name: string, ok: unknown, detail: unknown = "") {
 check('the module registered a factory', !!moduleApi);
 
 const selectedPanels: string[] = [];
+const slotRegistrations: { name: string; id?: string; key?: string; component: TestComponent }[] = [];
 const ctx: TestContext = {
   get: (name) => name === 'layout' ? { selectPanel: (id) => { selectedPanels.push(id); } } : undefined,
   effect: (fn) => { fn(); },
   slots: {
     inject: (name, factory) => factory(),
     register: (options, component) => {
+      slotRegistrations.push({ ...options, component });
       components[options.id || options.key || options.name] = component;
       return () => {};
     },
@@ -608,6 +626,17 @@ try {
 }
 
 check('the main panel was registered', !!components.xiaolanshu);
+async function mountMain(section: 'community' | 'social' = 'community') {
+  lastRoot = FakeReact.createElement(components.xiaolanshu!, {});
+  let main = await renderPasses(lastRoot, 8);
+  if (findNodes(main, node => node.props['data-main-section'] === section).length === 0) {
+    const navigation = findNodes(main, node => node.type === 'button' && (section === 'social'
+      ? node.props['data-community-action'] === 'social' : node.props['data-social-action'] === 'back'))[0];
+    if (!navigation) throw new Error('Main section navigation missing: ' + section);
+    clickNode(main, navigation); main = await renderPasses(lastRoot, 8);
+  }
+  return main;
+}
 
 // A className that no rule styles is a silent visual bug: the element renders
 // unstyled and no runtime check would notice. The reverse (a rule nothing uses)
@@ -650,8 +679,7 @@ async function clickAndCheck(root: RenderedNode | null, label: string, expected:
 
 let tree: RenderedNode | null = null;
 try {
-  lastRoot = FakeReact.createElement(components.xiaolanshu!, {});
-  tree = await renderPasses(lastRoot, 8);
+  tree = await mountMain();
   check('the panel renders without throwing', true);
 } catch (caught) { const error = caught as Error & { code?: string; status?: number; phase?: string; stopped?: boolean; detail?: string; };
   check('the panel renders without throwing', false, String(error && error.stack ? error.stack.split('\n')[0] : error));
@@ -697,9 +725,14 @@ if (tree) {
   tree = await clickAndCheck(tree, '我的 AI', '值班', 'my-agent tab renders');
   tree = await clickAndCheck(tree, '我的 AI', '这轮没有值得动的', 'the patrol log shows past runs');
   tree = await clickAndCheck(tree, '我的 AI', '我发的一条笔记', 'my page lists real activity, not demo text');
-  const socialEntry = findNodes(tree, (node) => node.type === 'button' && textOf(node).trim() === '社交设置')[0];
+  const socialEntry = findNodes(tree, (node) => node.type === 'button' && node.props['data-community-action'] === 'social-me')[0];
   socialEntry?.props.onClick?.({ stopPropagation() {}, preventDefault() {}, target: {} });
-  check('my-agent page navigates to the independent social settings panel', !!socialEntry && selectedPanels.at(-1) === 'xiaolanshu-social');
+  tree = await renderPasses(lastRoot, 6);
+  check('my-agent page navigates to social settings inside the original main panel', !!socialEntry && selectedPanels.at(-1) === 'xiaolanshu'
+    && findNodes(tree, node => node.props['data-main-section'] === 'social').length === 1);
+  const backFromSocial = findNodes(tree, node => node.type === 'button' && node.props['data-social-action'] === 'back')[0];
+  if (!backFromSocial) throw new Error('Social settings back navigation missing');
+  clickNode(tree, backFromSocial); tree = await renderPasses(lastRoot, 6);
 
   // 改资料：保存要把三个字段发给服务端
   {
@@ -1371,8 +1404,7 @@ check('local motion cleanup removes handoff and quiet-gesture timers with their 
 
 const ownAvatarShape = feed.posts[1]!.appearance.shape;
 try {
-  lastRoot = FakeReact.createElement(components.xiaolanshu!, {});
-  petTree = await renderPasses(lastRoot, 8);
+  petTree = await mountMain();
   const card = findNodes(petTree, node => node.props['data-post-id'] === 'x2')[0];
   const face = findNodes(card, node => node.type === 'img' && node.props.src === '/xiaolanshu/pet-art/v1/face.png')[0];
   check('the known girl author loads only the bundled canonical face image', !!face);
@@ -1381,7 +1413,7 @@ try {
   check('a failed bundled face falls back to the author creature without legacy image retries', !findNodes(fallback, node => node.type === 'img').length
     && findNodes(fallback, node => node.type === 'svg').length > 0);
   unmountTestTree(); feed.posts[1]!.appearance.shape = 'cat';
-  lastRoot = FakeReact.createElement(components.xiaolanshu!, {}); petTree = await renderPasses(lastRoot, 8);
+  petTree = await mountMain();
   const catCard = findNodes(petTree, node => node.props['data-post-id'] === 'x2')[0];
   check('an Alan author who chose a non-girl appearance keeps its vector avatar', !!catCard && !findNodes(catCard, node => node.type === 'img').length
     && findNodes(catCard, node => node.type === 'svg').length > 0);
@@ -1422,11 +1454,11 @@ function installCompanionFixture() {
     return testResponse({ ok: false }, 404);
   };
 }
-async function mountChat(ready = true) {
+async function mountChat(ready = true, systemReduced = false) {
   hostCompanion = { ok: true, ready, model: ready ? { provider: 'fixture', model: 'synthetic' } : null, messages: [], job: null };
   sendFailures = 0; holdCompanionGet = false; heldCompanion.resolve = null; heldCompanion.signal = undefined;
   installCompanionFixture();
-  await mountPet();
+  await mountPet('good', systemReduced);
   await petKey('Enter');
 }
 async function typeChat(text: string) { chatInput().props.onChange?.({ target: { value: text } }); await renderPet(); }
@@ -1457,13 +1489,104 @@ async function selectPetAction(action: string) {
 }
 async function selectedPetAction() {
   await openChatPanel('actions');
-  return findNodes(chatPanel('actions'), node => node.type === 'button' && node.props['aria-pressed'] === true)[0]?.props['data-pet-choice'];
+  return findNodes(chatPanel('actions'), node => node.type === 'button' && typeof node.props['data-pet-choice'] === 'string'
+    && node.props['aria-pressed'] === true)[0]?.props['data-pet-choice'];
+}
+async function selectMotionMode(mode: 'system' | 'play' | 'still') {
+  await openChatPanel('actions');
+  const choice = findNodes(chatPanel('actions'), node => node.type === 'button' && node.props['data-motion-choice'] === mode)[0];
+  if (!choice) throw new Error('Local motion preference missing: ' + mode);
+  clickNode(petTree, choice); await renderPet();
+}
+async function changeSystemMotion(reduced: boolean) {
+  motion.matches = reduced; motionListeners.forEach(listener => listener()); await renderPet();
 }
 function petSpriteStyle(name: 'backgroundImage' | 'backgroundSize' | 'backgroundPosition') {
   const style = petSprite()?.props.style;
   if (!style || typeof style !== 'object' || !(name in style)) return undefined;
   const value: unknown = Object.getOwnPropertyDescriptor(style, name)?.value;
   return typeof value === 'string' ? value : undefined;
+}
+const originalStorageGet = fakeWindow.localStorage.getItem, originalStorageSet = fakeWindow.localStorage.setItem;
+try {
+  Date.now = () => petClock;
+  store.delete('xlb-pet-motion'); await mountChat(true, true);
+  check('the default local motion mode respects a reduced-motion system without disabling chat', petNode().props['data-still'] === 'true'
+    && petSprite()?.props['data-pet-frame'] === 0 && chatInput().props.disabled === false
+    && findNodes(chatDialog(), node => node.props['data-chat-motion-status'] === 'system').length === 1);
+  check('one overlay subscribes to the system motion preference exactly once', motionListeners.size === 1);
+  const preferencePanel = await openChatPanel('actions');
+  const modeChoices = findNodes(preferencePanel, node => node.type === 'button' && typeof node.props['data-motion-choice'] === 'string');
+  const systemChoice = modeChoices.find(node => node.props['data-motion-choice'] === 'system');
+  check('motion controls expose three native pressed-state choices and focus the system option', modeChoices.length === 3
+    && ['system', 'play', 'still'].every(mode => modeChoices.some(node => node.props['data-motion-choice'] === mode))
+    && modeChoices.every(node => typeof node.props['aria-pressed'] === 'boolean')
+    && modeChoices.filter(node => node.props['aria-pressed'] === true).length === 1 && systemChoice?.props['aria-pressed'] === true
+    && !!systemChoice && fakeWindow.document!.activeElement === domFor(systemChoice));
+  await clickChatAction('panel-close'); await typeChat('切换动画也必须保留这段未发送的草稿。');
+  const motionDraft = chatInput().props.value, beforeLocalMotion = callLog.length;
+  await clickChatAction('motion-play');
+  check('the static-status shortcut explicitly plays only local artwork and preserves the unsent draft', store.get('xlb-pet-motion') === 'play'
+    && petNode().props['data-still'] === 'false' && chatInput().props.value === motionDraft && callLog.length === beforeLocalMotion
+    && !findNodes(chatDialog(), node => typeof node.props['data-chat-motion-status'] === 'string').length);
+  await advancePet(2600);
+  check('explicit play advances real atlas frames even while the system requests reduced motion', petSprite()?.props['data-pet-frame'] === 1);
+  await changeSystemMotion(false); await changeSystemMotion(true);
+  check('system preference changes cannot silently override an explicit play choice', petNode().props['data-still'] === 'false'
+    && petSprite()?.props['data-pet-frame'] === 1 && store.get('xlb-pet-motion') === 'play');
+  await selectMotionMode('system');
+  check('returning to system mode immediately restores the active system restriction', petNode().props['data-still'] === 'true'
+    && petSprite()?.props['data-pet-frame'] === 0 && findNodes(chatDialog(), node => node.props['data-chat-motion-status'] === 'system').length === 1);
+  await changeSystemMotion(false); await advancePet(2600);
+  check('system mode follows a live operating-system change back to permitted animation', petNode().props['data-still'] === 'false'
+    && petSprite()?.props['data-pet-frame'] === 1);
+  await selectMotionMode('still'); await changeSystemMotion(true); await changeSystemMotion(false); await advancePet(2600);
+  check('explicit still remains static through system changes while retaining usable chat', petNode().props['data-still'] === 'true'
+    && petSprite()?.props['data-pet-frame'] === 0 && chatInput().props.disabled === false
+    && findNodes(chatDialog(), node => node.props['data-chat-motion-status'] === 'still').length === 1);
+  await mountChat(true, false);
+  check('an explicit still preference survives a complete overlay remount', petNode().props['data-still'] === 'true' && store.get('xlb-pet-motion') === 'still');
+  await selectMotionMode('play'); await mountChat(true, true);
+  check('an explicit play preference survives remounting on a reduced-motion system', petNode().props['data-still'] === 'false' && store.get('xlb-pet-motion') === 'play');
+  await selectMotionMode('system'); await mountChat(true, false);
+  check('a persisted system preference derives its effective state from the current system', petNode().props['data-still'] === 'false' && store.get('xlb-pet-motion') === 'system');
+  for (const invalidMode of ['constructor', '__proto__', 'PLAY', '{"mode":"play"}']) {
+    store.set('xlb-pet-motion', invalidMode); await mountChat(true, true);
+    check('an invalid stored motion value fails safely to the system preference: ' + invalidMode, petNode().props['data-still'] === 'true'
+      && findNodes(chatDialog(), node => node.props['data-chat-motion-status'] === 'system').length === 1);
+  }
+  fakeWindow.localStorage.getItem = (key) => { if (key === 'xlb-pet-motion') throw new Error('Synthetic storage read failure'); return originalStorageGet(key); };
+  await mountChat(true, true);
+  check('unavailable preference storage keeps the overlay and safe system behavior operational', !!chatDialog() && chatInput().props.disabled === false
+    && petNode().props['data-still'] === 'true');
+  fakeWindow.localStorage.getItem = originalStorageGet;
+  store.set('xlb-pet-motion', 'system'); await mountChat(true, true); await typeChat('写入偏好失败也不能丢失的草稿。');
+  const unwritableDraft = chatInput().props.value, beforeUnwritable = callLog.length;
+  fakeWindow.localStorage.setItem = (key, value) => { if (key === 'xlb-pet-motion') throw new Error('Synthetic storage write failure'); originalStorageSet(key, value); };
+  await selectMotionMode('play');
+  check('a preference write failure preserves the local choice and draft without a remote request', petNode().props['data-still'] === 'false'
+    && chatInput().props.value === unwritableDraft && callLog.length === beforeUnwritable && store.get('xlb-pet-motion') === 'system');
+  fakeWindow.localStorage.setItem = originalStorageSet;
+  store.set('xlb-pet-motion', 'play'); await mountChat(true, true);
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach(listener => listener()); await renderPet();
+  check('document visibility always overrides explicit play and stops every overlay timer', petNode().props['data-still'] === 'true'
+    && petSprite()?.props['data-pet-frame'] === 0 && chatDialog()?.props['data-still'] === 'true' && petTimers.size === 0);
+  fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach(listener => listener()); await renderPet(); await advancePet(2600);
+  check('visible restoration honors explicit play without changing the stored system preference', petNode().props['data-still'] === 'false'
+    && petSprite()?.props['data-pet-frame'] === 1 && store.get('xlb-pet-motion') === 'play');
+  await typeChat('动画偏好不应取消正在执行的合成请求。'); await clickChat('发送'); finishCompanion('generating'); await advancePet(900);
+  holdCompanionGet = true; await advancePet(900);
+  const activeMotionSignal = heldCompanion.signal, activeMotionJob = hostCompanion.job?.id, beforeWorkingMotion = callLog.length;
+  await selectMotionMode('still'); await selectMotionMode('play');
+  check('changing local motion does not abort Host polling, cancel work or invent another request', activeMotionSignal !== undefined
+    && activeMotionSignal.aborted === false && hostCompanion.job?.id === activeMotionJob
+    && chatDialog()?.props['data-companion-state'] === 'generating' && callLog.length === beforeWorkingMotion);
+  heldCompanion.resolve?.(testResponse(structuredClone(hostCompanion))); await renderPet();
+} catch (caught) {
+  check('local motion preferences complete without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+} finally {
+  unmountTestTree(); Date.now = actualNow; companionFetch = null; store.delete('xlb-pet-motion');
+  fakeWindow.localStorage.getItem = originalStorageGet; fakeWindow.localStorage.setItem = originalStorageSet;
 }
 try {
   Date.now = () => petClock;
@@ -1556,7 +1679,7 @@ try {
   check('community navigation from More opens the real community panel without a chat request', !chatDialog() && selectedPanels.at(-1) === 'xiaolanshu'
     && callLog.filter(call => call.method !== 'GET').length === writesBeforeNavigation);
   await petKey('Enter'); await clickChat('社交设置');
-  check('social navigation from More opens the existing settings panel without changing authorization', !chatDialog() && selectedPanels.at(-1) === 'xiaolanshu-social'
+  check('social navigation from More opens settings inside the original main panel without changing authorization', !chatDialog() && selectedPanels.at(-1) === 'xiaolanshu'
     && callLog.filter(call => call.method !== 'GET').length === writesBeforeNavigation);
 } catch (caught) {
   check('disclosed chat control behavior completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
@@ -1863,6 +1986,12 @@ async function socialEdit(field: string, value: string | boolean) {
 async function socialClick(action: string) {
   socialAction(action).props.onClick?.({ preventDefault() {}, stopPropagation() {}, target: {} }); await renderPet();
 }
+async function openMainSocial() {
+  const navigation = findNodes(petTree, node => node.type === 'button' && node.props['data-community-action'] === 'social')[0];
+  if (!navigation) throw new Error('Community social navigation missing');
+  clickNode(petTree, navigation); await renderPet();
+}
+function mainPane(name: 'community' | 'social') { return findNodes(petTree, node => node.props['data-main-pane'] === name)[0]; }
 async function socialLabel(label: string) {
   const node = findNodes(petTree, (entry) => entry.type === 'button' && textOf(entry) === label)[0];
   if (!node) throw new Error('Missing social button: ' + label);
@@ -1873,13 +2002,12 @@ const runtimeState = () => findNodes(petTree, (node) => node.props['data-social-
 async function mountSocial() {
   unmountTestTree(); socialHost = socialFixture(); socialFailure = null; holdSocialGet = false; socialFocused = null;
   fakeWindow.document!.hidden = false; installSocialFixture();
-  lastRoot = FakeReact.createElement(components['xiaolanshu-social']!, {});
-  await renderPet();
+  petTree = await mountMain('social');
 }
 const socialStart = callLog.length;
 try {
   Date.now = () => petClock;
-  check('social settings has a separate main component without replacing community or pet', !!components['xiaolanshu-social']
+  check('social settings remains reachable through a compatibility alias beside the original main panel and pet', !!components['xiaolanshu-social']
     && !!components.xiaolanshu && !!components['xiaolanshu-pet']);
   await mountSocial();
   check('the actual settings page starts with both approval switches checked and default quotas',
@@ -2015,8 +2143,9 @@ try {
   oldGet?.(testResponse(staleView)); await renderPet();
   check('a GET issued before a settings save cannot overwrite the successful mutation snapshot',
     socialField('intervalMinutes').props.value === '75' && socialHost.local.settings.intervalMinutes === 75);
-  await socialLabel('返回鲸群');
+  await socialClick('back');
   check('the settings Back action retains the original community panel key', selectedPanels.at(-1) === 'xiaolanshu');
+  await openMainSocial();
   holdSocialGet = true; await advancePet(4000); const unmountSignal = heldSocial.signal;
   unmountTestTree(); dirty = false; heldSocial.resolve?.(testResponse(staleView)); await tick();
   check('unmount aborts settings requests and discards their late state updates', unmountSignal?.aborted === true && !dirty);
@@ -2024,8 +2153,8 @@ try {
   socialFetch = null; await mountChat();
   const beforeNavigationWrites = socialWrites().length;
   await clickChat('社交设置');
-  check('desktop chat opens the dedicated social settings panel and closes its dialog', !chatDialog()
-    && selectedPanels.at(-1) === 'xiaolanshu-social' && socialWrites().length === beforeNavigationWrites);
+  check('desktop chat opens social settings inside the original main panel and closes its dialog', !chatDialog()
+    && selectedPanels.at(-1) === 'xiaolanshu' && socialWrites().length === beforeNavigationWrites);
 } catch (caught) {
   check('social settings behavior suite completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
 } finally {
@@ -2037,6 +2166,133 @@ check('social controls use only same-origin local endpoints without owner creden
   callLog.slice(socialStart).filter((entry) => entry.path.startsWith('/api/social')).every((entry) => entry.credentials === 'same-origin'
     && !JSON.stringify(entry.body).includes('token'))
   && !callLog.slice(socialStart).some((entry) => ['/api/post', '/api/reply', '/api/ask', '/api/proposals/approve'].includes(entry.path)));
+try {
+  Date.now = () => petClock;
+  socialHost = socialFixture(); installSocialFixture();
+  const socialSidebars = slotRegistrations.filter(entry => entry.name === 'sidebar.panellist');
+  check('the plugin exposes one community sidebar entry and keeps settings as an internal view', socialSidebars.length === 1
+    && socialSidebars[0]?.id === 'xiaolanshu' && !socialSidebars.some(entry => entry.id === 'xiaolanshu-social'));
+  lastRoot = FakeReact.createElement(components.xiaolanshu!, {}); await renderPet();
+  check('the chat social entry selected the shared settings route before its main panel mounted', findNodes(petTree,
+    node => node.props['data-main-section'] === 'social').length === 1 && selectedPanels.at(-1) === 'xiaolanshu');
+  const twoPanes = findNodes(petTree, node => typeof node.props['data-main-pane'] === 'string');
+  check('one root keeps both pages mounted while exposing only the active page', twoPanes.length === 2
+    && findNodes(petTree, node => node.props['data-social-settings'] !== undefined).length === 1
+    && !!mainPane('community') && domFor(mainPane('community')!).getClientRects().length === 0
+    && !!mainPane('social') && domFor(mainPane('social')!).getClientRects().length > 0);
+  const beforeRoundTripWrites = socialWrites().length;
+  await socialEdit('intervalMinutes', '95'); await socialEdit('replyApproval', false); await socialEdit('duration', '12');
+  await socialClick('back');
+  const search = findNodes(mainPane('community'), node => node.type === 'input' && node.props.className === 'xls-search')[0];
+  if (!search) throw new Error('Community search input missing');
+  search.props.onChange?.({ target: { value: '缓存' } }); await renderPet();
+  const science = findNodes(mainPane('community'), node => node.type === 'button' && String(node.props.className).split(' ').includes('xls-chip') && textOf(node) === '科研')[0];
+  if (!science) throw new Error('Community category filter missing');
+  clickNode(petTree, science); await renderPet(); await openMainSocial();
+  check('internal navigation reuses the same settings draft and revision-bound request edits', socialField('intervalMinutes').props.value === '95'
+    && socialField('replyApproval').props.checked === false && socialField('duration').props.value === '12'
+    && selectedPanels.at(-1) === 'xiaolanshu' && socialWrites().length === beforeRoundTripWrites);
+  await socialClick('back');
+  check('returning to community restores its search and category filter', findNodes(mainPane('community'), node => node.type === 'input'
+    && node.props.className === 'xls-search')[0]?.props.value === '缓存'
+    && findNodes(mainPane('community'), node => node.type === 'button' && textOf(node) === '科研' && node.props['aria-pressed'] === true).length === 1);
+  const askTab = findNodes(mainPane('community'), node => node.type === 'button' && String(node.props.className).split(' ').includes('xls-tab') && textOf(node).startsWith('问问'))[0];
+  if (!askTab) throw new Error('Community question tab missing');
+  clickNode(petTree, askTab); await renderPet();
+  const askInput = findNodes(mainPane('community'), node => node.props.className === 'xls-search xls-askinput')[0];
+  if (!askInput) throw new Error('Community question draft missing');
+  askInput.props.onChange?.({ target: { value: '尚未发送的问题草稿' } }); await renderPet(); await openMainSocial(); await socialClick('back');
+  check('the original community tab and unsent question survive a settings round trip', findNodes(mainPane('community'), node =>
+    node.props.className === 'xls-search xls-askinput')[0]?.props.value === '尚未发送的问题草稿' && socialWrites().length === beforeRoundTripWrites);
+  const feedTab = findNodes(mainPane('community'), node => node.type === 'button' && String(node.props.className).split(' ').includes('xls-tab') && textOf(node) === '广场')[0];
+  if (!feedTab) throw new Error('Community feed tab missing');
+  clickNode(petTree, feedTab); await renderPet();
+  const noteTitle = findNodes(mainPane('community'), node => node.props['data-open-post'] === 'p1')[0];
+  if (!noteTitle) throw new Error('Retained note fixture missing');
+  clickNode(petTree, noteTitle); await renderPet();
+  const retainedReply = () => {
+    const input = findNodes(mainPane('community'), node => node.props.className === 'xls-replyInput')[0];
+    if (!input) throw new Error('Retained reply input missing');
+    return input;
+  };
+  const retainedReplySend = () => {
+    const send = findNodes(mainPane('community'), node => node.type === 'button' && node.props['data-action'] === 'reply')[0];
+    if (!send) throw new Error('Retained reply send missing');
+    return send;
+  };
+  retainedReply().props.onChange?.({ target: { value: '切到设置之后也不能丢失的详情回复' } }); await renderPet();
+  const externalSocialNavigation = findNodes(mainPane('community'), node => node.props['data-community-action'] === 'social')[0]?.props.onClick;
+  // The companion can route while a note is open. Invoke the shared navigation
+  // callback rather than pretending a pointer can click through a modal mask.
+  externalSocialNavigation?.({ target: {}, preventDefault() {}, stopPropagation() {} }); await renderPet();
+  const retainedNote = findNodes(mainPane('community'), node => node.props.role === 'dialog')[0];
+  check('inactive note state stays mounted without a visible dialog, focus trap or global Escape listener', !!retainedNote
+    && domFor(retainedNote).getClientRects().length === 0 && !domFor(mainPane('community')!).contains(fakeWindow.document!.activeElement)
+    && (windowListeners.get('keydown')?.size || 0) === 0);
+  await socialClick('back');
+  check('returning from settings preserves the note reply and restores focus only in the visible pane', retainedReply().props.value === '切到设置之后也不能丢失的详情回复'
+    && domFor(mainPane('community')!).contains(fakeWindow.document!.activeElement)
+    && (windowListeners.get('keydown')?.size || 0) === 1);
+  let releaseRetainedReply: ((value: TestFetchResponse) => void) | undefined;
+  replyFetch = () => new Promise(resolve => { releaseRetainedReply = resolve; });
+  const replyCountBeforeSwitch = callLog.filter(call => call.path === '/api/reply').length;
+  clickNode(petTree, retainedReplySend()); await renderPet();
+  externalSocialNavigation?.({ target: {}, preventDefault() {}, stopPropagation() {} }); await renderPet(); await socialClick('back');
+  clickNode(petTree, retainedReplySend()); keyNode(petTree, retainedReply(), 'Enter'); await renderPet();
+  check('a pending reply retains its in-flight guard across settings navigation without a duplicate submission', callLog.filter(call => call.path === '/api/reply').length === replyCountBeforeSwitch + 1
+    && retainedReplySend().props.disabled === true);
+  if (!releaseRetainedReply) throw new Error('Retained reply was not actually pending');
+  releaseRetainedReply(testResponse({ ok: false }, 503)); await renderPet(); replyFetch = null;
+  check('a failed reply after a settings round trip preserves its draft for retry', retainedReply().props.value === '切到设置之后也不能丢失的详情回复'
+    && retainedReplySend().props.disabled === false && findNodes(mainPane('community'), node => node.props.className === 'xls-replyError').length === 1);
+
+  unmountTestTree(); socialHost = socialFixture(); installSocialFixture(); petTree = await mountMain();
+  const feedCalls = () => callLog.filter(call => call.path === '/api/feed').length;
+  const initialFeedCalls = feedCalls(), inactiveSocialCalls = socialCalls().length;
+  await advancePet(8000);
+  check('only the active community page performs its eight-second feed refresh', feedCalls() === initialFeedCalls + 1
+    && socialCalls().length === inactiveSocialCalls);
+  let resolveHiddenFeed: ((value: TestFetchResponse) => void) | null = null;
+  feedFetch = () => new Promise(resolve => { resolveHiddenFeed = resolve; });
+  await advancePet(8000); await openMainSocial();
+  const feedsWhileInactive = feedCalls(), socialWhileActive = socialCalls().length, writesWhileSwitching = socialWrites().length;
+  await advancePet(16000);
+  check('switching to settings stops inactive feed polling while refreshing only active settings', feedCalls() === feedsWhileInactive
+    && socialCalls().length > socialWhileActive && socialWrites().length === writesWhileSwitching);
+  const staleFeed = structuredClone(feed); staleFeed.posts[0]!.title = 'STALE_INACTIVE_COMMUNITY_RESPONSE';
+  const hiddenFeedResolver = resolveHiddenFeed as ((value: TestFetchResponse) => void) | null;
+  if (!hiddenFeedResolver) throw new Error('Inactive feed request was not actually held');
+  hiddenFeedResolver(testResponse(staleFeed)); await renderPet();
+  check('a late response from the inactive community cannot alter its retained content', !textOf(mainPane('community')).includes('STALE_INACTIVE_COMMUNITY_RESPONSE'));
+  feedFetch = null; await socialEdit('intervalMinutes', '85'); holdSocialGet = true; await advancePet(4000);
+  const inactiveSettingsSignal = heldSocial.signal, staleSave = socialAction('save').props.onClick;
+  await socialClick('back'); const socialWhileInactive = socialCalls().length;
+  staleSave?.({ target: {}, preventDefault() {}, stopPropagation() {} }); await renderPet(); await advancePet(8000);
+  check('inactive settings aborts its pending read, disables writes and ignores captured save callbacks', inactiveSettingsSignal?.aborted === true
+    && socialCalls().length === socialWhileInactive && socialWrites().length === writesWhileSwitching && socialAction('save').props.disabled === true
+    && findNodes(petTree, node => node.props['data-social-settings'] !== undefined && String(node.props['data-active']) === 'false').length === 1);
+  const inactiveSnapshot = socialFixture(); inactiveSnapshot.local.settings.intervalMinutes = 999;
+  heldSocial.resolve?.(testResponse(inactiveSnapshot)); await renderPet(); await openMainSocial();
+  check('reactivation refreshes settings without accepting an old response or overwriting the edit', socialField('intervalMinutes').props.value === '85'
+    && socialCalls().length === socialWhileInactive + 1 && socialWrites().length === writesWhileSwitching);
+  await socialClick('back');
+  const beforeLegacyRead = socialCalls().length;
+  unmountTestTree(); lastRoot = FakeReact.createElement(components['xiaolanshu-social']!, {}); await renderPet();
+  check('the old settings alias only redirects to the shared root without mounting another settings instance', selectedPanels.at(-1) === 'xiaolanshu'
+    && findNodes(petTree, node => node.props['data-social-settings'] !== undefined).length === 0 && socialCalls().length === beforeLegacyRead);
+  unmountTestTree(); lastRoot = FakeReact.createElement(components.xiaolanshu!, {}); await renderPet();
+  check('the compatibility redirect opens exactly one active settings instance in the root', findNodes(petTree, node => node.props['data-main-section'] === 'social').length === 1
+    && findNodes(petTree, node => node.props['data-social-settings'] !== undefined && String(node.props['data-active']) === 'true').length === 1
+    && [...petTimers.values()].filter(timer => timer.interval === null && timer.due === petClock + 4000).length === 1);
+  await socialClick('back');
+  const navigationAfterUnmount = findNodes(mainPane('community'), node => node.props['data-community-action'] === 'social')[0]?.props.onClick;
+  unmountTestTree(); dirty = false; navigationAfterUnmount?.({ target: {}, preventDefault() {}, stopPropagation() {} });
+  check('unmounting the root unsubscribes its shared-view listener before later navigation', !dirty && petTimers.size === 0);
+} catch (caught) {
+  check('single-panel settings navigation completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+} finally {
+  unmountTestTree(); socialFetch = null; feedFetch = null; replyFetch = null; companionFetch = null; Date.now = actualNow;
+}
 
 
 console.log('');

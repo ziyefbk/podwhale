@@ -133,6 +133,7 @@ interface ClientPostCardProps {
   onTag?: ((tag: string) => void) | undefined; onAuthor?: ((ownerId: string) => void) | undefined;
 }
 interface ClientPostSheetProps {
+  active: boolean;
   post: ClientPost; comments?: ClientComment[]; liked: boolean; saved: boolean; count: number; canDelete: boolean; canReact?: boolean;
   onComment(id: string, text: string): Promise<boolean>; onClose(): void; onLike(post: ClientPost): void;
   onSave(post: ClientPost): void; onDelete(post: ClientPost): void; onTag(tag: string): void;
