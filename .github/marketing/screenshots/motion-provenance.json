@@ -1,0 +1,78 @@
+{
+  "purpose": "Podwhale 0.1.9 鲸鱼娘动作优化的真实运行预览",
+  "captureKind": "fixed-viewport-clip-native-ui-frames",
+  "package": {
+    "name": "podwhale",
+    "version": "0.1.9",
+    "sha256": "23169fdc616e5a0dba46402c2c1ae5cea11b9cb85fbb9f7db339abb208760cc0",
+    "unmodified": true,
+    "privateArtwork": false
+  },
+  "runtime": "official DSH 0.2.2-rc.1, separate clean configured and unselected-model profiles",
+  "sourceCaptureId": "pet-motion-native-accept-RAM4Ay",
+  "syntheticAccounts": true,
+  "realUserConfigRead": false,
+  "productionRequests": false,
+  "realModelProviderRequests": 0,
+  "realWechatRequests": 0,
+  "domPresentationOverrides": false,
+  "newArtwork": false,
+  "publicArtwork": {
+    "artworkId": "bundled-v1",
+    "uniqueFramesPerAction": 4,
+    "source": "pet-provenance.json",
+    "unchanged": true
+  },
+  "nativeAcceptance": {
+    "normalGates": 305,
+    "unconfiguredGates": 58,
+    "motionGates": 26,
+    "visualCases": 66,
+    "uncaughtExceptions": 0,
+    "consoleErrors": 0
+  },
+  "publishedAnimations": [
+    {
+      "publishedFile": "whale-motion.gif",
+      "sourceScene": "whale-motion",
+      "width": 320,
+      "height": 280,
+      "sourceFrames": 88,
+      "encodedFrames": 88,
+      "captureRequestDurationMs": 7348.003400000001,
+      "encodedDurationSeconds": 7.28,
+      "bytes": 575568,
+      "sha256": "305aee7f64604e8183e65b89196285404a8570c780b0c71280f330b6911c603c",
+      "fixedClip": {
+        "x": 1280,
+        "y": 708,
+        "width": 320,
+        "height": 280,
+        "scale": 1
+      },
+      "nativeInputs": [
+        {
+          "input": "native pointer enter",
+          "ms": 1516.513199999994
+        },
+        {
+          "input": "DOM focus after pointer entry",
+          "ms": 1546.2849999999962
+        },
+        {
+          "input": "native pointer leaves; focus retained",
+          "ms": 2963.5444999999963
+        },
+        {
+          "input": "native ArrowLeft keyDown/keyUp",
+          "ms": 4080.0376999999935
+        }
+      ],
+      "processing": "原始固定区域截图按捕获请求时间间隔编码；仅 GIF 调色板量化，不做插帧、重绘或跟拍。GIF 时间单位产生少量时长舍入。",
+      "timestampSemantics": "native CDP capture request start; completion bound retained in original audit",
+      "rawFramesPreserved": true,
+      "orderedFrameHashesSha256": "5fb0f7db670d42e8a2b6ecf363b19e164d1d93700af7220dffa842eedca5c6e3",
+      "description": "待机微呼吸、一次挥手后回待机，以及真实方向键移动；原有四帧素材不变。"
+    }
+  ]
+}

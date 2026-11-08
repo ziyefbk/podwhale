@@ -7,11 +7,14 @@ window.__ModuleLoader__.load({
         const useState = React.useState;
         const useMemo = React.useMemo;
         const useEffect = React.useEffect;
+        const useLayoutEffect = React.useLayoutEffect;
         const useSyncExternalStore = React.useSyncExternalStore;
         const useRef = React.useRef;
         const NS = 'xiaolanshu';
         /** Bumped on every visible change; the panel footer prints it. */
-        const BUILD = '0.1.8';
+        const BUILD = '0.1.9';
+        const PET_MOVE_MS = 840;
+        const PET_BLEND_MS = 100;
         // ---------------------------------------------------------------- texts
         const ZH = {
             'nav.label': '鲸群',
@@ -938,9 +941,22 @@ window.__ModuleLoader__.load({
 .xls-note-when{flex:none;font-size:10.5px;color:var(--dsw-alias-label-secondary);}
 .xls-zzz{position:absolute;top:-12px;right:-2px;font-size:10.5px;letter-spacing:1px;color:var(--dsw-alias-label-secondary);opacity:.85;pointer-events:none;}
 .xls-doze{transform:rotate(-5deg) scale(.97);filter:grayscale(.2) brightness(.94);transition:transform .6s ease,filter .6s ease;}
-.xls-pet{position:fixed;right:24px;bottom:96px;z-index:30;display:flex;align-items:center;justify-content:center;width:112px;height:112px;border-radius:50%;cursor:grab;touch-action:none;pointer-events:auto;user-select:none;transition:left .9s ease,top .9s ease;background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.22),transparent 70%);filter:drop-shadow(0 8px 16px rgba(20,26,46,.25));}
+.xls-pet{position:fixed;right:24px;bottom:96px;z-index:30;display:flex;align-items:center;justify-content:center;width:112px;height:112px;border-radius:50%;cursor:grab;touch-action:none;pointer-events:auto;user-select:none;transition:left ${PET_MOVE_MS}ms cubic-bezier(.22,.61,.36,1),top ${PET_MOVE_MS}ms cubic-bezier(.22,.61,.36,1);background:radial-gradient(circle at 50% 62%,rgba(110,139,255,.22),transparent 70%);filter:drop-shadow(0 8px 16px rgba(20,26,46,.25));}
 .xls-pet.drag{transition:none;cursor:grabbing;}
 .xls-pet-sprite{display:block;width:112px;height:112px;background-repeat:no-repeat;pointer-events:none;}
+.xls-pet-visual{display:block;position:relative;width:112px;height:112px;pointer-events:none;}
+.xls-pet-visual .xls-pet-sprite{transform-origin:50% 88%;}
+.xls-pet-previous{position:absolute;inset:0;display:block;width:112px;height:112px;background-repeat:no-repeat;pointer-events:none;animation:xls-pet-handoff ${PET_BLEND_MS}ms ease-out both;}
+.xls-pet-visual[data-motion="idle"][data-still="false"] .xls-pet-sprite{animation:xls-pet-breathe 4.8s ease-in-out infinite;}
+.xls-pet-visual[data-motion="walk"][data-still="false"] .xls-pet-sprite{animation:xls-pet-step .28s linear infinite;}
+.xls-pet-visual[data-motion="wave"][data-still="false"] .xls-pet-sprite{animation:xls-pet-greet 1.16s ease-out;}
+.xls-pet-visual[data-motion="think"][data-still="false"] .xls-pet-sprite{animation:xls-pet-ponder 3.6s ease-in-out infinite;}
+.xls-pet-visual[data-motion="talk"][data-still="false"] .xls-pet-sprite{animation:xls-pet-ponder .9s ease-in-out infinite;}
+@keyframes xls-pet-breathe{0%,100%{transform:translateY(0) scale(1)}45%{transform:translateY(-.7px) scale(1.006,1.012)}}
+@keyframes xls-pet-step{0%,50%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-1.8px) rotate(-.8deg)}75%{transform:translateY(-1.8px) rotate(.8deg)}}
+@keyframes xls-pet-greet{0%,100%{transform:rotate(0)}30%{transform:rotate(-1.8deg)}65%{transform:rotate(.8deg)}}
+@keyframes xls-pet-ponder{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-.8px) rotate(.6deg)}}
+@keyframes xls-pet-handoff{from{opacity:1}to{opacity:0}}
 .xls-pet:focus-visible{outline:2px solid #5385e8;outline-offset:4px;}
 .xls-pet[data-still="true"] *{animation:none!important;transition:none!important;}
 .xls-pet-bubble{position:absolute;right:114px;top:0;width:max-content;max-width:min(190px,45vw);padding:7px 10px;border-radius:12px;background:var(--dsw-alias-bg-layer-1,#fff);border:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:11.5px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.22);animation:xls-pop .22s ease-out;pointer-events:none;}
@@ -966,7 +982,8 @@ window.__ModuleLoader__.load({
 .xls-chat-message.mine{align-self:flex-end;background:var(--chat-accent);border-color:transparent;color:#fff;border-radius:18px 18px 6px 18px;}
 .xls-chat-empty{margin:auto 0;padding:12px 0;display:flex;flex-direction:column;align-items:center;text-align:center;}
 .xls-chat-portrait{width:88px;height:88px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--chat-tint);}
-.xls-chat-portrait>*{max-width:100%;max-height:100%;}
+.xls-chat-portrait>*{max-width:100%;max-height:100%;transform-origin:50% 88%;animation:xls-pet-breathe 4.8s ease-in-out infinite;}
+.xls-chat[data-still="true"] .xls-chat-portrait>*{animation:none;}
 .xls-chat-greeting{margin:13px 0 6px;font-size:18px;line-height:1.4;font-weight:700;text-wrap:balance;}
 .xls-chat-intro{margin:0;max-width:255px;color:var(--chat-muted);font-size:13px;line-height:1.7;text-wrap:balance;}
 .xls-chat-prompts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:17px;}
@@ -999,7 +1016,7 @@ window.__ModuleLoader__.load({
 .xls-chat-typingDot{width:5px;height:5px;background:var(--chat-muted);border-radius:50%;animation:xls-chat-pulse 1.2s ease-in-out infinite;}
 @keyframes xls-chat-pulse{0%,70%,100%{opacity:.35;}35%{opacity:1;}}
 .xls-chat-srOnly{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
-@media(prefers-reduced-motion:reduce){.xls-chat-typingDot{animation:none;}}
+@media(prefers-reduced-motion:reduce){.xls-chat-typingDot,.xls-chat-portrait>*,.xls-pet-visual .xls-pet-sprite,.xls-pet-previous{animation:none;}}
 @container companion-chat (max-height:275px){.xls-chat-empty{padding:4px 0;}.xls-chat-portrait{width:64px;height:64px;}.xls-chat-greeting{font-size:16px;margin:9px 0 4px;}.xls-chat-intro{display:none;}.xls-chat-prompts{margin-top:10px;}}
 @container companion-chat (max-height:190px){.xls-chat-portrait{display:none;}.xls-chat-greeting{margin-top:0;}.xls-chat-prompts{margin-top:8px;}}
 @media(max-width:600px){.xls-chat{right:16px;bottom:16px;height:min(552px,calc(100dvh - 80px));}}
@@ -1662,10 +1679,16 @@ window.__ModuleLoader__.load({
         };
         const PET_ACTIONS = ['idle', 'wave', 'happy', 'sleep', 'think', 'drag',
             'read', 'write', 'talk', 'walk', 'stretch', 'surprised'];
-        /** Only the overlay animates the bundled atlases; other portraits stay still. */
+        const petCycleMs = (action) => PET_MOTIONS[action].durationMs.reduce((sum, duration) => sum + duration, 0);
+        const petPreviewMs = (action) => {
+            const cycle = petCycleMs(action);
+            return Math.max(1, Math.round(4500 / cycle)) * cycle;
+        };
+        /** Sprite timing stays local; transforms never move the pointer/focus target. */
         function PetArtwork(props) {
             const [available, setAvailable] = useState(false);
-            const [frame, setFrame] = useState(0);
+            const [pose, setPose] = useState({ action: props.action, frame: 0 });
+            const [previous, setPrevious] = useState(null);
             useEffect(() => {
                 setAvailable(false);
                 if (props.look.shape !== 'girl')
@@ -1695,31 +1718,45 @@ window.__ModuleLoader__.load({
                 });
                 return () => { alive = false; images.forEach((image) => { image.onload = null; image.onerror = null; }); };
             }, [props.look.shape]);
-            useEffect(() => {
-                setFrame(0);
-                if (!available || props.still || props.look.shape !== 'girl')
+            useLayoutEffect(() => {
+                setPose({ action: props.action, frame: 0 });
+                if (!available || props.still || props.look.shape !== 'girl') {
+                    setPrevious(null);
                     return;
+                }
+                let handoff;
+                if (pose.action !== props.action) {
+                    setPrevious(pose);
+                    handoff = window.setTimeout(() => setPrevious(null), PET_BLEND_MS);
+                }
+                else
+                    setPrevious(null);
                 const motion = PET_MOTIONS[props.action];
                 let step = 0;
                 let timer;
                 const advance = () => {
                     step = (step + 1) % motion.sequence.length;
-                    setFrame(motion.sequence[step] ?? 0);
+                    setPose({ action: props.action, frame: motion.sequence[step] ?? 0 });
                     timer = window.setTimeout(advance, motion.durationMs[step] ?? 1000);
                 };
                 timer = window.setTimeout(advance, motion.durationMs[0] ?? 1000);
-                return () => window.clearTimeout(timer);
-            }, [available, props.action, props.still, props.look.shape]);
+                return () => { window.clearTimeout(timer); if (handoff !== undefined)
+                    window.clearTimeout(handoff); };
+            }, [available, props.action, props.still, props.look.shape, props.restart]);
             if (!available || props.look.shape !== 'girl')
                 return h(Portrait, { look: props.look, size: PET_SIZE });
-            const motion = PET_MOTIONS[props.action], atlas = PET_ATLASES[motion.atlas];
-            const visibleFrame = props.still ? 0 : frame;
-            return h('span', {
-                className: 'xls-pet-sprite', 'aria-hidden': true,
+            const artwork = (action, frame) => {
+                const motion = PET_MOTIONS[action], atlas = PET_ATLASES[motion.atlas];
+                return { backgroundImage: 'url("' + atlas.url + '")', backgroundSize: '400% ' + (atlas.rows * 100) + '%',
+                    backgroundPosition: (frame / 3 * 100) + '% ' + (motion.row / (atlas.rows - 1) * 100) + '%' };
+            };
+            const visibleFrame = props.still || pose.action !== props.action ? 0 : pose.frame;
+            return h('span', { className: 'xls-pet-visual', 'data-motion': props.action, 'data-still': String(props.still) }, h('span', {
+                className: 'xls-pet-sprite', key: props.action + ':' + props.restart, 'aria-hidden': true,
                 'data-pet-artwork': 'bundled-v1', 'data-pet-action': props.action, 'data-pet-frame': visibleFrame,
-                style: { backgroundImage: 'url("' + atlas.url + '")', backgroundSize: '400% ' + (atlas.rows * 100) + '%',
-                    backgroundPosition: (visibleFrame / 3 * 100) + '% ' + (motion.row / (atlas.rows - 1) * 100) + '%' },
-            });
+                style: artwork(props.action, visibleFrame),
+            }), previous && !props.still ? h('span', { className: 'xls-pet-previous', 'data-pet-layer': 'outgoing',
+                'aria-hidden': true, style: artwork(previous.action, previous.frame) }) : null);
         }
         function clampPetPosition(value) {
             const maxX = Math.max(0, window.innerWidth - PET_SIZE - 8);
@@ -1735,9 +1772,11 @@ window.__ModuleLoader__.load({
             const [reduced, setReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
             const [hidden, setHidden] = useState(() => document.hidden);
             const [sleepy, setSleepy] = useState(false);
-            const [thinking, setThinking] = useState(false);
+            const [thinking, setThinking] = useState(0);
             const [happy, setHappy] = useState(false);
             const [walking, setWalking] = useState(0);
+            const [greeting, setGreeting] = useState(false);
+            const [ambient, setAmbient] = useState(false);
             const [note, setNote] = useState(null);
             // Keep the existing storage key and CSS corner anchor when no valid spot exists.
             const [pos, setPos] = useState(() => {
@@ -1756,13 +1795,15 @@ window.__ModuleLoader__.load({
             const lastTouch = useRef(Date.now());
             const lastSeen = useRef(null);
             const activityInitialized = useRef(false);
+            const greeted = useRef(false);
+            const engaged = hovered || focused;
             posRef.current = pos;
             const wake = () => { lastTouch.current = Date.now(); setSleepy(false); };
             const position = (value, forceSave = false, animateWalk = false) => {
                 const next = clampPetPosition(value);
                 const rect = el.current?.getBoundingClientRect();
                 const previous = posRef.current || (rect ? { x: rect.left, y: rect.top } : null);
-                if (animateWalk && previous && (next.x !== previous.x || next.y !== previous.y))
+                if (animateWalk && !reduced && !hidden && previous && (next.x !== previous.x || next.y !== previous.y))
                     setWalking((value) => value + 1);
                 posRef.current = next;
                 setPos(next);
@@ -1776,13 +1817,22 @@ window.__ModuleLoader__.load({
             };
             useEffect(() => {
                 const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-                const motionChange = () => setReduced(media.matches);
+                const motionChange = () => {
+                    setReduced(media.matches);
+                    if (media.matches) {
+                        setWalking(0);
+                        setGreeting(false);
+                        setAmbient(false);
+                    }
+                };
                 const visibilityChange = () => {
                     setHidden(document.hidden);
                     if (document.hidden) {
-                        setThinking(false);
+                        setThinking(0);
                         setHappy(false);
                         setWalking(0);
+                        setGreeting(false);
+                        setAmbient(false);
                         setNote(null);
                         const held = drag.current;
                         drag.current = null;
@@ -1794,8 +1844,10 @@ window.__ModuleLoader__.load({
                 const resize = () => {
                     const rect = el.current?.getBoundingClientRect();
                     const current = posRef.current || (rect && rect.width > 0 ? { x: rect.left, y: rect.top } : null);
-                    if (current)
+                    if (current) {
+                        setWalking(0);
                         position(current, true);
+                    }
                 };
                 media.addEventListener('change', motionChange);
                 document.addEventListener('visibilitychange', visibilityChange);
@@ -1816,23 +1868,23 @@ window.__ModuleLoader__.load({
                 return () => { alive = false; };
             }, []);
             useEffect(() => {
-                if (hidden || props.chatting || props.generating) {
+                if (hidden || props.chatting || props.generating || engaged || dragging) {
                     setSleepy(false);
                     return;
                 }
                 const timer = window.setInterval(() => setSleepy(!drag.current && Date.now() - lastTouch.current >= 60000), 1000);
                 return () => window.clearInterval(timer);
-            }, [hidden, props.chatting, props.generating]);
+            }, [hidden, props.chatting, props.generating, engaged, dragging]);
             useEffect(() => {
                 if (!thinking)
                     return;
-                const timer = window.setTimeout(() => setThinking(false), 4000);
+                const timer = window.setTimeout(() => setThinking(0), 4000);
                 return () => window.clearTimeout(timer);
             }, [thinking]);
             useEffect(() => {
                 if (!walking)
                     return;
-                const timer = window.setTimeout(() => setWalking(0), 400);
+                const timer = window.setTimeout(() => setWalking(0), PET_MOVE_MS);
                 return () => window.clearTimeout(timer);
             }, [walking]);
             useEffect(() => {
@@ -1934,13 +1986,52 @@ window.__ModuleLoader__.load({
                 else if (event.key.toLowerCase() === 't' && !event.ctrlKey && !event.altKey && !event.metaKey) {
                     event.preventDefault();
                     wake();
-                    setThinking(true);
+                    if (!event.repeat)
+                        setThinking((value) => value + 1);
                 }
             };
+            // A visit gets one greeting. Overlapping pointer/focus does not restart it.
+            useEffect(() => {
+                if (!engaged) {
+                    greeted.current = false;
+                    setGreeting(false);
+                    return;
+                }
+                if (hidden || reduced || dragging || walking || props.chatting || props.generating || props.manualAction || props.feedback || thinking || happy) {
+                    greeted.current = true;
+                    setGreeting(false);
+                    return;
+                }
+                if (greeted.current)
+                    return;
+                greeted.current = true;
+                setGreeting(true);
+                const timer = window.setTimeout(() => setGreeting(false), petCycleMs('wave'));
+                return () => window.clearTimeout(timer);
+            }, [engaged, hidden, reduced, dragging, walking, props.chatting, props.generating, props.manualAction, props.feedback, thinking, happy]);
+            // Stretching is a local idle gesture, never a claim of reading or posting.
+            const quiet = !hidden && !reduced && !sleepy && !engaged && !dragging && !props.chatting && !props.generating
+                && !props.manualAction && !props.feedback && !thinking && !happy;
+            useEffect(() => {
+                if (!quiet) {
+                    setAmbient(false);
+                    return;
+                }
+                if (ambient)
+                    return;
+                const timer = window.setTimeout(() => setAmbient(true), 32000);
+                return () => window.clearTimeout(timer);
+            }, [quiet, ambient]);
+            useEffect(() => {
+                if (!ambient || walking)
+                    return;
+                const timer = window.setTimeout(() => setAmbient(false), petCycleMs('stretch'));
+                return () => window.clearTimeout(timer);
+            }, [ambient, walking]);
             // Drift never fights the user's pointer/focus, sleeping, or motion preferences.
             useEffect(() => {
                 if (hidden || reduced || sleepy || focused || hovered || props.chatting || props.generating
-                    || props.manualAction || props.feedback || thinking || happy)
+                    || props.manualAction || props.feedback || thinking || happy || ambient)
                     return;
                 const timer = window.setInterval(() => {
                     if (drag.current || document.hidden)
@@ -1951,14 +2042,16 @@ window.__ModuleLoader__.load({
                         position({ x: base.x + (Math.random() - 0.5) * 90, y: base.y + (Math.random() - 0.5) * 60 }, false, true);
                 }, 7000);
                 return () => window.clearInterval(timer);
-            }, [hidden, reduced, sleepy, focused, hovered, props.chatting, props.generating, props.manualAction, props.feedback, thinking, happy]);
+            }, [hidden, reduced, sleepy, focused, hovered, props.chatting, props.generating, props.manualAction, props.feedback, thinking, happy, ambient]);
             const action = dragging ? 'drag' : props.generating ? 'think' : props.feedback || (happy ? 'happy' : null)
                 || props.manualAction || (thinking ? 'think' : null) || (walking ? 'walk' : null)
-                || (hovered || focused ? 'wave' : sleepy ? 'sleep' : 'idle');
+                || (greeting && engaged && !hidden && !reduced ? 'wave' : ambient && quiet ? 'stretch' : sleepy ? 'sleep' : 'idle');
+            const restart = dragging || props.generating ? 0 : props.feedback ? props.feedbackNonce || 0
+                : happy ? note?.id || 0 : props.manualAction ? props.manualNonce || 0 : thinking;
             return h('div', {
                 className: 'xls-pet' + (dragging ? ' drag' : ''), ref: el,
                 style: { ...(pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' } : {}),
-                    transition: reduced || hidden ? 'none' : undefined },
+                    transition: reduced || hidden || dragging || !walking ? 'none' : undefined },
                 'data-pet-action': action, 'data-still': String(reduced || hidden),
                 onPointerDown: down, onPointerMove: move, onPointerUp: (event) => release(event, false),
                 onPointerCancel: (event) => release(event, true),
@@ -1966,7 +2059,7 @@ window.__ModuleLoader__.load({
                 onPointerEnter: () => { wake(); setHovered(true); }, onPointerLeave: () => setHovered(false),
                 onFocus: () => { wake(); setFocused(true); }, onBlur: () => setFocused(false), onKeyDown: keyboard,
                 tabIndex: 0, title: tr('pet.title'), role: 'button', 'aria-label': tr('pet.title'),
-            }, note ? h('div', { className: 'xls-pet-bubble', role: 'status' }, note.text) : null, action === 'sleep' ? h('div', { className: 'xls-zzz', 'aria-hidden': true }, 'z z z') : null, h('div', { className: action === 'sleep' ? 'xls-doze' : undefined }, h(PetArtwork, { look, action, still: reduced || hidden })));
+            }, note ? h('div', { className: 'xls-pet-bubble', role: 'status' }, note.text) : null, action === 'sleep' ? h('div', { className: 'xls-zzz', 'aria-hidden': true }, 'z z z') : null, h('div', { className: action === 'sleep' ? 'xls-doze' : undefined }, h(PetArtwork, { look, action, still: reduced || hidden, restart })));
         }
         const COMPANION_API = '/xiaolanshu/api/companion';
         function companionRecord(value) {
@@ -2218,7 +2311,7 @@ window.__ModuleLoader__.load({
                 : job?.state === 'generating' ? tr('chat.generating') : job?.state === 'preparing' ? tr('chat.preparing')
                     : job?.state === 'failed' ? tr('chat.failed') : job?.state === 'cancelled' ? tr('chat.cancelled') : '';
             return h('section', { className: 'xls-chat', role: 'dialog', 'aria-modal': false, 'aria-labelledby': 'xls-chat-title',
-                'data-companion-state': job?.state || 'idle',
+                'data-companion-state': job?.state || 'idle', 'data-still': String(hidden),
                 onPointerDown: (event) => {
                     const target = event.target;
                     if (panel && !target?.closest?.('[data-chat-panel], [data-chat-action="more"], [data-chat-action="actions"]'))
@@ -2277,7 +2370,7 @@ window.__ModuleLoader__.load({
             useEffect(() => {
                 if (!manual)
                     return;
-                const timer = window.setTimeout(() => setManual(null), 4500);
+                const timer = window.setTimeout(() => setManual(null), petPreviewMs(manual.action));
                 return () => window.clearTimeout(timer);
             }, [manual]);
             useEffect(() => {
@@ -2299,7 +2392,8 @@ window.__ModuleLoader__.load({
             const close = () => { setOpen(false); setFeedback(null); document.querySelector('.xls-pet')?.focus(); };
             // Overlay styling must work before the community panel has ever mounted.
             return h(React.Fragment, null, h('style', null, CSS), h(Pet, { onOpen: () => setOpen(true), chatting: open, generating: open && generating,
-                manualAction: manual?.action || null, feedback: feedback?.action || null }), h(CompanionChat, { open, onClose: close, onGenerating: setGenerating, manualAction: manual?.action || null,
+                manualAction: manual?.action || null, manualNonce: manual?.nonce || 0,
+                feedback: feedback?.action || null, feedbackNonce: feedback?.nonce || 0 }), h(CompanionChat, { open, onClose: close, onGenerating: setGenerating, manualAction: manual?.action || null,
                 onManualAction: (action) => {
                     if (!document.hidden)
                         setManual(action ? { action, nonce: ++expressionSerial.current } : null);

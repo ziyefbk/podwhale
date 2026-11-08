@@ -148,6 +148,7 @@ const FakeReact = {
   useState,
   useMemo,
   useEffect,
+  useLayoutEffect: useEffect,
   useRef,
   useSyncExternalStore: <T,>(_subscribe: (callback: () => void) => () => void, snapshot: () => T): T => snapshot(),
   useCallback: <T,>(fn: T): T => fn,
@@ -993,6 +994,8 @@ function petNode() {
   return node;
 }
 function petSprite() { return findNodes(petTree, (node) => node.props.className === 'xls-pet-sprite')[0]; }
+function petOutgoing() { return findNodes(petTree, node => node.props['data-pet-layer'] === 'outgoing'); }
+function petVisual() { return findNodes(petTree, node => node.props.className === 'xls-pet-visual')[0]; }
 async function petPointer(name: 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel' | 'onLostPointerCapture', x: number, y: number, id = 1, button = 0) {
   petNode().props[name]?.({ button, pointerId: id, clientX: x, clientY: y, currentTarget: petTarget, preventDefault() {} });
   await renderPet();
@@ -1084,7 +1087,7 @@ try {
   await petKey('t');
   check('T while focused visibly selects the local think expression', petSprite()?.props['data-pet-action'] === 'think');
   await advancePet(4000);
-  check('the explicit local expression expires back to focus wave', petSprite()?.props['data-pet-action'] === 'wave');
+  check('an explicit expression returns to idle without replaying an interrupted greeting', petSprite()?.props['data-pet-action'] === 'idle');
   petNode().props.onBlur?.(); await renderPet();
   const beforeOpen = selectedPanels.length;
   await petPointer('onPointerDown', 1210, 650);
@@ -1141,7 +1144,7 @@ try {
   check('sleeping prevents idle wandering', store.get('xlb-pet-pos') === asleepPosition);
   petNode().props.onFocus?.(); await renderPet();
   await advancePet(60000);
-  check('focus keeps waving without sleep decoration after the idle deadline', petSprite()?.props['data-pet-action'] === 'wave'
+  check('continued focus stays quietly idle without replaying a greeting or falling asleep', petSprite()?.props['data-pet-action'] === 'idle'
     && findNodes(petTree, (node) => node.props.className === 'xls-zzz' || node.props.className === 'xls-doze').length === 0);
   petNode().props.onBlur?.(); await renderPet();
   fakeWindow.document!.hidden = true;
@@ -1155,11 +1158,11 @@ try {
   fakeWindow.document!.hidden = true;
   documentListeners.get('visibilitychange')?.forEach((fn) => fn()); await renderPet();
   check('hiding during think clears every timer and the transient expression', petTimers.size === 0
-    && petSprite()?.props['data-pet-action'] === 'wave' && petSprite()?.props['data-pet-frame'] === 0);
+    && petSprite()?.props['data-pet-action'] === 'idle' && petSprite()?.props['data-pet-frame'] === 0);
   fakeWindow.document!.hidden = false;
   documentListeners.get('visibilitychange')?.forEach((fn) => fn()); await renderPet(); await advancePet(180);
-  check('visibility restoration resumes normal focus animation without replaying think', petSprite()?.props['data-pet-action'] === 'wave'
-    && petSprite()?.props['data-pet-frame'] === 1);
+  check('visibility restoration does not replay the old greeting or interrupted think', petSprite()?.props['data-pet-action'] === 'idle'
+    && petSprite()?.props['data-pet-frame'] === 0);
   await mountPet();
   routes['/api/activity'] = { items: [{ id: 'pet-hidden-new', kind: 'reply', title: '隐藏前的新互动' }] };
   await advancePet(45000);
@@ -1265,6 +1268,106 @@ check('pet unmount clears all its timers, image handlers and listeners', petTime
   && petImages.every((image) => image.onload === null && image.onerror === null)
   && motionListeners.size === 0 && [...windowListeners.values()].every((listeners) => listeners.size === 0)
   && [...documentListeners.values()].every((listeners) => listeners.size === 0));
+
+const actualRandom = Math.random;
+try {
+  Date.now = () => petClock;
+  Math.random = () => 0.75;
+  await mountPet(); await advancePet(2600);
+  petNode().props.onPointerEnter?.(); await renderPet();
+  check('an action change preserves one outgoing pose without duplicating the live sprite', petOutgoing().length === 1
+    && findNodes(petTree, node => node.props.className === 'xls-pet-sprite').length === 1
+    && petSprite()?.props['data-pet-action'] === 'wave' && petSprite()?.props['data-pet-frame'] === 0);
+  await advancePet(99);
+  check('the short visual handoff retains the outgoing pose until its own deadline', petOutgoing().length === 1);
+  petNode().props.onFocus?.(); await renderPet(); await advancePet(1);
+  check('the visual handoff removes its outgoing pose after 100ms', petOutgoing().length === 0);
+  await advancePet(80);
+  check('hover to focus within one visit does not restart the greeting timeline', petSprite()?.props['data-pet-action'] === 'wave'
+    && petSprite()?.props['data-pet-frame'] === 1);
+  await advancePet(680);
+  check('the one-shot greeting reaches its final pose', petSprite()?.props['data-pet-action'] === 'wave'
+    && petSprite()?.props['data-pet-frame'] === 3);
+  await advancePet(299); const completeGreeting = petSprite()?.props['data-pet-action'] === 'wave'; await advancePet(1);
+  check('the entire greeting finishes once at 1160ms and returns to idle', completeGreeting
+    && petSprite()?.props['data-pet-action'] === 'idle' && petVisual()?.props['data-motion'] === 'idle');
+  await advancePet(1160);
+  check('continued hover and keyboard focus do not repeat the greeting', petSprite()?.props['data-pet-action'] === 'idle');
+  petNode().props.onPointerLeave?.(); await renderPet(); await advancePet(1160);
+  check('leaving hover while focus remains does not create a new visit', petSprite()?.props['data-pet-action'] === 'idle');
+  petNode().props.onBlur?.(); await renderPet(); petNode().props.onFocus?.(); await renderPet();
+  check('a later independent visit can greet again from the first pose', petSprite()?.props['data-pet-action'] === 'wave'
+    && petSprite()?.props['data-pet-frame'] === 0);
+  motion.matches = true; motionListeners.forEach(fn => fn()); await renderPet();
+  check('reducing motion cancels both the live greeting and its outgoing handoff', petSprite()?.props['data-pet-frame'] === 0
+    && petVisual()?.props['data-still'] === 'true' && petOutgoing().length === 0);
+  motion.matches = false; motionListeners.forEach(fn => fn()); await renderPet(); await advancePet(1160);
+  check('restoring motion during the same focused visit does not replay the greeting', petSprite()?.props['data-pet-action'] === 'idle');
+  petNode().props.onBlur?.(); await renderPet(); petNode().props.onFocus?.(); await renderPet(); await advancePet(180);
+  const interruptedGreeting = petSprite()?.props['data-pet-action'] === 'wave' && petSprite()?.props['data-pet-frame'] === 1;
+  await petKey('ArrowLeft'); const greetingWalk = petNode().props['data-pet-action'] === 'walk'; await advancePet(840);
+  check('moving during a greeting returns to idle without resuming the interrupted half-wave', interruptedGreeting && greetingWalk
+    && petSprite()?.props['data-pet-action'] === 'idle');
+
+  await mountPet(); petNode().props.onFocus?.(); await renderPet(); await petKey('t'); await advancePet(600);
+  const initialThinkingFrame = petSprite()?.props['data-pet-frame'] === 1;
+  await petKey('t', true);
+  const heldThinkingFrame = petSprite()?.props['data-pet-frame'] === 1;
+  await advancePet(3399); const originalThinkingHeld = petSprite()?.props['data-pet-action'] === 'think'; await advancePet(1);
+  const originalThinkingExpired = petSprite()?.props['data-pet-action'] === 'idle';
+  await petKey('t'); await advancePet(600); const freshThinkingAdvanced = petSprite()?.props['data-pet-frame'] === 1;
+  await petKey('t'); const freshThinkingRestarted = petSprite()?.props['data-pet-action'] === 'think' && petSprite()?.props['data-pet-frame'] === 0;
+  await advancePet(3999); const freshThinkingHeld = petSprite()?.props['data-pet-action'] === 'think'; await advancePet(1);
+  check('held T preserves the active pose and deadline while a fresh T restarts its own complete window', initialThinkingFrame && heldThinkingFrame
+    && originalThinkingHeld && originalThinkingExpired && freshThinkingAdvanced && freshThinkingRestarted && freshThinkingHeld
+    && petSprite()?.props['data-pet-action'] === 'idle');
+
+  await mountPet();
+  const quietCalls = callLog.length;
+  await advancePet(31999);
+  check('quiet local variation does not begin before its full eligibility period', petSprite()?.props['data-pet-action'] !== 'stretch');
+  await advancePet(1);
+  check('quiet automatic stretch occurs after 32 seconds despite intervening walks', petSprite()?.props['data-pet-action'] === 'stretch'
+    && petSprite()?.props['data-pet-frame'] === 0);
+  const stretchPosition = store.get('xlb-pet-pos');
+  await advancePet(2239);
+  check('the automatic stretch keeps its complete cycle and suspends wandering', petSprite()?.props['data-pet-action'] === 'stretch'
+    && store.get('xlb-pet-pos') === stretchPosition && ![...petTimers.values()].some(timer => timer.interval === 7000));
+  await advancePet(1);
+  check('automatic stretch completes at 2240ms without claiming a reading or writing action', petSprite()?.props['data-pet-action'] === 'idle'
+    && !callLog.slice(quietCalls).some(call => call.method !== 'GET' || ['/api/feed', '/api/patrol', '/api/social/run', '/api/companion/messages'].includes(call.path)));
+  await mountPet(); await advancePet(32000);
+  petNode().props.onPointerEnter?.(); await renderPet();
+  check('real engagement interrupts a purely local stretch immediately', petSprite()?.props['data-pet-action'] === 'wave');
+  await advancePet(1160);
+  check('an interrupted automatic stretch is not resumed after the greeting', petSprite()?.props['data-pet-action'] === 'idle');
+
+  await mountPet();
+  const quietCallback = [...petTimers.values()].find(timer => timer.interval === null && timer.due === petClock + 32000)?.callback;
+  if (!quietCallback) throw new Error('Quiet local gesture deadline missing');
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  quietCallback(); await renderPet();
+  check('a late quiet callback in a hidden page cannot resurrect movement or gesture timers', petTimers.size === 0
+    && petNode().props['data-pet-action'] !== 'stretch' && petVisual()?.props['data-still'] === 'true' && petOutgoing().length === 0);
+  await mountPet(); await advancePet(32000);
+  motion.matches = true; motionListeners.forEach(fn => fn()); await renderPet();
+  const stoppedStretch = petNode().props['data-pet-action'] !== 'stretch' && petVisual()?.props['data-still'] === 'true'
+    && petOutgoing().length === 0 && ![...petTimers.values()].some(timer => timer.interval === null);
+  motion.matches = false; motionListeners.forEach(fn => fn()); await renderPet(); await advancePet(2240);
+  check('reduced motion cancels an automatic stretch without replaying its old cycle on restoration', stoppedStretch
+    && petNode().props['data-pet-action'] !== 'stretch');
+  await mountPet(); await petKey('ArrowLeft'); await advancePet(140);
+  const activeWalk = petNode().props['data-pet-action'] === 'walk' && petSprite()?.props['data-pet-frame'] === 1;
+  fakeWindow.document!.hidden = true; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet();
+  const stoppedWalk = petTimers.size === 0 && petNode().props['data-pet-action'] !== 'walk' && petOutgoing().length === 0;
+  fakeWindow.document!.hidden = false; documentListeners.get('visibilitychange')?.forEach(fn => fn()); await renderPet(); await advancePet(840);
+  check('visibility changes stop an in-progress walk and never replay the cancelled movement', activeWalk && stoppedWalk
+    && petNode().props['data-pet-action'] !== 'walk');
+} catch (caught) {
+  check('one-shot local motion and handoff behavior completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
+} finally { unmountTestTree(); Date.now = actualNow; Math.random = actualRandom; }
+check('local motion cleanup removes handoff and quiet-gesture timers with their listeners', petTimers.size === 0
+  && motionListeners.size === 0 && [...windowListeners.values(), ...documentListeners.values()].every(listeners => listeners.size === 0));
 
 const ownAvatarShape = feed.posts[1]!.appearance.shape;
 try {
@@ -1486,13 +1589,25 @@ try {
   }
   check('choosing local expressions does not submit chat, read posts or write community data', !callLog.slice(beforeActions).some(call => call.method !== 'GET')
     && !callLog.slice(beforeActions).some(call => ['/api/feed', '/api/patrol', '/api/social/run'].includes(call.path)));
+  await selectPetAction('read'); await advancePet(600);
+  const advancedBeforeRestart = petSprite()?.props['data-pet-frame'] === 1;
+  await selectPetAction('read');
+  check('reselecting the same local action restarts its first pose without a false action handoff', advancedBeforeRestart
+    && petSprite()?.props['data-pet-action'] === 'read' && petSprite()?.props['data-pet-frame'] === 0 && petOutgoing().length === 0);
+  await advancePet(599); const restartedHold = petSprite()?.props['data-pet-frame'] === 0; await advancePet(1);
+  check('same-action restart cancels the old deadline and honors its new full first-pose duration', restartedHold
+    && petSprite()?.props['data-pet-frame'] === 1);
   await selectPetAction('idle'); await advancePet(2500); await selectPetAction('read'); await advancePet(100);
   check('switching actions cancels the old atlas frame deadline', petSprite()?.props['data-pet-action'] === 'read' && petSprite()?.props['data-pet-frame'] === 0);
-  await advancePet(4399);
+  await advancePet(4579);
   check('manual selection stays active until its complete expiry window', await selectedPetAction() === 'read');
   await advancePet(1);
   check('manual expression expiry restores automatic mode instead of replaying the old action', await selectedPetAction() === 'auto'
     && petNode().props['data-pet-action'] !== 'read');
+  await selectPetAction('happy'); await advancePet(4799); const completeHappy = await selectedPetAction() === 'happy'; await advancePet(1);
+  check('manual happy finishes four complete cycles before returning to automatic mode', completeHappy && await selectedPetAction() === 'auto');
+  await selectPetAction('idle'); await advancePet(3309); const completeIdle = await selectedPetAction() === 'idle'; await advancePet(1);
+  check('manual idle finishes its one complete long cycle before returning to automatic mode', completeIdle && await selectedPetAction() === 'auto');
   await selectPetAction('stretch'); motion.matches = true; motionListeners.forEach(fn => fn()); await renderPet(); await advancePet(1200);
   check('all bundled manual expressions respect reduced-motion static frame zero', petSprite()?.props['data-pet-action'] === 'stretch'
     && petSprite()?.props['data-pet-frame'] === 0 && petNode().props['data-still'] === 'true');
@@ -1508,19 +1623,33 @@ try {
     && await selectedPetAction() === 'read');
   finishCompanion('completed', '新的合成助手回复'); await advancePet(900);
   check('a newly committed Host reply triggers talk after generation stops', petNode().props['data-pet-action'] === 'talk');
+  await advancePet(220);
+  const talkBeforeNewReply = petSprite()?.props['data-pet-frame'] === 1;
+  await typeChat('第二条真实合成请求'); await clickChat('发送'); finishCompanion('completed', '第二条独立合成回复'); await advancePet(900);
+  check('a distinct new reply restarts talk even while the previous talk feedback is active', talkBeforeNewReply
+    && petSprite()?.props['data-pet-action'] === 'talk' && petSprite()?.props['data-pet-frame'] === 0 && petOutgoing().length === 0);
   await clickChat('收起聊天'); await petKey('Enter');
   check('reopening committed history does not replay an old talk reaction', petNode().props['data-pet-action'] !== 'talk');
   await selectPetAction('auto'); await typeChat('合成失败反馈'); await clickChat('发送'); finishCompanion('failed'); await advancePet(900);
   check('a new actual failed Host job triggers the surprised expression', petNode().props['data-pet-action'] === 'surprised');
   await clickChat('收起聊天'); await petKey('Enter');
   check('reopening a previously failed job does not replay failure feedback', petNode().props['data-pet-action'] !== 'surprised');
-  await clickChat('收起聊天'); petNode().props.onBlur?.(); petNode().props.onPointerLeave?.(); await renderPet(); await advancePet(4500);
+  await clickChat('收起聊天'); petNode().props.onBlur?.(); petNode().props.onPointerLeave?.(); await renderPet(); await advancePet(4800);
   const previousX = petLeft; await petKey('ArrowLeft');
   check('an actual keyboard position change selects a short walk', petLeft < previousX && petNode().props['data-pet-action'] === 'walk');
-  await advancePet(400);
+  const walkFrames = [petSprite()?.props['data-pet-frame']];
+  for (let step = 0; step < 3; step += 1) { await advancePet(140); walkFrames.push(petSprite()?.props['data-pet-frame']); }
+  check('automatic walking displays all four poses before its movement window ends', walkFrames.join(',') === '0,1,2,3'
+    && petNode().props['data-pet-action'] === 'walk');
+  await advancePet(140);
+  check('walking completes a 560ms four-pose loop while movement continues', petSprite()?.props['data-pet-frame'] === 0
+    && petNode().props['data-pet-action'] === 'walk');
+  await advancePet(279);
+  check('walking remains active until the final millisecond of its movement window', petNode().props['data-pet-action'] === 'walk');
+  await advancePet(1);
   check('walking settles back to the automatic expression', petNode().props['data-pet-action'] !== 'walk');
   fakeWindowForModule.innerWidth = 120; fakeWindowForModule.innerHeight = 200;
-  windowListeners.get('resize')?.forEach(fn => fn()); await renderPet(); await advancePet(400); await petKey('ArrowLeft');
+  windowListeners.get('resize')?.forEach(fn => fn()); await renderPet(); await advancePet(840); await petKey('ArrowLeft');
   check('a clamped key press that does not move the pet cannot invent a walk', petLeft === 0 && petNode().props['data-pet-action'] !== 'walk');
 } catch (caught) {
   check('bundled local action behavior completes without throwing', false, String(caught instanceof Error ? caught.stack : caught));
