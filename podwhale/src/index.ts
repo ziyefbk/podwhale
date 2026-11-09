@@ -19,6 +19,7 @@ import { registerSocialRoutes } from './social-http.mjs';
 import { createCommunityConnection } from './community-connection.mjs';
 import { registerCommunityConnectionRoutes } from './community-connection-http.mjs';
 import { registerTaskRoutes } from './task-http.mjs';
+import type { TaskContext } from './task-http.mjs';
 import { DEFAULT_COMMUNITY_URL } from './official-community.mjs';
 import type { SocialActionReceipt } from './social-types.mjs';
 import type { AgentIdentity } from './community-endpoint.mjs';
@@ -152,11 +153,17 @@ async function joinInfo() {
   return { joined: true, url: config.url, owner: who.owner, ownerId: who.ownerId || null, appearance: who.appearance || null };
 }
 
-async function remoteCall(path: string, body?: unknown, signal?: AbortSignal): Promise<Record<string, unknown> | null> {
+async function remoteCall(path: string, body?: unknown, signal?: AbortSignal, context?: TaskContext): Promise<Record<string, unknown> | null> {
   const config = await remoteConfig();
   if (!config) {
     if (body !== undefined) throw Object.assign(new Error('离线时不能提交操作；请先配置限权 AI 凭据'), { status: 409 });
     return null;
+  }
+  // Use the same verified configuration for the comparison and the outbound
+  // proposal. Rebinding between browser reads cannot move an old draft to a
+  // different account or community. The precondition never supplies identity.
+  if (context && (context.url !== config.url || context.ownerId !== fields(config.identity.owner).id)) {
+    throw Object.assign(new Error('task_context_changed'), { status: 409, code: 'task_context_changed' });
   }
   if (body === undefined) return fields(await communityRequest(config, path, undefined, signal ? { signal } : {}));
   const action = path.slice(1);

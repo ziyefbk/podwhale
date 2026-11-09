@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
         const useRef = React.useRef;
         const NS = 'xiaolanshu';
         /** Bumped on every visible change; the panel footer prints it. */
-        const BUILD = '0.1.11';
+        const BUILD = '0.1.12';
         const PET_MOVE_MS = 840;
         const PET_BLEND_MS = 100;
         // ---------------------------------------------------------------- texts
@@ -141,6 +141,7 @@ window.__ModuleLoader__.load({
             'task.cancelAction': '收起申请',
             'task.versionMissing': '社区暂未提供完整版本信息。请刷新或升级社区，草稿已保留。',
             'task.changed': '任务已更新，请核对最新内容和版本后再提交。草稿已保留。',
+            'task.identityChanged': '账户或社区连接已变化，任务操作已暂停。请刷新列表核对当前连接；草稿已保留。',
             'task.useLatest': '已核对，按当前版本继续',
             'task.version': '交付版本',
             'task.artifacts': '成果链接',
@@ -159,6 +160,28 @@ window.__ModuleLoader__.load({
             'task.cancelOther': '对方申请取消，请核对原因。提交同意申请后仍需独立主人审批。',
             'task.noHistory': '暂无记录。',
             'task.participant': '任务参与者',
+            'task.scope': '任务范围',
+            'task.scope.all': '全部任务',
+            'task.scope.published': '我发布的',
+            'task.scope.claimed': '我认领的（含历史）',
+            'task.claimedHistory': '包含本人当前与历史接单。历史参与不代表拥有当前任务权限。',
+            'task.filterStatus': '筛选状态',
+            'task.allStatuses': '全部状态',
+            'task.sort': '排序',
+            'task.sort.newest': '最新发布',
+            'task.sort.oldest': '最早发布',
+            'task.search': '搜索任务标题、要求和标签',
+            'task.listLoading': '正在读取任务列表',
+            'task.listFailed': '暂时无法读取任务列表，请重试。',
+            'task.listUnsupported': '社区暂不支持任务列表接口，请联系部署者升级。未提交任何任务操作。',
+            'task.refreshList': '刷新列表',
+            'task.more': '加载更多任务',
+            'task.loadingMore': '正在加载更多',
+            'task.loadedAt': '列表载入于',
+            'task.cached': '保留已加载内容，刷新可核对最新状态。',
+            'task.overdue': '已逾期（工作未自动释放）',
+            'task.reservedUntil': '未开工认领保留至',
+            'task.reservationHint': '到期不会自动执行或确认交付；以刷新后的服务端状态为准。',
             'profile.rating': '好评',
             'tag.search': '按这个标签搜',
             'me.rating': '好评',
@@ -567,6 +590,7 @@ window.__ModuleLoader__.load({
             'task.cancelAction': 'Close proposal form',
             'task.versionMissing': 'The community has not supplied complete version information. Refresh or upgrade it. Your draft is saved.',
             'task.changed': 'This task has changed. Review its current content and version before submitting. Your draft is saved.',
+            'task.identityChanged': 'The account or community connection changed. Task actions are paused. Refresh the list to verify the connection. Your draft is saved.',
             'task.useLatest': 'Reviewed; use the current version',
             'task.version': 'Delivery version',
             'task.artifacts': 'Artifact links',
@@ -585,6 +609,28 @@ window.__ModuleLoader__.load({
             'task.cancelOther': 'The other party requested cancellation. Review the reason. Your agreement still needs independent owner approval.',
             'task.noHistory': 'No history yet.',
             'task.participant': 'Task participant',
+            'task.scope': 'Task scope',
+            'task.scope.all': 'All tasks',
+            'task.scope.published': 'Published by me',
+            'task.scope.claimed': 'Claimed by me (including history)',
+            'task.claimedHistory': 'Includes current and past claims. A past claim does not grant current task permissions.',
+            'task.filterStatus': 'Filter by status',
+            'task.allStatuses': 'All statuses',
+            'task.sort': 'Sort',
+            'task.sort.newest': 'Newest first',
+            'task.sort.oldest': 'Oldest first',
+            'task.search': 'Search task titles, requirements and tags',
+            'task.listLoading': 'Loading tasks',
+            'task.listFailed': 'The task list is unavailable. Try again.',
+            'task.listUnsupported': 'This community does not support the task list API yet. Ask its operator to upgrade. No task action was submitted.',
+            'task.refreshList': 'Refresh tasks',
+            'task.more': 'Load more tasks',
+            'task.loadingMore': 'Loading more',
+            'task.loadedAt': 'List loaded at',
+            'task.cached': 'Loaded pages are retained. Refresh to check the latest state.',
+            'task.overdue': 'Overdue (work has not been released automatically)',
+            'task.reservedUntil': 'Unstarted claim reserved until',
+            'task.reservationHint': 'Expiry never executes or accepts a delivery. Refresh for the authoritative server state.',
             'profile.rating': 'rating',
             'me.rating': 'rating',
             'me.edit': 'Edit',
@@ -1340,6 +1386,8 @@ window.__ModuleLoader__.load({
 .xls-taskHint{font-size:14px;line-height:1.8;color:var(--xls-muted);overflow-wrap:anywhere;}
 .xls-taskField{display:block;margin-top:16px;font-size:14px;line-height:1.6;color:var(--xls-ink);}
 .xls-taskField>.xls-replyInput{display:block;box-sizing:border-box;width:100%;margin-top:6px;}
+.xls-taskFilters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+.xls-taskFilters>.xls-taskField{margin-top:12px;}
 .xls-taskDetail{box-sizing:border-box;width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;padding:24px;border-radius:18px;background:var(--xls-surface);color:var(--xls-ink);box-shadow:0 20px 60px rgba(0,0,0,.18);}
 .xls-taskDetail h2{font-size:18px;margin:0;}.xls-taskDetail h3{font-size:22px;line-height:1.5;overflow-wrap:anywhere;}.xls-taskDetail h4{font-size:15px;margin:24px 0 8px;}
 .xls-taskActions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -1348,7 +1396,7 @@ window.__ModuleLoader__.load({
 .xls-taskVersion h5{font-size:14px;margin:0;}.xls-taskLinks{padding-left:22px;line-height:1.9;overflow-wrap:anywhere;}
 .xls-taskLinks a{color:var(--xls-accent);text-decoration:underline;}.xls-taskArtifact{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;margin:12px 0;}
 .xls-taskArtifact>.xls-chip{justify-self:start;}.xls-taskActions>.xls-btn{width:auto;flex:1 1 180px;}
-@container xls-community (max-width:720px){.xls-taskArtifact{grid-template-columns:minmax(0,1fr);}}
+@container xls-community (max-width:720px){.xls-taskArtifact,.xls-taskFilters{grid-template-columns:minmax(0,1fr);}}
 .xls-btn{min-height:44px;padding:8px 16px;border-radius:12px;border:0;background:#2b45d6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;width:100%;}
 .xls-btn:hover{filter:brightness(1.06);}
 .xls-btn:disabled{opacity:.62;cursor:default;filter:none;}
@@ -2028,9 +2076,9 @@ window.__ModuleLoader__.load({
             try {
                 if (!/^https:\/\//i.test(value) || /[\x00-\x20\x7f?#]/.test(value))
                     return null;
-                const url = new URL(value), host = url.hostname.toLowerCase();
+                const url = new URL(value), host = url.hostname.toLowerCase().replace(/\.+$/, '');
                 if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || !host.includes('.')
-                    || /^[\d.]+$/.test(host) || host.includes(':') || /(?:^|\.)(?:localhost|local|internal|lan|corp|localdomain)$/.test(host)
+                    || /^[\d.]+$/.test(host) || host.includes(':') || /(?:^|\.)(?:localhost|local|internal|lan|home|corp|localdomain|test|invalid)$/.test(host)
                     || host.endsWith('.home.arpa'))
                     return null;
                 return url.href;
@@ -2102,7 +2150,7 @@ window.__ModuleLoader__.load({
                     && ['publisher', 'claimer', 'participant', 'canClaim'].every(key => typeof viewer[key] === 'boolean'));
         }
         function taskDetailRecord(value, id) {
-            if (!companionRecord(value) || value.ok !== true || !taskRecord(value.task) || value.task.id !== id
+            if (!companionRecord(value) || value.ok !== true || typeof value.me !== 'string' || !value.me || !taskRecord(value.task) || value.task.id !== id
                 || !Array.isArray(value.history) || !value.history.every((item) => taskClaimFields(item)
                 && ['withdrawn', 'cancelled', 'expired'].includes(String(item.status)) && typeof item.endedAt === 'string' && typeof item.reason === 'string')
                 || !Array.isArray(value.events) || !value.events.every((item) => companionRecord(item)
@@ -2112,8 +2160,19 @@ window.__ModuleLoader__.load({
             const claim = value.claim;
             return claim === null || taskClaimFields(claim) && (claim.status === undefined || TASK_STATUSES.includes(claim.status));
         }
+        function taskPageRecord(value) {
+            return companionRecord(value) && value.ok === true && Array.isArray(value.items) && value.items.length <= 50 && value.items.every(taskRecord)
+                && companionRecord(value.claims) && Object.values(value.claims).every(claim => taskClaimFields(claim)
+                && (claim.status === undefined || TASK_STATUSES.includes(claim.status)))
+                && taskInteger(value.total) && (value.nextCursor === null || typeof value.nextCursor === 'string' && !!value.nextCursor && value.nextCursor.length <= 100)
+                && typeof value.me === 'string' && !!value.me;
+        }
+        function taskTime(value) {
+            const date = new Date(value);
+            return Number.isFinite(date.getTime()) ? date.toLocaleString() + ' (' + Intl.DateTimeFormat().resolvedOptions().timeZone + ') · ' + value : value;
+        }
         function TaskSheet(props) {
-            return h('div', { className: 'xls-mask', onClick: props.onClose }, h(ModalPanel, { className: 'xls-compose', label: tr('task.publish'), onClose: props.onClose }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: '#4D6BFE' } }, '＋'), h('span', { className: 'xls-ptitle' }, tr('task.publish'))), h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')), ['title', 'budget', 'period', 'tags'].map((key) => h('label', { className: 'xls-taskField', key }, h('span', null, tr('task.' + key)), h('input', { className: 'xls-replyInput', 'data-task-field': key,
+            return h('div', { className: 'xls-mask', onClick: props.onClose }, h(ModalPanel, { className: 'xls-compose', label: tr('task.publish'), onClose: props.onClose }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: '#4D6BFE' } }, '＋'), h('span', { className: 'xls-ptitle' }, tr('task.publish'))), h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')), !props.available ? h('p', { role: 'status', className: 'xls-taskHint' }, tr('task.unavailable')) : null, ['title', 'budget', 'period', 'tags'].map((key) => h('label', { className: 'xls-taskField', key }, h('span', null, tr('task.' + key)), h('input', { className: 'xls-replyInput', 'data-task-field': key,
                 maxLength: key === 'title' ? 120 : key === 'budget' ? 24 : key === 'period' ? 16 : 120,
                 value: props.draft[key], disabled: props.busy,
                 onChange: (event) => props.onDraft(key, event.target.value) }))), ['desc', 'acceptanceCriteria'].map(key => h('label', { className: 'xls-taskField', key }, h('span', null, tr(key === 'desc' ? 'task.desc' : 'task.acceptance')), h('textarea', { className: 'xls-replyInput', 'data-task-field': key, rows: key === 'desc' ? 5 : 4,
@@ -2124,7 +2183,7 @@ window.__ModuleLoader__.load({
                 className: 'xls-btn',
                 style: { width: 'auto' },
                 'data-task-action': 'publish',
-                disabled: !props.draft.title.trim() || props.busy || props.pending,
+                disabled: !props.available || !props.draft.title.trim() || props.busy || props.pending,
                 onClick: props.onPublish,
             }, tr(props.busy ? 'task.sending' : 'task.submit')))));
         }
@@ -3329,6 +3388,25 @@ window.__ModuleLoader__.load({
             const [taskLoading, setTaskLoading] = useState(false);
             const [taskLoadError, setTaskLoadError] = useState(false);
             const [taskRefresh, setTaskRefresh] = useState(0);
+            const [taskScope, setTaskScope] = useState('all');
+            const [taskFilterStatus, setTaskFilterStatus] = useState('');
+            const [taskSort, setTaskSort] = useState('newest');
+            const [taskQuery, setTaskQuery] = useState('');
+            const [taskListRetry, setTaskListRetry] = useState(0);
+            const [taskPageSnapshot, setTaskPageSnapshot] = useState(null);
+            const taskPageRef = useRef(null);
+            const [taskListRead, setTaskListRead] = useState({ key: '', mode: 'idle', error: null });
+            const taskListController = useRef(null);
+            const taskListSequence = useRef(0);
+            const taskListJob = useRef(null);
+            const taskListCurrentKey = useRef('');
+            const taskListGeneration = useRef('');
+            const taskListLastQuery = useRef('');
+            const taskListActive = useRef(false);
+            const taskListingAllowed = useRef(false);
+            const taskIdentityFault = useRef(null);
+            const [taskIdentityError, setTaskIdentityError] = useState(null);
+            taskListActive.current = props.active && tab === 'tasks';
             const [deliveryDrafts, setDeliveryDrafts] = useState({});
             const [artifactDrafts, setArtifactDrafts] = useState({});
             const [taskReasons, setTaskReasons] = useState({});
@@ -3453,7 +3531,6 @@ window.__ModuleLoader__.load({
                 return merged;
             }, [agentPosts, extra, posts, remote]);
             const remoteComments = (remote && remote.comments) || {};
-            const remoteClaims = (remote && remote.claims) || {};
             const join = (remote && remote.join) || joinFallback || { joined: false };
             const joined = !!join.joined;
             const offline = joined && !remote;
@@ -3472,9 +3549,10 @@ window.__ModuleLoader__.load({
             const myProfile = (remote && remote.myProfile) || { name: AGENTS.alan.owner, handle: AGENTS.alan.name, bio: '' };
             const ratedByMe = remote && Array.isArray(remote.ratingsByMe) ? remote.ratingsByMe : [];
             const myOwnerId = (join && join.ownerId) || null;
-            if (!taskIdentity.current && myOwnerId)
-                taskIdentity.current = myOwnerId;
-            const taskIdentityChanged = !!taskIdentity.current && (myOwnerId !== null && taskIdentity.current !== myOwnerId || !!remote && !joined);
+            const taskAccountKey = myOwnerId ? JSON.stringify([join.url || null, myOwnerId]) : null;
+            if (!taskIdentity.current && taskAccountKey)
+                taskIdentity.current = taskAccountKey;
+            const taskIdentityChanged = !!taskIdentity.current && (taskAccountKey !== null && taskIdentity.current !== taskAccountKey || !!remote && !joined);
             useEffect(() => {
                 if (!taskIdentityChanged)
                     return;
@@ -3494,10 +3572,143 @@ window.__ModuleLoader__.load({
                 taskReceiptsRef.current.clear();
                 setTaskWork({});
                 setTaskReceipts({});
-                taskIdentity.current = myOwnerId;
-            }, [myOwnerId, taskIdentityChanged]);
-            const taskList = remote && Array.isArray(remote.tasks) ? remote.tasks : !joined && remote ? TASKS : [];
-            const demoTasks = !joined;
+                taskIdentityFault.current = null;
+                setTaskIdentityError(null);
+                taskIdentity.current = taskAccountKey;
+            }, [taskAccountKey, taskIdentityChanged]);
+            const taskListKey = JSON.stringify([taskAccountKey, taskScope, taskFilterStatus, taskSort, taskQuery.trim()]);
+            taskListCurrentKey.current = taskListKey;
+            const currentTaskPage = taskPageSnapshot?.key === taskListKey ? taskPageSnapshot : null;
+            const currentTaskRead = taskListRead.key === taskListKey ? taskListRead : { mode: 'idle', error: null };
+            const demoTasks = !joined && !!remote;
+            const taskList = demoTasks ? TASKS : currentTaskPage?.page.items || [];
+            const taskClaims = demoTasks ? {} : currentTaskPage?.page.claims || {};
+            taskListingAllowed.current = !!currentTaskPage && joined && !offline && !!myOwnerId && !!safeCommunityUrl(join.url) && !taskIdentityChanged
+                && taskIdentityFault.current !== taskAccountKey && currentTaskRead.error !== 'unsupported';
+            const abortTaskList = () => {
+                taskListSequence.current += 1;
+                taskListController.current?.abort();
+                taskListController.current = null;
+                taskListJob.current = null;
+            };
+            const resetTaskList = () => {
+                taskListingAllowed.current = false;
+                abortTaskList();
+                taskPageRef.current = null;
+                setTaskPageSnapshot(null);
+                setTaskListRead({ key: '', mode: 'idle', error: null });
+            };
+            const quarantineTaskIdentity = () => {
+                taskIdentityFault.current = taskAccountKey;
+                setTaskIdentityError(taskAccountKey);
+                taskListingAllowed.current = false;
+                resetTaskList();
+                setTaskDetail(null);
+                setTaskLoadError(true);
+                setTaskLoading(false);
+                setTaskListRead({ key: taskListKey, mode: 'idle', error: 'unavailable' });
+            };
+            const refreshTaskList = () => { resetTaskList(); setTaskListRetry(value => value + 1); };
+            const loadTaskPage = async (append) => {
+                if (!taskListActive.current || !joined || !myOwnerId || taskListJob.current?.key === taskListKey)
+                    return;
+                const previous = taskPageRef.current?.key === taskListKey ? taskPageRef.current : null;
+                const cursor = append ? previous?.page.nextCursor || null : null;
+                if (append && (!previous || !cursor))
+                    return;
+                abortTaskList();
+                const controller = new AbortController(), ticket = ++taskListSequence.current;
+                taskListController.current = controller;
+                taskListJob.current = { ticket, key: taskListKey, cursor };
+                const current = () => taskActive.current && taskListActive.current && !controller.signal.aborted
+                    && taskListCurrentKey.current === taskListKey && taskListJob.current?.ticket === ticket;
+                if (!append) {
+                    taskPageRef.current = null;
+                    setTaskPageSnapshot(null);
+                }
+                setTaskListRead({ key: taskListKey, mode: append ? 'more' : 'loading', error: null });
+                const params = new URLSearchParams({ limit: '20', scope: taskScope, sort: taskSort });
+                if (taskFilterStatus)
+                    params.set('status', taskFilterStatus);
+                if (taskQuery.trim())
+                    params.set('q', taskQuery.trim());
+                if (cursor)
+                    params.set('before', cursor);
+                try {
+                    const response = await fetch('/xiaolanshu/api/tasks?' + params, { headers: { accept: 'application/json' }, signal: controller.signal });
+                    if (!response.ok)
+                        throw new Error(response.status === 404 ? 'task_list_unsupported' : 'task_list_unavailable');
+                    const value = await response.json();
+                    if (!current())
+                        return;
+                    if (!companionRecord(value) || value.me !== myOwnerId) {
+                        quarantineTaskIdentity();
+                        return;
+                    }
+                    if (!taskPageRecord(value) || cursor && value.nextCursor === cursor)
+                        throw new Error('task_list_unavailable');
+                    let page = value;
+                    if (append) {
+                        const cached = taskPageRef.current;
+                        if (!cached || cached.key !== taskListKey || cached.page.nextCursor !== cursor)
+                            return;
+                        const items = new Map(cached.page.items.map(item => [item.id, item]));
+                        const claims = { ...cached.page.claims };
+                        for (const item of value.items) {
+                            items.set(item.id, item);
+                            delete claims[item.id];
+                            if (Object.prototype.hasOwnProperty.call(value.claims, item.id))
+                                claims[item.id] = value.claims[item.id];
+                        }
+                        page = { ...value, items: [...items.values()], claims };
+                    }
+                    else {
+                        const items = new Map(value.items.map(item => [item.id, item]));
+                        page = { ...value, items: [...items.values()] };
+                    }
+                    const snapshot = { key: taskListKey, page, loadedAt: new Date().toISOString() };
+                    taskIdentityFault.current = null;
+                    setTaskIdentityError(null);
+                    taskPageRef.current = snapshot;
+                    setTaskPageSnapshot(snapshot);
+                    setTaskListRead({ key: taskListKey, mode: 'idle', error: null });
+                }
+                catch (error) {
+                    if (!current())
+                        return;
+                    const unsupported = error instanceof Error && error.message === 'task_list_unsupported';
+                    if (!append || unsupported) {
+                        taskPageRef.current = null;
+                        setTaskPageSnapshot(null);
+                    }
+                    setTaskListRead({ key: taskListKey, mode: 'idle', error: unsupported ? 'unsupported' : 'unavailable' });
+                }
+                finally {
+                    if (taskListJob.current?.ticket === ticket) {
+                        taskListJob.current = null;
+                        taskListController.current = null;
+                    }
+                }
+            };
+            useEffect(() => {
+                if (!props.active || tab !== 'tasks' || !joined || !myOwnerId) {
+                    abortTaskList();
+                    return;
+                }
+                const generation = JSON.stringify([taskListKey, bump, taskListRetry]);
+                if (taskPageRef.current?.key === taskListKey && taskListGeneration.current === generation) {
+                    setTaskListRead({ key: taskListKey, mode: 'idle', error: null });
+                    return () => abortTaskList();
+                }
+                taskListGeneration.current = generation;
+                const delayed = taskListLastQuery.current !== taskQuery.trim() && !!taskQuery.trim();
+                taskListLastQuery.current = taskQuery.trim();
+                taskPageRef.current = null;
+                setTaskPageSnapshot(null);
+                setTaskListRead({ key: taskListKey, mode: 'loading', error: null });
+                const timer = setTimeout(() => { void loadTaskPage(false); }, delayed ? 280 : 0);
+                return () => { clearTimeout(timer); abortTaskList(); };
+            }, [props.active, tab, joined, myOwnerId, taskListKey, bump, taskListRetry]);
             const taskRoles = (task, claim) => task.viewer || {
                 publisher: !!myOwnerId && task.ownerId === myOwnerId,
                 claimer: !!myOwnerId && claim?.ownerId === myOwnerId,
@@ -3543,10 +3754,10 @@ window.__ModuleLoader__.load({
             useEffect(() => {
                 if (!props.active || !taskId)
                     return;
-                setTaskDetailIdentity(myOwnerId);
+                setTaskDetailIdentity(taskAccountKey);
                 const demo = demoTasks ? taskList.find(task => task.id === taskId) : null;
                 if (demo) {
-                    setTaskDetail({ ok: true, task: { ...demo, demo: true }, claim: null, history: [], events: [] });
+                    setTaskDetail({ ok: true, me: 'demo', task: { ...demo, demo: true }, claim: null, history: [], events: [] });
                     setTaskLoading(false);
                     setTaskLoadError(false);
                     return;
@@ -3561,6 +3772,12 @@ window.__ModuleLoader__.load({
                     if (!response.ok)
                         throw new Error('task unavailable');
                     const value = await response.json();
+                    if (!alive)
+                        return;
+                    if (!companionRecord(value) || value.me !== myOwnerId) {
+                        quarantineTaskIdentity();
+                        return;
+                    }
                     if (!taskDetailRecord(value, taskId))
                         throw new Error('invalid task');
                     if (alive)
@@ -3570,7 +3787,7 @@ window.__ModuleLoader__.load({
                     .finally(() => { if (alive)
                     setTaskLoading(false); });
                 return () => { alive = false; controller.abort(); };
-            }, [taskId, taskRefresh, bump, props.active, joined, myOwnerId, remote?.updatedAt]);
+            }, [taskId, taskRefresh, bump, props.active, joined, taskAccountKey, remote?.updatedAt]);
             useEffect(() => {
                 if (!props.active || !joined)
                     return;
@@ -3621,7 +3838,7 @@ window.__ModuleLoader__.load({
             };
             const submitTaskProposal = async (action, id, body) => {
                 const key = action + ':' + (id || 'new');
-                if (!taskActive.current || taskIdentityChanged || !joined || offline || taskJobs.current.has(key)
+                if (!taskActive.current || !taskListingAllowed.current || taskIdentityChanged || !joined || offline || taskJobs.current.has(key)
                     || (action === 'task' ? !taskFormOpen.current : taskSelection.current !== id))
                     return;
                 const version = taskIdentityVersion.current;
@@ -3629,9 +3846,19 @@ window.__ModuleLoader__.load({
                 publishTaskState();
                 setTaskErrors(previous => ({ ...previous, [key]: '' }));
                 try {
-                    const response = await fetch('/xiaolanshu/api/' + action, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-                    if (!response.ok)
+                    const response = await fetch('/xiaolanshu/api/' + action, { method: 'POST', headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ ...body, context: { ownerId: myOwnerId, url: join.url } }) });
+                    if (!response.ok) {
+                        if (response.status === 409) {
+                            const failure = await response.json().catch(() => null);
+                            if (companionRecord(failure) && failure.code === 'task_context_changed') {
+                                if (version === taskIdentityVersion.current)
+                                    quarantineTaskIdentity();
+                                throw new Error('task_context_changed');
+                            }
+                        }
                         throw new Error(response.status === 409 ? 'task_changed' : 'task_request_rejected');
+                    }
                     const receipt = await showPending(response, action);
                     if (!receipt || version !== taskIdentityVersion.current)
                         return;
@@ -4072,11 +4299,22 @@ window.__ModuleLoader__.load({
             const header = h('div', { className: 'xls-top' }, h('div', { className: 'xls-brandline' }, h('span', { className: 'xls-mark' }, h('svg', {
                 viewBox: '0 0 48 48', width: 22, height: 22, 'aria-hidden': true, className: 'xls-creature',
             }, h('path', { d: 'M4 27c0-9.9 9-17 20-17s20 7.1 20 17-9 16-20 16S4 36.9 4 27z', fill: '#fff' }), h('path', { className: 'xls-tail', d: 'M41 19l7-5v26l-7-5z', fill: '#fff' }), h('circle', { cx: 16.1, cy: 23.1, r: 2.6, fill: '#2B45D6' }))), h('div', { className: 'xls-brandtext' }, h('h1', { className: 'xls-name' }, tr('nav.label')), h('div', { className: 'xls-slogan' }, tr('head.slogan'))), h('div', { className: 'xls-right' }, h('div', { className: 'xls-searchBox' }, h(UiIcon, { name: 'search', size: 18 }), h('input', {
-                className: 'xls-search', type: 'search', 'aria-label': tr('head.search'),
-                value: query, placeholder: tr('head.search'),
-                onChange: (event) => setQuery(event.target.value),
-            }), query ? h('button', { className: 'xls-searchClear', type: 'button', 'aria-label': tr('feed.clearSearch'),
-                onClick: () => setQuery('') }, h(UiIcon, { name: 'close', size: 16 })) : null), joined ? h('button', {
+                className: 'xls-search', type: 'search', 'aria-label': tr(tab === 'tasks' ? 'task.search' : 'head.search'),
+                'data-task-list-field': tab === 'tasks' ? 'q' : undefined, maxLength: tab === 'tasks' ? 200 : undefined,
+                value: tab === 'tasks' ? taskQuery : query, placeholder: tr(tab === 'tasks' ? 'task.search' : 'head.search'),
+                onChange: (event) => { if (tab === 'tasks') {
+                    resetTaskList();
+                    setTaskQuery(event.target.value);
+                }
+                else
+                    setQuery(event.target.value); },
+            }), (tab === 'tasks' ? taskQuery : query) ? h('button', { className: 'xls-searchClear', type: 'button', 'aria-label': tr('feed.clearSearch'),
+                onClick: () => { if (tab === 'tasks') {
+                    resetTaskList();
+                    setTaskQuery('');
+                }
+                else
+                    setQuery(''); } }, h(UiIcon, { name: 'close', size: 16 })) : null), joined ? h('button', {
                 className: 'xls-bell' + (inbox.unread > 0 ? ' has' : ''),
                 title: tr('n.title'),
                 'aria-label': tr('n.title'),
@@ -4128,19 +4366,43 @@ window.__ModuleLoader__.load({
                 ? h('div', { style: { textAlign: 'center', marginTop: '4px' } }, h('button', { className: 'xls-chip', onClick: loadMore }, tr('feed.more')))
                 : null);
             // -------------------------------------------------------------- tasks
-            const tasks = h('div', null, h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' } }, h('button', {
+            const tasks = h('div', null, h('div', { className: 'xls-taskActions' }, h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'refresh-list', disabled: !joined || offline || currentTaskRead.mode !== 'idle',
+                onClick: refreshTaskList }, tr('task.refreshList')), h('button', {
                 className: 'xls-btn',
                 style: { width: 'auto', marginTop: 0 },
-                'data-task-action': 'new', disabled: !joined || offline,
-                onClick: () => setTaskOpen(true),
-            }, '＋ ' + tr('task.publish'))), h('div', { className: 'xls-banner' }, h('b', null, tr(demoTasks ? 'task.demo' : 'task.sub'))), taskList.length === 0 ? h('p', { className: 'xls-taskHint', 'data-task-empty': offline ? 'unavailable' : 'empty' }, tr(offline ? 'task.unavailable' : 'task.empty')) : null, taskList.map((task) => {
-                const taskClaim = Object.prototype.hasOwnProperty.call(remoteClaims, task.id) ? remoteClaims[task.id] || null : null;
+                'data-task-action': 'new', disabled: !joined || offline || !taskListingAllowed.current,
+                onClick: () => { if (taskListingAllowed.current)
+                    setTaskOpen(true); },
+            }, '＋ ' + tr('task.publish'))), h('div', { className: 'xls-taskFilters' }, h('label', { className: 'xls-taskField' }, h('span', null, tr('task.scope')), h('select', { className: 'xls-replyInput', value: taskScope, 'data-task-list-field': 'scope', disabled: !joined,
+                onChange: (event) => {
+                    const value = event.target.value;
+                    if (value === 'all' || value === 'published' || value === 'claimed') {
+                        resetTaskList();
+                        setTaskScope(value);
+                    }
+                } }, ['all', 'published', 'claimed'].map(value => h('option', { key: value, value }, tr('task.scope.' + value))))), h('label', { className: 'xls-taskField' }, h('span', null, tr('task.filterStatus')), h('select', { className: 'xls-replyInput', value: taskFilterStatus, 'data-task-list-field': 'status', disabled: !joined,
+                onChange: (event) => {
+                    const value = event.target.value;
+                    if (!value || TASK_STATUSES.includes(value)) {
+                        resetTaskList();
+                        setTaskFilterStatus(value);
+                    }
+                } }, h('option', { value: '' }, tr('task.allStatuses')), TASK_STATUSES.map(value => h('option', { key: value, value }, tr('task.status.' + value))))), h('label', { className: 'xls-taskField' }, h('span', null, tr('task.sort')), h('select', { className: 'xls-replyInput', value: taskSort, 'data-task-list-field': 'sort', disabled: !joined,
+                onChange: (event) => {
+                    const value = event.target.value;
+                    if (value === 'newest' || value === 'oldest') {
+                        resetTaskList();
+                        setTaskSort(value);
+                    }
+                } }, ['newest', 'oldest'].map(value => h('option', { key: value, value }, tr('task.' + value)))))), taskScope === 'claimed' ? h('p', { className: 'xls-taskHint', 'data-task-history-scope': true }, tr('task.claimedHistory')) : null, h('div', { className: 'xls-banner' }, h('b', null, tr(demoTasks ? 'task.demo' : 'task.sub'))), currentTaskPage ? h('p', { className: 'xls-taskHint', 'data-task-list-loaded': currentTaskPage.loadedAt }, tr('task.loadedAt') + ' ' + taskTime(currentTaskPage.loadedAt) + ' · ' + tr('task.cached') + ' · ' + currentTaskPage.page.total) : null, currentTaskRead.mode === 'loading' ? h('p', { className: 'xls-taskHint', role: 'status', 'data-task-list-loading': true }, tr('task.listLoading')) : null, currentTaskRead.error || offline ? h('p', { className: 'xls-taskHint', role: 'alert', 'data-task-list-error': currentTaskRead.error || 'unavailable' }, tr(taskIdentityError === taskAccountKey && !!taskIdentityError ? 'task.identityChanged' : currentTaskRead.error === 'unsupported' ? 'task.listUnsupported' : 'task.listFailed')) : null, taskList.length === 0 && currentTaskPage && currentTaskRead.mode !== 'loading' ? h('p', { className: 'xls-taskHint', 'data-task-empty': 'empty' }, tr('task.empty')) : null, taskList.map((task) => {
+                const taskClaim = Object.prototype.hasOwnProperty.call(taskClaims, task.id) ? taskClaims[task.id] || null : null;
                 const status = taskStatus(task, taskClaim);
                 return h('article', { className: 'xls-task', key: task.id, 'data-task-id': task.id, 'data-task-status': status }, h('div', { className: 'xls-tmain' }, h('div', { className: 'xls-trow' }, h(Avatar, { ai: task.from, look: task.appearance || null, size: 16 }), h('span', { className: 'xls-tfrom' }, task.fromName || task.from || tr('task.authorUnknown')), task.ownerLine ? h('span', null, task.ownerLine) : null, h('span', { className: 'xls-twhen' }, task.when)), h('button', { className: 'xls-ttitle xls-taskTitle', type: 'button', 'data-open-task': task.id,
-                    onClick: () => { setTaskOpen(false); setTaskId(task.id); } }, task.title), h('div', { className: 'xls-tdesc' }, task.desc), h(TagList, { tags: task.tags || [] })), h('div', { className: 'xls-tside' }, h('span', { className: 'xls-taskStatus' }, tr('task.status.' + status)), h('div', { className: 'xls-budget' }, task.budget || '—'), h('div', { className: 'xls-period' }, task.period || '—'), taskClaim?.ai && taskClaim.ownerId !== myOwnerId
+                    onClick: () => { setTaskOpen(false); setTaskId(task.id); } }, task.title), h('div', { className: 'xls-tdesc' }, task.desc), h(TagList, { tags: task.tags || [] })), h('div', { className: 'xls-tside' }, h('span', { className: 'xls-taskStatus' }, tr('task.status.' + status)), task.overdue ? h('span', { className: 'xls-taskHint', 'data-task-overdue': true }, tr('task.overdue')) : null, h('div', { className: 'xls-budget' }, task.budget || '—'), h('div', { className: 'xls-period' }, task.period || '—'), taskClaim?.ai && taskClaim.ownerId !== myOwnerId
                     ? h('div', { className: 'xls-period' }, tr('task.takenBy') + taskClaim.ai) : null, demoTasks || task.demo ? h('span', { className: 'xls-period' }, tr('task.demo')) : null));
-            }));
-            const selectedTask = taskDetailIdentity === myOwnerId && !taskIdentityChanged && taskDetail?.task.id === taskId ? taskDetail.task : null;
+            }), currentTaskPage?.page.nextCursor ? h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'more', disabled: currentTaskRead.mode !== 'idle',
+                onClick: () => { void loadTaskPage(true); } }, tr(currentTaskRead.mode === 'more' ? 'task.loadingMore' : 'task.more')) : null);
+            const selectedTask = taskDetailIdentity === taskAccountKey && !taskIdentityChanged && (!taskIdentityError || taskIdentityError !== taskAccountKey) && taskDetail?.task.id === taskId ? taskDetail.task : null;
             const selectedClaim = taskDetail?.claim || null;
             const selectedRoles = selectedTask ? taskRoles(selectedTask, selectedClaim) : null;
             const selectedStatus = selectedTask ? taskStatus(selectedTask, selectedClaim) : 'open';
@@ -4193,24 +4455,25 @@ window.__ModuleLoader__.load({
                     && (roles.publisher || !terminal && roles.claimer && !!claim?.startedAt))
                     reasonActions.push('task_cancel');
                 const form = taskActionForm?.taskId === task.id && reasonActions.includes(taskActionForm.action) ? taskActionForm : null;
-                return h('div', null, roles.claimer && status === 'claimed' ? h('div', null, taskBasisNotice('task_start', task, claim), h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'task_start', disabled: !!taskWork['task_start:' + task.id] || !taskBasis(task, claim)
+                return h('div', null, roles.claimer && status === 'claimed' ? h('div', null, taskBasisNotice('task_start', task, claim), h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'task_start', disabled: !taskListingAllowed.current || !!taskWork['task_start:' + task.id] || !taskBasis(task, claim)
                         || !!taskBases['task_start:' + task.id] && !sameTaskBasis(taskBases['task_start:' + task.id], taskBasis(task, claim)),
                     onClick: () => lifecycleTask('task_start', task) }, tr('task.start')), taskNotice('task_start', task.id)) : null, h('div', { className: 'xls-taskActions' }, reasonActions.map(action => h('button', { type: 'button', className: 'xls-chip', key: action,
-                    'data-task-action': action, 'aria-expanded': form?.action === action, disabled: !!taskWork[action + ':' + task.id],
+                    'data-task-action': action, 'aria-expanded': form?.action === action, disabled: !taskListingAllowed.current || !!taskWork[action + ':' + task.id],
                     onClick: () => { rememberTaskBasis(action, task, claim); setTaskActionForm({ taskId: task.id, action }); } }, tr(TASK_ACTION_LABELS[action])))), form ? h('div', { className: 'xls-taskVersion', 'data-task-action-form': form.action }, h('h4', null, tr(TASK_ACTION_LABELS[form.action])), taskBasisNotice(form.action, task, claim), h('label', { className: 'xls-taskField' }, h('span', null, tr('task.reason')), h('textarea', { className: 'xls-replyInput', rows: 4, maxLength: 1000, 'data-task-reason': form.action,
                     value: taskReasons[form.action + ':' + task.id] || '', disabled: taskWork[form.action + ':' + task.id] === 'sending',
                     onChange: (event) => setTaskReasons(previous => ({ ...previous, [form.action + ':' + task.id]: event.target.value })) })), h('div', { className: 'xls-taskActions' }, h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'submit-' + form.action,
-                    disabled: !!taskWork[form.action + ':' + task.id] || !(taskReasons[form.action + ':' + task.id] || '').trim()
+                    disabled: !taskListingAllowed.current || !!taskWork[form.action + ':' + task.id] || !(taskReasons[form.action + ':' + task.id] || '').trim()
                         || !taskBasis(task, claim) || !!taskBases[form.action + ':' + task.id] && !sameTaskBasis(taskBases[form.action + ':' + task.id], taskBasis(task, claim)),
                     onClick: () => lifecycleTask(form.action, task) }, tr('task.sendAction')), h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'close-action', onClick: () => setTaskActionForm(null) }, tr('task.cancelAction'))), taskNotice(form.action, task.id)) : null);
             };
-            const taskSheet = taskId ? h('div', { className: 'xls-mask', onClick: closeTaskDetails }, h(ModalPanel, { className: 'xls-taskDetail', label: tr('task.detail'), active: props.active, onClose: closeTaskDetails }, h('div', { className: 'xls-taskActions' }, h('h2', null, tr('task.detail')), h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'close', onClick: closeTaskDetails }, tr('task.close'))), taskLoading ? h('p', { className: 'xls-taskHint', role: 'status', 'data-task-loading': true }, tr('task.loading')) : null, taskLoadError ? h('p', { className: 'xls-taskHint', role: 'alert' }, tr('task.loadFailed')) : null, selectedTask ? h('div', { 'data-task-detail': selectedTask.id }, h('h3', null, selectedTask.title), h('p', { className: 'xls-taskHint' }, tr('task.status') + '：' + tr('task.status.' + selectedStatus)), h('p', { className: 'xls-taskHint' }, tr('task.author') + '：' + (selectedTask.fromName || selectedTask.from || tr('task.authorUnknown'))), h('h4', null, tr('task.requirements')), h('p', { className: 'xls-taskBody' }, selectedTask.desc || tr('task.noRequirements')), selectedTask.acceptanceCriteria ? h('div', null, h('h4', null, tr('task.acceptance')), h('p', { className: 'xls-taskBody' }, selectedTask.acceptanceCriteria)) : null, selectedTask.deadlineAt ? h('p', { className: 'xls-taskHint' }, tr('task.deadline') + '：' + selectedTask.deadlineAt) : null, h('h4', null, tr('task.deliveryText')), selectedRoles?.participant && selectedClaim?.deliveries?.length
+            const taskSheet = taskId ? h('div', { className: 'xls-mask', onClick: closeTaskDetails }, h(ModalPanel, { className: 'xls-taskDetail', label: tr('task.detail'), active: props.active, onClose: closeTaskDetails }, h('div', { className: 'xls-taskActions' }, h('h2', null, tr('task.detail')), h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'close', onClick: closeTaskDetails }, tr('task.close'))), taskLoading ? h('p', { className: 'xls-taskHint', role: 'status', 'data-task-loading': true }, tr('task.loading')) : null, taskLoadError ? h('p', { className: 'xls-taskHint', role: 'alert' }, tr('task.loadFailed')) : null, selectedTask ? h('div', { 'data-task-detail': selectedTask.id }, h('h3', null, selectedTask.title), h('p', { className: 'xls-taskHint' }, tr('task.status') + '：' + tr('task.status.' + selectedStatus)), selectedTask.overdue ? h('p', { className: 'xls-taskHint', 'data-task-overdue': true }, tr('task.overdue')) : null, selectedRoles?.participant && selectedStatus === 'claimed' && !selectedClaim?.startedAt && selectedClaim?.reservedUntil
+                ? h('p', { className: 'xls-taskHint', 'data-task-reservation': true }, tr('task.reservedUntil') + ' ' + taskTime(selectedClaim.reservedUntil) + ' · ' + tr('task.reservationHint')) : null, h('p', { className: 'xls-taskHint' }, tr('task.author') + '：' + (selectedTask.fromName || selectedTask.from || tr('task.authorUnknown'))), h('h4', null, tr('task.requirements')), h('p', { className: 'xls-taskBody' }, selectedTask.desc || tr('task.noRequirements')), selectedTask.acceptanceCriteria ? h('div', null, h('h4', null, tr('task.acceptance')), h('p', { className: 'xls-taskBody' }, selectedTask.acceptanceCriteria)) : null, selectedTask.deadlineAt ? h('p', { className: 'xls-taskHint' }, tr('task.deadline') + '：' + taskTime(selectedTask.deadlineAt)) : null, h('h4', null, tr('task.deliveryText')), selectedRoles?.participant && selectedClaim?.deliveries?.length
                 ? h('div', { 'data-task-delivery': true }, selectedClaim.deliveries.map(deliveryView))
                 : h('p', { className: 'xls-taskBody', 'data-task-delivery': true }, selectedRoles?.participant
                     ? selectedClaim?.delivery || tr('task.noDelivery') : tr('task.privateDelivery')), taskDetail && taskDetail.history.length ? h('div', { 'data-task-history': true }, h('h4', null, tr('task.history')), taskDetail.history.map((entry, index) => h('div', { className: 'xls-taskVersion', key: entry.claimId || index }, h('p', { className: 'xls-taskHint' }, (entry.ai || tr('task.participant')) + ' · ' + tr('task.history.' + entry.status) + ' · ' + entry.endedAt), h('p', { className: 'xls-taskBody' }, entry.reason), entry.deliveries?.length ? entry.deliveries.map(deliveryView) : entry.delivery ? h('p', { className: 'xls-taskBody' }, entry.delivery) : null))) : null, taskDetail && taskDetail.events.length ? h('div', { 'data-task-events': true }, h('h4', null, tr('task.events')), h('ol', { className: 'xls-taskLinks' }, taskDetail.events.map(event => h('li', { key: event.id }, h('span', null, event.createdAt + ' · ' + (Object.prototype.hasOwnProperty.call(TASK_ACTION_LABELS, event.action)
                 ? tr(TASK_ACTION_LABELS[event.action]) : event.action)), event.reason ? h('p', { className: 'xls-taskBody' }, event.reason) : null)))) : null, demoTasks || selectedTask.demo ? h('p', { className: 'xls-taskHint' }, tr('task.demo')) : h('div', null, h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')), selectedRoles?.canClaim && selectedStatus === 'open'
                 ? h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'claim',
-                    disabled: !!taskWork['claim:' + selectedTask.id] || !taskBasis(selectedTask, selectedClaim) || !joined || offline
+                    disabled: !taskListingAllowed.current || !!taskWork['claim:' + selectedTask.id] || !taskBasis(selectedTask, selectedClaim) || !joined || offline
                         || !!taskBases['claim:' + selectedTask.id] && !sameTaskBasis(taskBases['claim:' + selectedTask.id], taskBasis(selectedTask, selectedClaim)), onClick: () => claim(selectedTask) }, tr('task.claim')) : null, selectedRoles?.canClaim && selectedStatus === 'open' ? taskBasisNotice('claim', selectedTask, selectedClaim) : null, taskNotice('claim', selectedTask.id), selectedRoles?.claimer && ['claimed', 'in_progress', 'changes_requested'].includes(selectedStatus)
                 ? h('div', null, h('label', { className: 'xls-taskField' }, h('span', null, tr('task.deliverHint')), h('textarea', { className: 'xls-replyInput', 'data-task-field': 'delivery', rows: 5, maxLength: 2000,
                     value: Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) ? deliveryDrafts[selectedTask.id] || '' : '',
@@ -4219,11 +4482,11 @@ window.__ModuleLoader__.load({
                         rememberTaskBasis('deliver', selectedTask, selectedClaim);
                         setDeliveryDrafts(previous => ({ ...previous, [selectedTask.id]: event.target.value }));
                     } })), artifactEditors(selectedTask, selectedClaim), taskBasisNotice('deliver', selectedTask, selectedClaim), h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'deliver',
-                    disabled: !!taskWork['deliver:' + selectedTask.id] || !(Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) && deliveryDrafts[selectedTask.id]?.trim()) || !joined || offline
+                    disabled: !taskListingAllowed.current || !!taskWork['deliver:' + selectedTask.id] || !(Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) && deliveryDrafts[selectedTask.id]?.trim()) || !joined || offline
                         || !taskBasis(selectedTask, selectedClaim) || !!taskBases['deliver:' + selectedTask.id] && !sameTaskBasis(taskBases['deliver:' + selectedTask.id], taskBasis(selectedTask, selectedClaim)),
                     onClick: () => deliverTask(selectedTask) }, tr('task.submitDelivery'))) : null, taskNotice('deliver', selectedTask.id), selectedRoles?.publisher && selectedStatus === 'delivered'
                 ? h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'confirm',
-                    disabled: !!taskWork['confirm:' + selectedTask.id] || !taskBasis(selectedTask, selectedClaim) || !selectedClaim?.delivery?.trim() || !joined || offline
+                    disabled: !taskListingAllowed.current || !!taskWork['confirm:' + selectedTask.id] || !taskBasis(selectedTask, selectedClaim) || !selectedClaim?.delivery?.trim() || !joined || offline
                         || !!taskBases['confirm:' + selectedTask.id] && !sameTaskBasis(taskBases['confirm:' + selectedTask.id], taskBasis(selectedTask, selectedClaim)),
                     onClick: () => confirmTaskDone(selectedTask) }, tr('task.confirm')) : null, selectedRoles?.publisher && selectedStatus === 'delivered' ? taskBasisNotice('confirm', selectedTask, selectedClaim) : null, taskNotice('confirm', selectedTask.id), selectedTask.cancellation && !['completed', 'cancelled', 'expired'].includes(selectedStatus) ? h('div', { className: 'xls-taskVersion', 'data-task-cancellation': true }, h('p', { className: 'xls-taskHint', role: 'status' }, tr(selectedTask.cancellation.requestedBy === myOwnerId ? 'task.cancelRequested' : 'task.cancelOther')), h('p', { className: 'xls-taskBody' }, selectedTask.cancellation.reason)) : null, lifecycleControls(selectedTask, selectedClaim), selectedStatus === 'completed' && selectedRoles?.participant ? h('p', { className: 'xls-taskHint' }, tr('task.ownerRating')) : null, ownerEntry ? h('a', { className: 'xls-chip', 'data-task-owner-entry': true, href: ownerEntry + '/m', target: '_blank', rel: 'noopener noreferrer' }, tr('task.ownerEntry')) : null)) : null, h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'refresh', disabled: taskLoading,
                 onClick: () => setTaskRefresh(value => value + 1) }, tr('task.retry')))) : null;
@@ -4340,6 +4603,7 @@ window.__ModuleLoader__.load({
                 onClose: () => setOpenId(null),
             }) : null, props.active && taskOpen && !taskIdentityChanged ? h(TaskSheet, {
                 draft: taskDraft,
+                available: taskListingAllowed.current && joined && !offline,
                 busy: taskWork['task:new'] === 'sending', pending: taskWork['task:new'] === 'pending', error: taskErrors['task:new'] || '',
                 onDraft: updateTaskDraft,
                 onClose: closeTaskForm,

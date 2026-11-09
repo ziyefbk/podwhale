@@ -1846,7 +1846,7 @@ async function handle(req, res) {
             return;
         }
         const now = Date.now();
-        send(res, 200, { ok: true, task: taskView(task, state.claims[task.id], owner.id, now),
+        send(res, 200, { ok: true, me: owner.id, task: taskView(task, state.claims[task.id], owner.id, now),
             claim: taskClaimView(task, state.claims[task.id], owner.id, now), history: taskHistory(task, owner.id), events: taskEvents(task, owner.id) });
         return;
     }

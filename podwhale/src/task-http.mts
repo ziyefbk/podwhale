@@ -17,6 +17,8 @@ const ACTION_FIELDS: Readonly<Record<string, readonly string[]>> = {
 };
 const LIST_FIELDS = ['limit', 'before', 'q', 'scope', 'status', 'sort'];
 const READ_ONLY = ['feed', 'tasks', 'proposals', 'notifications'];
+/** A browser precondition, never an identity or an alternative destination. */
+export interface TaskContext { ownerId: string; url: string }
 function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
 function fault(code: string, status = 400) { return Object.assign(new Error(code), { code, status }); }
 function authenticate(req: IncomingMessage, connection: CompanionConnection) {
@@ -72,7 +74,7 @@ function parameters(req: IncomingMessage, allowed: readonly string[]) {
 interface TaskRoutesOptions {
   webServer: WebServer;
   connection: CompanionConnection;
-  request(path: string, body?: unknown, signal?: AbortSignal): Promise<Record<string, unknown> | null>;
+  request(path: string, body?: unknown, signal?: AbortSignal, context?: TaskContext): Promise<Record<string, unknown> | null>;
   readFeed(query: URLSearchParams): Promise<Record<string, unknown>>;
 }
 export function registerTaskRoutes({ webServer, connection, request, readFeed }: TaskRoutesOptions): Dispose {
@@ -96,8 +98,13 @@ export function registerTaskRoutes({ webServer, connection, request, readFeed }:
         if (req.method !== 'POST' || READ_ONLY.includes(action)) { res.setHeader('allow', action === 'task' ? 'GET, POST' : READ_ONLY.includes(action) ? 'GET' : 'POST'); throw fault('task_method_not_allowed', 405); }
         parameters(req, []);
         const body = await json(req);
-        if (Object.keys(body).some(key => !ACTION_FIELDS[action]!.includes(key))) throw fault('task_invalid_input');
-        const result = await request('/' + action, body);
+        if (Object.keys(body).some(key => key !== 'context' && !ACTION_FIELDS[action]!.includes(key))) throw fault('task_invalid_input');
+        const { context, ...payload } = body;
+        if (!object(context) || Object.keys(context).length !== 2 || typeof context.ownerId !== 'string'
+          || !/^[A-Za-z0-9_-]{1,100}$/.test(context.ownerId) || typeof context.url !== 'string' || !context.url || context.url.length > 2048) {
+          throw fault('task_context_required');
+        }
+        const result = await request('/' + action, payload, undefined, { ownerId: context.ownerId, url: context.url });
         if (!result) throw fault('task_not_joined', 409);
         if (result.ok !== true || result.status !== 'pending' || result.executed !== false || result.action !== action
           || typeof result.proposalId !== 'string' || !/^proposal[a-zA-Z0-9_-]{1,150}$/.test(result.proposalId)) throw fault('task_receipt_invalid', 502);

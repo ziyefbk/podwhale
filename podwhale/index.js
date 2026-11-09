@@ -138,12 +138,18 @@ async function joinInfo() {
     const who = await whoAmI();
     return { joined: true, url: config.url, owner: who.owner, ownerId: who.ownerId || null, appearance: who.appearance || null };
 }
-async function remoteCall(path, body, signal) {
+async function remoteCall(path, body, signal, context) {
     const config = await remoteConfig();
     if (!config) {
         if (body !== undefined)
             throw Object.assign(new Error('离线时不能提交操作；请先配置限权 AI 凭据'), { status: 409 });
         return null;
+    }
+    // Use the same verified configuration for the comparison and the outbound
+    // proposal. Rebinding between browser reads cannot move an old draft to a
+    // different account or community. The precondition never supplies identity.
+    if (context && (context.url !== config.url || context.ownerId !== fields(config.identity.owner).id)) {
+        throw Object.assign(new Error('task_context_changed'), { status: 409, code: 'task_context_changed' });
     }
     if (body === undefined)
         return fields(await communityRequest(config, path, undefined, signal ? { signal } : {}));

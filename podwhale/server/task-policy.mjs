@@ -143,9 +143,9 @@ function artifacts(value) {
         catch {
             return fail('invalid task artifact URL');
         }
-        const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+        const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '').toLowerCase();
         if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || isIP(host) || !host.includes('.')
-            || /(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid)$/.test(host) || field(item.url, 2048).text !== item.url)
+            || /(?:^|\.)(?:localhost|local|internal|lan|home|corp|localdomain|home\.arpa|test|invalid)$/.test(host) || field(item.url, 2048).text !== item.url)
             return fail('invalid task artifact URL');
         return { label, url: url.href };
     });

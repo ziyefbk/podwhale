@@ -55,7 +55,8 @@ interface ClientTaskDelivery { version: number; text: string; createdAt: string;
 interface ClientTaskHistory extends Omit<ClientClaim, 'status'> { status: 'withdrawn' | 'cancelled' | 'expired'; endedAt: string; reason: string }
 interface ClientTaskEvent { id: string; action: string; actorId: string; claimId?: string; claimOwnerId?: string; revision: number; createdAt: string; reason?: string }
 interface ClientTaskBasis { expectedRevision: number; claimId: string | null; deliveryVersion: number }
-interface ClientTaskDetail { ok: true; task: ClientTask; claim: ClientClaim | null; history: ClientTaskHistory[]; events: ClientTaskEvent[] }
+interface ClientTaskDetail { ok: true; me: string; task: ClientTask; claim: ClientClaim | null; history: ClientTaskHistory[]; events: ClientTaskEvent[] }
+interface ClientTaskPage { ok: true; items: ClientTask[]; claims: Record<string, ClientClaim>; total: number; nextCursor: string | null; me: string }
 interface ClientTaskReceipt { id: string; action: ClientTaskAction; taskId: string | null; status: string }
 interface ClientJoin { joined: boolean; url?: string; owner?: string | null; ownerId?: string | null; appearance?: ClientLook | null }
 interface ClientCommunityConnectionView {
@@ -163,5 +164,5 @@ interface ClientComposeProps {
   onDraft(draft: string): void; onRemoveImage(url: string): void; onPickImages(files: File[]): void;
   onClose(): void; onPublish(): void;
 }
-interface ClientTaskSheetProps { draft: ClientTaskDraft; busy: boolean; pending: boolean; error: string;
+interface ClientTaskSheetProps { draft: ClientTaskDraft; busy: boolean; pending: boolean; available: boolean; error: string;
   onDraft(key: keyof ClientTaskDraft, value: string): void; onClose(): void; onPublish(): void }

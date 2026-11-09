@@ -126,8 +126,10 @@ async function desktop(account: Account, path: string, body?: unknown,
     await writeFile(remoteFile, JSON.stringify({ url: community, token: account.agent }));
     currentAgent = account.agent;
   }
+  const input = body && typeof body === 'object' && !Array.isArray(body)
+    ? { ...record(body), context: Object.hasOwn(body, 'context') ? record(body).context : { ownerId: account.id, url: community } } : body;
   return request(origin + '/xiaolanshu/api' + path, {
-    ...(body === undefined ? {} : { body }), ...(options.method ? { method: options.method } : {}),
+    ...(input === undefined ? {} : { body: input }), ...(options.method ? { method: options.method } : {}),
     headers: { ...(options.anonymous ? {} : { cookie }), origin: options.foreign ? 'https://foreign.invalid' : origin,
       ...(options.contentType ? { 'content-type': options.contentType } : {}) },
   });
@@ -261,7 +263,8 @@ async function receiptBoundary() {
     async request() { if (upstream instanceof Error) throw upstream; return upstream; },
     async readFeed() { return { posts: [], tasks: [], claims: {} }; },
   }));
-  const call = () => request(base + '/xiaolanshu/api/task', { body: { title: '合成回执校验' }, headers: { cookie, origin: base } });
+  const call = () => request(base + '/xiaolanshu/api/task', { body: { title: '合成回执校验',
+    context: { ownerId: 'receipt-fixture-owner', url: 'https://community.example.org/xiaolanshu' } }, headers: { cookie, origin: base } });
   const valid = { ok: true, status: 'pending', executed: false, action: 'task', proposalId: 'proposal-fixture-safe' };
   for (const [name, altered] of [
     ['an executed operation', { executed: true }],
@@ -365,9 +368,22 @@ try {
   check('rejected requests create no task or proposal', records((await remote('/tasks', publisher.human)).body.items).length === 0
     && records((await remote('/proposals', publisher.human)).body.items).length === 0);
 
+  const missingContext = await desktop(publisher, '/task', { ...taskInput, context: null });
+  check('a task write requires an explicit valid account and community precondition', missingContext.status === 400
+    && missingContext.body.code === 'task_context_required');
+
+  const staleOwnerContext = await desktop(claimer, '/task', { ...taskInput, context: { ownerId: publisher.id, url: community } });
+  check('a saved owner context cannot create a proposal after Host rebinding', staleOwnerContext.status === 409
+    && staleOwnerContext.body.code === 'task_context_changed');
+  check('a rejected stale context creates no proposal for the newly bound owner', records((await remote('/proposals', claimer.human)).body.items).length === 0);
+  const staleCommunityContext = await desktop(publisher, '/task', { ...taskInput,
+    context: { ownerId: publisher.id, url: 'https://different-community.example.org/xiaolanshu' } });
+  check('a saved context for another community is rejected for the same owner', staleCommunityContext.status === 409
+    && staleCommunityContext.body.code === 'task_context_changed');
+
   const taskProposal = await pending(await desktop(publisher, '/task', taskInput), 'task', publisher);
   check('task proposal uses authenticated owner and discards identity/approval arguments', taskProposal.ownerId === publisher.id
-    && !['ownerId', 'ai', 'role', 'approved'].some(key => Object.hasOwn(taskProposal.payload, key)));
+    && !['ownerId', 'ai', 'role', 'approved', 'context'].some(key => Object.hasOwn(taskProposal.payload, key)));
   check('unapproved task is absent from the public board', records((await desktop(outsider, '/tasks')).body.items).length === 0);
   check('an agent cannot approve even its own task proposal', (await remote('/proposals/approve', publisher.agent,
     { id: taskProposal.id, digest: taskProposal.digest })).status === 403);
@@ -391,6 +407,8 @@ try {
   check('claimer proposal cannot be approved by the task publisher', (await decide(publisher, claimProposal)).status === 404);
   check('claimer independent human approval claims the task', (await decide(claimer, claimProposal)).status === 200);
   const publisherView = await desktop(publisher, detailPath), claimerView = await desktop(claimer, detailPath);
+  check('task detail binds the publisher response to its authenticated owner', publisherView.body.me === publisher.id);
+  check('task detail binds the claimant response to its authenticated owner', claimerView.body.me === claimer.id);
   check('publisher and claimer receive their actual task roles', record(record(publisherView.body.task).viewer).publisher === true
     && record(record(publisherView.body.task).viewer).claimer === false && record(record(claimerView.body.task).viewer).claimer === true
     && record(record(claimerView.body.task).viewer).publisher === false);

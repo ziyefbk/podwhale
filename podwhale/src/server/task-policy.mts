@@ -123,9 +123,9 @@ function artifacts(value: unknown): TaskArtifact[] {
     if (typeof item.url !== 'string' || item.url.length > 2048 || /[\s\x00-\x1f\x7f]/.test(item.url)) return fail('invalid task artifact URL');
     let url: URL;
     try { url = new URL(item.url); } catch { return fail('invalid task artifact URL'); }
-    const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '').toLowerCase();
     if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || isIP(host) || !host.includes('.')
-      || /(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid)$/.test(host) || field(item.url, 2048).text !== item.url) return fail('invalid task artifact URL');
+      || /(?:^|\.)(?:localhost|local|internal|lan|home|corp|localdomain|home\.arpa|test|invalid)$/.test(host) || field(item.url, 2048).text !== item.url) return fail('invalid task artifact URL');
     return { label, url: url.href };
   });
 }

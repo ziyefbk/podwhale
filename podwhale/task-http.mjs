@@ -132,9 +132,14 @@ export function registerTaskRoutes({ webServer, connection, request, readFeed })
                     }
                     parameters(req, []);
                     const body = await json(req);
-                    if (Object.keys(body).some(key => !ACTION_FIELDS[action].includes(key)))
+                    if (Object.keys(body).some(key => key !== 'context' && !ACTION_FIELDS[action].includes(key)))
                         throw fault('task_invalid_input');
-                    const result = await request('/' + action, body);
+                    const { context, ...payload } = body;
+                    if (!object(context) || Object.keys(context).length !== 2 || typeof context.ownerId !== 'string'
+                        || !/^[A-Za-z0-9_-]{1,100}$/.test(context.ownerId) || typeof context.url !== 'string' || !context.url || context.url.length > 2048) {
+                        throw fault('task_context_required');
+                    }
+                    const result = await request('/' + action, payload, undefined, { ownerId: context.ownerId, url: context.url });
                     if (!result)
                         throw fault('task_not_joined', 409);
                     if (result.ok !== true || result.status !== 'pending' || result.executed !== false || result.action !== action

@@ -334,7 +334,7 @@ interface TestFetchResponse { ok: boolean; status: number; json(): Promise<unkno
 interface TaskFixture {
   id: string; from: string; title: string; desc: string; budget: string; period: string; match: number; why: string;
   tags: string[]; when: string; risk: boolean; ownerId?: string; fromName?: string; status?: string; revision?: number;
-  acceptanceCriteria?: string; deadlineAt?: string | null; cancellation?: { requestedBy: string; reason: string; createdAt: string; claimId: string } | null;
+  acceptanceCriteria?: string; deadlineAt?: string | null; overdue?: boolean; cancellation?: { requestedBy: string; reason: string; createdAt: string; claimId: string } | null;
   viewer?: { publisher: boolean; claimer: boolean; participant: boolean; canClaim: boolean };
 }
 interface TaskClaimFixture { taskId?: string; ownerId?: string; ai?: string; createdAt?: string; deliveredAt?: string;
@@ -346,6 +346,7 @@ let replyFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchRe
 let feedFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
 let connectionFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
 let taskFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
+let taskListFetch: ((url: string, options: TestFetchOptions) => Promise<TestFetchResponse>) | null = null;
 function testResponse(value: unknown, status = 200): TestFetchResponse {
   return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(value), text: () => Promise.resolve(JSON.stringify(value)) };
 }
@@ -361,6 +362,8 @@ function fakeFetch(url: string, options?: TestFetchOptions): Promise<TestFetchRe
   if (replyFetch && path === '/api/reply') return replyFetch(url, options || {});
   if (feedFetch && path === '/api/feed') return feedFetch(url, options || {});
   if (connectionFetch && path === '/api/community-connection') return connectionFetch(url, options || {});
+  if (path === '/api/tasks') return taskListFetch ? taskListFetch(url, options || {}) : Promise.resolve(testResponse({ ok: true,
+    items: structuredClone(feed.tasks), claims: structuredClone(feed.claims), total: feed.tasks.length, nextCursor: null, me: joinInfo.ownerId }));
   if (taskFetch && ['/api/task', '/api/proposals', '/api/claim', '/api/deliver', '/api/confirm', '/api/task_start', '/api/task_rework', '/api/task_withdraw', '/api/task_cancel'].includes(path)) return taskFetch(url, options || {});
   if (process.env.XLB_DEBUG) console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
   const payload = routes[path] !== undefined ? routes[path] : {};
@@ -2556,7 +2559,7 @@ try {
   let responseStatus = 200, malformedWrite = false, holdWrite = false, holdRead = false;
   let writeSequence = 0;
   const held: { write?: (value: TestFetchResponse) => void; read?: (value: TestFetchResponse) => void; signal?: AbortSignal } = {};
-  const detailFor = (id: string) => ({ ok: true, task: feed.tasks.find(task => task.id === id),
+  const detailFor = (id: string) => ({ ok: true, me: joinInfo.ownerId, task: feed.tasks.find(task => task.id === id),
     claim: id === observer.id ? { taskId: id, status: 'delivered', delivery: 'private-delivery-must-not-render' } : feed.claims[id] || null,
     history: [], events: [] });
   const receiptFor = (action: string) => ({ ok: true, status: 'pending', executed: false, action, proposalId: 'proposal-task-fixture-' + (++writeSequence) });
@@ -2589,12 +2592,12 @@ try {
   check('real tasks never display legacy match percentages or invented agent negotiations',
     findNodes(petTree, node => node.props.className === 'xls-matchrow' || node.props.className === 'xls-why').length === 0
     && !textOf(petTree).includes('双方 AI 对齐细节'));
-  const actualTasks = feed.tasks; feed.tasks = []; await renderPet();
+  const actualTasks = feed.tasks; feed.tasks = []; await clickTask('refresh-list');
   check('an online empty task list is a real empty state and never falls back to sample jobs',
     findNodes(petTree, node => node.props['data-task-empty'] === 'empty').length === 1
     && findNodes(petTree, node => typeof node.props['data-task-id'] === 'string').length === 0
     && !textOf(petTree).includes('复现一组 vLLM 多卡 P95 数据'));
-  feed.tasks = actualTasks; await renderPet();
+  feed.tasks = actualTasks; await clickTask('refresh-list');
   await openTask(publisher.id);
   check('opening task details reads the exact task and displays its real delivery as escaped text',
     callLog.some(call => call.path === '/api/task' && call.url.endsWith('taskId=' + publisher.id))
@@ -2728,7 +2731,7 @@ try {
     if ((options.method || 'GET') === 'GET') {
       if (path === '/api/proposals') return testResponse({ ok: true, items: [] });
       const value = views.get(target.searchParams.get('taskId') || '');
-      return testResponse(value ? structuredClone({ ok: true, ...value }) : { ok: false }, value ? 200 : 404);
+      return testResponse(value ? structuredClone({ ok: true, me: joinInfo.ownerId, ...value }) : { ok: false }, value ? 200 : 404);
     }
     if (holdPost) return new Promise(resolve => { held.resolve = resolve; });
     return pending(path.slice('/api/'.length));
@@ -2801,7 +2804,8 @@ try {
   await click('close'); await open('p2-work'); await type('delivery', '修订后的交付正文'); await click('add-artifact');
   const artifactInput = (field: string) => findNodes(petTree, node => node.props['data-task-artifact-field'] === field && node.props['data-artifact-index'] === '0')[0]!;
   artifactInput('label').props.onChange!({ target: { value: '交付报告' } }); await renderPet();
-  const invalidLinks = ['http://deliverables.example.org/report', 'https://127.0.0.1/report', 'https://localhost/report', 'https://user:pass@deliverables.example.org/report', 'https://deliverables.example.org/report?token=private', 'https://deliverables.example.org/report#part'];
+  const invalidLinks = ['http://deliverables.example.org/report', 'https://127.0.0.1/report', 'https://localhost/report', 'https://user:pass@deliverables.example.org/report', 'https://deliverables.example.org/report?token=private', 'https://deliverables.example.org/report#part',
+    'https://localhost./report', 'https://host.internal./report', 'https://host.corp./report', 'https://host.localdomain./report', 'https://host.home.arpa./report', 'https://host.test/report', 'https://host.invalid/report'];
   const beforeLinks = posts().length;
   for (const url of invalidLinks) { artifactInput('url').props.onChange!({ target: { value: url } }); await renderPet(); await click('deliver'); }
   check('invalid artifact transports and embedded authority are rejected before any network write', posts().length === beforeLinks
@@ -2848,7 +2852,7 @@ try {
   check('an expired reservation projected as open and null claim stays claimable for a new owner', !!taskNode('claim') && !taskNode('claim')!.props.disabled);
   await click('claim');
   check('reclaiming never carries a previous owner claim ID, delivery version or private body',
-    JSON.stringify(posts().at(-1)?.body) === JSON.stringify({ taskId: 'p2-expired-lease', note: '', expectedRevision: 11 })
+    JSON.stringify(posts().at(-1)?.body) === JSON.stringify({ taskId: 'p2-expired-lease', note: '', expectedRevision: 11, context: { ownerId: joinInfo.ownerId, url: joinInfo.url } })
     && findNodes(petTree, node => node.props['data-task-pending'] === 'claim').length === 1);
   check('task lifecycle UI never fetches artifact destinations, runs a model, or approves its own proposal',
     callLog.slice(suiteStart).every(call => call.url.startsWith('/xiaolanshu/'))
@@ -2857,6 +2861,159 @@ try {
   check('versioned task lifecycle behavior completes without throwing', false, caught instanceof Error ? caught.stack : String(caught));
 } finally {
   unmountTestTree(); taskFetch = null; feed.tasks = phase2OriginalTasks; feed.claims = phase2OriginalClaims;
+}
+
+// The task board owns its cursor and identity fences rather than reusing the
+// periodically refreshed feed slice. Fixtures return real, separately timed
+// HTTP responses so stale reads and failed pagination cannot hide behind state.
+const phase3Tasks = feed.tasks, phase3Claims = feed.claims, phase3Owner = joinInfo.ownerId, phase3Url = joinInfo.url;
+try {
+  const original = phase3Tasks[0]!;
+  const a: TaskFixture = { ...original, id: 'p3-a', title: '独立列表第一项', ownerId: 'publisher-other', status: 'claimed', revision: 4, overdue: true,
+    deadlineAt: '2025-01-01T00:00:00.000Z', viewer: { publisher: false, claimer: true, participant: true, canClaim: false } };
+  const b: TaskFixture = { ...a, id: 'p3-b', title: '独立列表第二项', status: 'open', overdue: false,
+    viewer: { publisher: false, claimer: false, participant: false, canClaim: true } };
+  const c: TaskFixture = { ...b, id: 'p3-c', title: '第二页新增项' };
+  const privateClaim: TaskClaimFixture = { taskId: a.id, ownerId: 'o1', claimId: 'p3-round', revision: 1, deliveryVersion: 1,
+    delivery: 'only-owner-a-private-delivery', reservedUntil: '2032-06-15T12:30:00.000Z', startedAt: null };
+  const page = (items: TaskFixture[], nextCursor: string | null = null, me = joinInfo.ownerId) => ({ ok: true, me, items: structuredClone(items),
+    claims: items.some(item => item.id === a.id) ? { [a.id]: structuredClone(privateClaim) } : {}, total: 43, nextCursor });
+  type ListReply = (url: URL, options: TestFetchOptions) => Promise<TestFetchResponse>;
+  let reply: ListReply = async target => testResponse(target.searchParams.has('before') ? page([{ ...b, title: '第二项更新' }, c], 'cursor-2') : page([a, b], 'cursor-1'));
+  let detailMe = joinInfo.ownerId, heldDetail = false, rejectContext = false;
+  const held: { resolve?: (value: TestFetchResponse) => void; signal?: AbortSignal; detail?: (value: TestFetchResponse) => void } = {};
+  const detail = (id: string, me = detailMe) => ({ ok: true, me, task: id === a.id ? a : id === b.id ? b : c,
+    claim: id === a.id ? privateClaim : null, history: [], events: [] });
+  taskListFetch = (url, options) => reply(new URL(url, 'https://local.invalid'), options);
+  taskFetch = async (url, options) => {
+    const target = new URL(url, 'https://local.invalid');
+    if (target.pathname.endsWith('/proposals')) return testResponse({ ok: true, items: [] });
+    if ((options.method || 'GET') === 'POST') return rejectContext ? testResponse({ ok: false, code: 'task_context_changed' }, 409)
+      : testResponse({ ok: true, action: target.pathname.split('/').at(-1), status: 'pending', executed: false, proposalId: 'phase3-proposal' }, 202);
+    if (heldDetail) return new Promise(resolve => { held.detail = resolve; });
+    return testResponse(detail(target.searchParams.get('taskId') || ''));
+  };
+  const suiteStart = callLog.length;
+  unmountTestTree(); petTree = await mountMain();
+  const taskNode = (action: string) => findNodes(petTree, node => node.props['data-task-action'] === action)[0];
+  const field = (name: string) => findNodes(petTree, node => node.props['data-task-list-field'] === name)[0];
+  const cards = () => findNodes(petTree, node => typeof node.props['data-task-id'] === 'string');
+  const listCalls = () => callLog.slice(suiteStart).filter(call => call.path === '/api/tasks');
+  const writes = () => callLog.slice(suiteStart).filter(call => call.method === 'POST' && (call.path.startsWith('/api/task') || ['/api/claim', '/api/deliver', '/api/confirm'].includes(call.path)));
+  const click = async (action: string) => { const node = taskNode(action); if (!node) throw new Error('missing board action ' + action); clickNode(petTree, node); await renderPet(); };
+  const change = async (name: string, value: string) => { const node = field(name); if (!node) throw new Error('missing board field ' + name); node.props.onChange!({ target: { value } }); await renderPet(); };
+  const open = async (id: string) => { const node = findNodes(petTree, entry => entry.props['data-open-task'] === id)[0]; if (!node) throw new Error('missing board item ' + id); clickNode(petTree, node); await renderPet(); };
+  const switchTab = async (label: string) => { const node = findNodes(petTree, entry => entry.type === 'button' && entry.props.className === 'xls-tab' && textOf(entry) === label)[0]!; clickNode(petTree, node); await renderPet(); };
+  await switchTab('任务广场');
+  const firstParams = new URL(listCalls()[0]!.url, 'https://local.invalid').searchParams;
+  check('the task board loads its own twenty-item newest page rather than the feed task slice', firstParams.get('limit') === '20'
+    && firstParams.get('scope') === 'all' && firstParams.get('sort') === 'newest' && cards().length === 2
+    && !cards().some(node => node.props['data-task-id'] === original.id));
+  check('task filters are labelled native controls and server totals are not replaced with loaded counts', ['scope', 'status', 'sort'].every(name => field(name)?.type === 'select')
+    && findNodes(petTree, node => node.props['data-task-list-loaded'] !== undefined).some(node => textOf(node).includes('43')));
+  await change('scope', 'published');
+  check('my published filter uses the server scope instead of filtering one feed page', new URL(listCalls().at(-1)!.url, 'https://local.invalid').searchParams.get('scope') === 'published');
+  await change('scope', 'claimed');
+  check('my claimed filter explicitly includes authorized historical rounds without changing permissions', new URL(listCalls().at(-1)!.url, 'https://local.invalid').searchParams.get('scope') === 'claimed'
+    && findNodes(petTree, node => node.props['data-task-history-scope'] === true).length === 1);
+  await change('status', 'changes_requested'); await change('sort', 'oldest');
+  const filtered = new URL(listCalls().at(-1)!.url, 'https://local.invalid').searchParams;
+  check('status and sort requests preserve the selected task scope', filtered.get('scope') === 'claimed' && filtered.get('status') === 'changes_requested' && filtered.get('sort') === 'oldest');
+  const beforeQuery = listCalls().length; await change('q', '  报告 & review  ');
+  check('task search waits for the debounce instead of requesting every keystroke', listCalls().length === beforeQuery
+    && findNodes(petTree, node => node.props['data-task-list-loading'] === true).length === 1);
+  await new Promise(resolve => setTimeout(resolve, 310)); await renderPet();
+  const searched = new URL(listCalls().at(-1)!.url, 'https://local.invalid').searchParams;
+  check('task search encodes the complete query and retains status, order and scope', searched.get('q') === '报告 & review' && searched.get('status') === 'changes_requested' && searched.get('sort') === 'oldest');
+  await switchTab('广场');
+  check('task search does not replace the independent community note query', !findNodes(petTree, node => node.props.className === 'xls-search')[0]?.props.value);
+  await switchTab('任务广场');
+  check('returning to the task board preserves filters and the explicit cached snapshot', field('q')?.props.value === '  报告 & review  '
+    && field('scope')?.props.value === 'claimed' && findNodes(petTree, node => node.props['data-task-list-loaded'] !== undefined).length === 1);
+  await change('q', ''); await change('scope', 'all'); await change('status', ''); await change('sort', 'newest');
+  const beforeMore = listCalls().length;
+  reply = async (target, options) => target.searchParams.has('before') ? new Promise(resolve => { held.resolve = resolve; if (options.signal) held.signal = options.signal; }) : testResponse(page([a, b], 'cursor-1'));
+  const moreButton = taskNode('more')!; clickNode(petTree, moreButton); clickNode(petTree, moreButton); await renderPet();
+  check('two load-more clicks before rendering share one cursor request and show busy state', listCalls().length === beforeMore + 1 && taskNode('more')?.props.disabled === true
+    && new URL(listCalls().at(-1)!.url, 'https://local.invalid').searchParams.get('before') === 'cursor-1');
+  held.resolve?.(testResponse(page([{ ...b, title: '第二项更新' }, c], 'cursor-2'))); await renderPet();
+  check('cursor pages deduplicate stable task IDs while retaining new authoritative card values', cards().length === 3
+    && cards().filter(node => node.props['data-task-id'] === b.id).length === 1 && textOf(cards().find(node => node.props['data-task-id'] === b.id)).includes('第二项更新'));
+  const loadedAt = findNodes(petTree, node => node.props['data-task-list-loaded'] !== undefined)[0]?.props['data-task-list-loaded'];
+  const beforeFeed = listCalls().length, feedPoll = [...petTimers.values()].find(timer => timer.interval === 8000);
+  feedPoll?.callback(); await renderPet();
+  check('an ordinary eight-second feed refresh does not discard task pages or fetch them again', !!feedPoll && cards().length === 3 && listCalls().length === beforeFeed
+    && findNodes(petTree, node => node.props['data-task-list-loaded'] === loadedAt).length === 1);
+  clickNode(petTree, findNodes(petTree, node => node.props['data-community-action'] === 'social')[0]!); await renderPet();
+  clickNode(petTree, findNodes(petTree, node => node.props['data-social-action'] === 'back')[0]!); await renderPet();
+  check('leaving for social settings aborts reads but preserves the labelled loaded pages on return', cards().length === 3 && listCalls().length === beforeFeed && field('scope')?.props.value === 'all');
+  reply = async () => testResponse({ ok: false }, 503); await click('more');
+  check('an ordinary next-page network failure keeps the loaded snapshot and permits retry', cards().length === 3 && taskNode('more')?.props.disabled === false
+    && findNodes(petTree, node => node.props['data-task-list-error'] === 'unavailable').length === 1);
+  reply = async target => testResponse(page([c], target.searchParams.has('before') ? null : 'cursor-1'));
+  await click('more');
+  check('retry after a page failure uses the original cursor and never duplicates existing rows', new URL(listCalls().at(-1)!.url, 'https://local.invalid').searchParams.get('before') === 'cursor-2'
+    && cards().length === 3 && !taskNode('more'));
+  reply = async target => testResponse(page(target.searchParams.get('scope') === 'published' ? [b] : [a, b], 'cursor-1')); await click('refresh-list');
+  reply = async (target, options) => target.searchParams.has('before') ? new Promise(resolve => { held.resolve = resolve; if (options.signal) held.signal = options.signal; }) : testResponse(page([b], null));
+  await click('more'); const oldPageResolve = held.resolve, oldPageSignal = held.signal; await change('scope', 'published');
+  oldPageResolve?.(testResponse(page([{ ...c, title: 'stale-filter-private-marker' }], null))); await renderPet();
+  check('changing a filter aborts a held cursor request and rejects its late page and cursor', oldPageSignal?.aborted === true && cards().length === 1
+    && cards()[0]?.props['data-task-id'] === b.id && !textOf(petTree).includes('stale-filter-private-marker') && !taskNode('more'));
+  reply = async () => testResponse(page([], null)); await click('refresh-list');
+  check('an independently loaded empty first page is empty online, never a sample-task fallback', cards().length === 0 && findNodes(petTree, node => node.props['data-task-empty'] === 'empty').length === 1);
+  reply = async () => testResponse(page([a, b], 'cursor-1')); await click('refresh-list');
+  await open(a.id);
+  const detailText = textOf(findNodes(petTree, node => node.props['data-task-detail'] === a.id)[0]);
+  check('overdue work and an unstarted reservation show explicit local time plus the original UTC timestamp', findNodes(petTree, node => node.props['data-task-overdue'] === true).length >= 2
+    && detailText.includes('2032-06-15T12:30:00.000Z') && detailText.includes(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    && findNodes(petTree, node => node.props['data-task-reservation'] === true).length === 1);
+  const staleStart = taskNode('task_start')!;
+  await click('close'); reply = async (_target, options) => new Promise(resolve => { held.resolve = resolve; if (options.signal) held.signal = options.signal; });
+  await click('more'); await open(a.id); const beforeWrongOwner = writes().length;
+  held.resolve?.(testResponse(page([{ ...c, title: 'owner-b-list-private-marker' }], null, 'owner-b'))); await renderPet();
+  staleStart.props.onClick!({ stopPropagation() {}, preventDefault() {}, target: {} }); await renderPet();
+  check('a mismatched next-page owner quarantines cached private detail and disables stale task writes', cards().length === 0 && !textOf(petTree).includes('only-owner-a-private-delivery')
+    && !textOf(petTree).includes('owner-b-list-private-marker') && taskNode('new')?.props.disabled === true && !taskNode('task_start') && writes().length === beforeWrongOwner);
+  reply = async () => testResponse(page([a, b], null)); await click('close'); await click('refresh-list'); await open(a.id);
+  heldDetail = true; await click('refresh'); held.detail?.(testResponse({ ...detail(a.id, 'owner-b'), claim: { ...privateClaim, delivery: 'owner-b-detail-private-marker' } })); await renderPet();
+  check('task detail identity mismatch never displays another binding private body or grants actions', !textOf(petTree).includes('owner-b-detail-private-marker')
+    && !textOf(petTree).includes('only-owner-a-private-delivery') && !taskNode('task_start') && taskNode('new')?.props.disabled === true && writes().length === beforeWrongOwner);
+  heldDetail = false; await click('close'); await click('refresh-list'); await open(a.id);
+  check('an explicit matching-owner refresh restores authoritative detail without changing the current identity', textOf(petTree).includes('only-owner-a-private-delivery') && taskNode('task_start')?.props.disabled === false && joinInfo.ownerId === phase3Owner);
+  await click('close'); const staleNew = taskNode('new')!;
+  reply = async () => testResponse({ ok: false }, 404); await click('refresh-list'); staleNew.props.onClick!({ stopPropagation() {}, preventDefault() {}, target: {} }); await renderPet();
+  check('a server without the task-list endpoint is explicitly unavailable and cannot reuse a stale publish handler', cards().length === 0
+    && findNodes(petTree, node => node.props['data-task-list-error'] === 'unsupported').length === 1 && taskNode('new')?.props.disabled === true
+    && !findNodes(petTree, node => node.props['data-task-field'] === 'title').length && writes().length === beforeWrongOwner);
+  const { me: unusedMe, ...unidentified } = page([b], null); void unusedMe;
+  reply = async () => testResponse(unidentified); await click('refresh-list');
+  check('a task response without owner identity fails closed instead of reviving cached write permissions', cards().length === 0
+    && taskNode('new')?.props.disabled === true && writes().length === beforeWrongOwner);
+  reply = async () => testResponse(page([b], null)); await click('refresh-list'); await open(b.id);
+  rejectContext = true; const beforeContext = writes().length; const staleClaim = taskNode('claim')!; await click('claim');
+  staleClaim.props.onClick!({ stopPropagation() {}, preventDefault() {}, target: {} }); await renderPet();
+  check('a Host binding-context conflict isolates the board rather than treating it as a task revision conflict', writes().length === beforeContext + 1
+    && cards().length === 0 && !taskNode('claim') && taskNode('new')?.props.disabled === true);
+  rejectContext = false; await click('close'); await click('refresh-list'); await open(b.id); await click('claim');
+  check('every task proposal carries the exact visible binding context for Host revalidation', JSON.stringify(writes().at(-1)?.body?.context) === JSON.stringify({ ownerId: phase3Owner, url: phase3Url })
+    && writes().at(-1)?.body?.expectedRevision === b.revision && writes().at(-1)?.body?.claimId === undefined);
+  await click('close');
+  reply = async (_target, options) => new Promise(resolve => { held.resolve = resolve; if (options.signal) held.signal = options.signal; }); await click('refresh-list');
+  const priorOwnerResolve = held.resolve, priorOwnerSignal = held.signal;
+  joinInfo.ownerId = 'owner-new'; joinInfo.url = 'https://new-community.example.org/xiaolanshu';
+  const refreshFeed = [...petTimers.values()].find(timer => timer.interval === 8000); refreshFeed?.callback();
+  reply = async () => testResponse(page([c], null)); await renderPet();
+  priorOwnerResolve?.(testResponse(page([{ ...a, title: 'old-binding-private-marker' }], null, phase3Owner))); await renderPet();
+  check('switching server and owner aborts previous binding reads and never restores its late page', priorOwnerSignal?.aborted === true && cards().length === 1
+    && cards()[0]?.props['data-task-id'] === c.id && !textOf(petTree).includes('old-binding-private-marker'));
+  check('task list, filters, timing hints and pagination never run a model, approve a proposal or release a reservation', !callLog.slice(suiteStart).some(call => call.path.includes('/approve')
+    || call.path === '/api/social/run' || call.path === '/api/companion/messages' || call.path === '/api/task_withdraw')
+    && writes().length === 2);
+} catch (caught) {
+  check('independent task-list behavior completes without throwing', false, caught instanceof Error ? caught.stack : String(caught));
+} finally {
+  unmountTestTree(); taskListFetch = null; taskFetch = null; feed.tasks = phase3Tasks; feed.claims = phase3Claims; joinInfo.ownerId = phase3Owner; joinInfo.url = phase3Url;
 }
 
 console.log('');

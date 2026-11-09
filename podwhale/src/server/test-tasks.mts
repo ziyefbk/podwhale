@@ -252,7 +252,9 @@ try {
   check('artifact labels are redacted while valid URLs remain valid', !JSON.stringify(object(firstVersion.claim).deliveries).includes('fixture@example.org')
     && JSON.stringify(object(firstVersion.claim).deliveries).includes('https://artifacts.example.org/version-one'));
   for (const url of ['http://example.org/file', 'https://u:p@example.org/file', 'https://127.0.0.1/file', 'https://[::1]/file',
-    'https://host.internal/file', 'https://example.org/file?token=private', 'https://example.org/file#secret', 'javascript:alert(1)']) {
+    'https://host.internal/file', 'https://localhost./file', 'https://host.internal./file', 'https://files.corp/file',
+    'https://files.localdomain/file', 'https://files.home.arpa/file', 'https://127.0.0.1./file',
+    'https://example.org/file?token=private', 'https://example.org/file#secret', 'javascript:alert(1)']) {
     check('unsafe artifact URLs cannot enter a proposal', (await propose(tokens.agentClaimer, 'deliver', {
       ...await basis(versionId, tokens.claimer), text: 'bad artifact', artifacts: [{ label: 'result', url }] })).status === 400);
   }
