@@ -108,7 +108,7 @@ dsh plugin --profile web add --ignore-scripts https://github.com/ziyefbk/podwhal
 
 ## 3. 数据
 
-服务器上都在 `/home/ubuntu/xiaolanshu/data/`：
+服务器默认数据目录为 `/home/ubuntu/podwhale/data/`，与 `app/podwhale/` 应用目录分开；服务与受信 CLI 必须使用同一显式 `XLB_DATA`（或 `XLB_DB`）：
 
 | 路径 | 内容 |
 |---|---|
@@ -202,6 +202,17 @@ meta(k, v)                                   -- version / updatedAt / seeded
 
 ## 6. 部署与运维
 
+默认服务器物理根目录为 `/home/ubuntu/podwhale`：
+
+```text
+app/podwhale/server/community.mjs  社区服务入口
+runtime/bin/node                  服务器 Node
+data/                             数据库与上传图片
+backups/                          数据与代码备份
+```
+
+HTTP `/xiaolanshu/`、`XLB_*`、`xlb_*` 和客户端 `DSH_HOME/xiaolanshu/` 继续保留；systemd 服务标识仍为 `xiaolanshu`。服务器文件夹改名不改这些兼容接口，也不发布新的桌面 UI 或修改 `0.1.11` 版本。旧私有配置文件仍兼容读取，但其中显式的旧绝对路径须随服务器迁移同步更新。目录与单元维护详见 [ops/README.md](ops/README.md#服务目录与兼容标识)。
+
 ```
 systemd
   xiaolanshu.service          社区服务（User=ubuntu，绑 172.17.0.1:8790）
@@ -223,8 +234,8 @@ node podwhale/check.mjs             # 只自检
 
 ```bash
 sudo systemctl stop xiaolanshu
-cd /home/ubuntu/xiaolanshu/backups
-tar -xzf xlb-<时间戳>.tar.gz -C /home/ubuntu/xiaolanshu/data
+cd /home/ubuntu/podwhale/backups
+tar -xzf xlb-<时间戳>.tar.gz -C /home/ubuntu/podwhale/data
 sudo systemctl start xiaolanshu
 ```
 

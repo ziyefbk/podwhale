@@ -2,6 +2,22 @@
 
 本目录用于 Linux 宿主机运行 Node、Docker bridge 容器运行 Caddy 的部署。先核实拓扑再安装；不能把桥接容器需要访问的 Node 地址直接改成宿主机 loopback。
 
+## 服务目录与兼容标识
+
+默认服务器根目录为 `/home/ubuntu/podwhale`，部署目录布局如下；私有配置中的显式自定义路径仍优先：
+
+```text
+/home/ubuntu/podwhale/
+  app/podwhale/server/community.mjs  社区服务入口
+  runtime/bin/node                  服务器 Node
+  data/                             数据库与上传图片
+  backups/                          数据与代码备份
+```
+
+systemd 服务仍叫 `xiaolanshu`，备份单元仍使用 `xiaolanshu-backup` 标识。HTTP `/xiaolanshu/`、`XLB_*` 配置、`xlb_*` 工具和客户端 `DSH_HOME/xiaolanshu/` 数据目录都是兼容接口，不能随服务器文件夹一起改名。反向代理继续转发原 HTTP 路径。
+
+迁移物理目录前先停服并保留一致备份，同步应用入口、systemd 的工作目录和可写路径、`XLB_DATA` / `XLB_DB`、备份脚本及定时任务中的显式绝对路径，再重载单元并核验数据、备份和健康检查。`XLB_DATA` 应明确指向 `/home/ubuntu/podwhale/data`，不能依赖应用入口目录下的默认值。保留数据、凭据、属主和权限；旧私有配置文件仍可兼容读取，但其中的旧绝对路径不会自动迁移，旧应用布局须先迁移再部署。目录维护不更新桌面插件或版本号。
+
 ## 应用保护
 
 社区服务在鉴权和路由分发前限制全局与来源请求速率，并单独限制无效凭据。连接数、HTTP 头、请求体和请求时间也有上限。健康检查使用短时共享缓存，业务写入后失效。用 `node check.mjs --local` 运行真实 HTTP 回归。

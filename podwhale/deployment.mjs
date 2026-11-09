@@ -12,9 +12,9 @@ const PACKAGE_SOURCES = [
     'server/static/icon-192.png', 'server/static/icon-512.png',
 ];
 export const SOURCE_FILES = PACKAGE_SOURCES.map((file) => 'podwhale/' + file);
-// Existing systemd units execute app/xiaolanshu/server/community.mjs. Keep that
-// installation layout distinct from the public repository's package directory.
-export const REMOTE_SOURCE_FILES = PACKAGE_SOURCES.map((file) => 'xiaolanshu/' + file);
+// The installed package uses the public name; HTTP paths and the service id
+// retain their legacy names independently of this physical directory layout.
+export const REMOTE_SOURCE_FILES = PACKAGE_SOURCES.map((file) => 'podwhale/' + file);
 function invalid(field) {
     throw new Error('Invalid or missing deployment configuration: ' + field);
 }
@@ -55,7 +55,7 @@ export function validateDeploymentConfig(raw, env = {}) {
     const portValue = env.XLB_DEPLOY_PORT || raw.port || '22';
     if (!/^\d{1,5}$/.test(String(portValue)) || Number(portValue) < 1 || Number(portValue) > 65535)
         invalid('port');
-    const remoteDir = absoluteRemotePath(env.XLB_DEPLOY_DIR || raw.remoteDir || raw.directory || '/home/ubuntu/xiaolanshu', 'remoteDir');
+    const remoteDir = absoluteRemotePath(env.XLB_DEPLOY_DIR || raw.remoteDir || raw.directory || '/home/ubuntu/podwhale', 'remoteDir');
     const dataDir = absoluteRemotePath(env.XLB_DEPLOY_DATA || raw.dataDir || remoteDir + '/data', 'dataDir');
     if (!dataDir.startsWith(remoteDir + '/') || ['app', 'backups'].some((part) => dataDir === remoteDir + '/' + part || dataDir.startsWith(remoteDir + '/' + part + '/')))
         invalid('dataDir');
@@ -161,15 +161,36 @@ test ! -L "$BACKUPS"
 `;
 }
 export function preflightScript(config, release) {
-    return prelude(config, release) + `test -d "$APP"
+    const unitParser = `const {readFileSync}=await import('node:fs');
+const input=readFileSync(0,'utf8');
+const boundary=input.indexOf('\\n');
+try {
+  if(boundary<1||input.length>16384)throw new Error();
+  const node=(${deploymentExecNode.toString()})(input.slice(boundary+1),input.slice(0,boundary));
+  process.stdout.write(node);
+}catch{process.exit(1);}`;
+    return prelude(config, release) + `layout_error() {
+  printf 'PODWHALE_LAYOUT_MIGRATION_REQUIRED: migrate the application directory and systemd paths before deploying\\n' >&2
+  exit 35
+}
+test -d "$APP"
 test -d "$DATA"
 test -d "$BACKUPS"
 test -w "$BASE"
 test -w "$BACKUPS"
 test -r "$DATA/feed.db"
+test -d "$APP/podwhale" || layout_error
+test -f "$APP/podwhale/server/community.mjs" || layout_error
+if test -e "$APP/xiaolanshu" || test -L "$APP/xiaolanshu"; then layout_error; fi
+if test -n "$(find "$APP/podwhale" -type l -print -quit)"; then layout_error; fi
 test -x "$NODE"
 "$NODE" --input-type=module -e 'if(Number(process.versions.node.split(".")[0]) < 24) process.exit(1); await import("node:sqlite"); console.log("NODE_VERSION " + process.versions.node)'
 "$SYSTEMCTL" is-active --quiet "$SERVICE"
+unit_working_directory=$("$SYSTEMCTL" show --property=WorkingDirectory --value "$SERVICE")
+test "$unit_working_directory" = "$APP" || layout_error
+unit_exec_start=$("$SYSTEMCTL" show --property=ExecStart --value "$SERVICE")
+unit_node=$(printf '%s\\n%s\\n' "$APP/podwhale/server/community.mjs" "$unit_exec_start" | "$NODE" --input-type=module -e ${shellQuote(unitParser)}) || layout_error
+test "$(realpath -e -- "$unit_node")" = "$(realpath -e -- "$NODE")" || layout_error
 sudo -n -l "$SYSTEMCTL" stop "$SERVICE" >/dev/null
 sudo -n -l "$SYSTEMCTL" restart "$SERVICE" >/dev/null
 data_kb=$(du -sk -- "$DATA" | awk '{print $1}')
@@ -179,6 +200,17 @@ required_kb=$((data_kb * 2 + app_kb * 3 + 102400))
 test "$available_kb" -gt "$required_kb"
 printf 'PODWHALE_PREFLIGHT_OK\\n'
 `;
+}
+/** Parse one direct Node entry, never a shell, wrapper, or ambiguous argv. */
+export function deploymentExecNode(value, entry) {
+    const records = value.match(/\{\s*path=/g);
+    const fields = /^\{\s*path=([A-Za-z0-9_./-]+)\s*;\s*argv\[\]=([^;]+?)\s*;[\s\S]*\}\s*$/.exec(value.trim());
+    if (records?.length !== 1 || !fields || !fields[1]?.startsWith('/'))
+        throw new Error('service layout migration required');
+    const args = fields[2].trim().split(/\s+/);
+    if (args.length !== 2 || args[0] !== fields[1] || args[1] !== entry)
+        throw new Error('service layout migration required');
+    return fields[1];
 }
 function stageScript(config, release) {
     return prelude(config, release) + `test ! -e "$STAGE"
@@ -203,15 +235,16 @@ export function validateStageScript(config, release, manifest) {
     const graph = '(' + verifyModuleGraph.toString() + ')(process.argv[1]).catch(() => { console.error("MODULE_GRAPH_INVALID"); process.exit(1); });';
     return prelude(config, release) + `test -f "$STAGE/source.tar.gz"
 test ! -L "$STAGE_APP"
-test -d "$STAGE_APP/xiaolanshu"
-if test -n "$(find "$STAGE_APP/xiaolanshu" -type l -print -quit)"; then exit 34; fi
+test -d "$STAGE_APP/podwhale"
+if test -e "$STAGE_APP/xiaolanshu" || test -L "$STAGE_APP/xiaolanshu"; then exit 34; fi
+if test -n "$(find "$STAGE_APP/podwhale" -type l -print -quit)"; then exit 34; fi
 tar -tzf "$STAGE/source.tar.gz" | LC_ALL=C sort > "$STAGE/archive-list"
 LC_ALL=C sort <<'PODWHALE_FILES' | diff - "$STAGE/archive-list" >/dev/null
 ${REMOTE_SOURCE_FILES.join('\n')}
 PODWHALE_FILES
 tar -xzf "$STAGE/source.tar.gz" -C "$STAGE_APP" --no-same-owner
 ` + verifyHashes('$STAGE_APP', manifest) + REMOTE_SOURCE_FILES.filter((file) => /\.(mjs|js)$/.test(file)).map((file) => `"$NODE" --input-type=module --check < "$STAGE_APP/${file}"`).join('\n') + `
-"$NODE" --experimental-vm-modules --input-type=module -e ${shellQuote(graph)} "$STAGE_APP/xiaolanshu/server/community.mjs"
+"$NODE" --experimental-vm-modules --input-type=module -e ${shellQuote(graph)} "$STAGE_APP/podwhale/server/community.mjs"
 printf 'PODWHALE_STAGE_VALIDATED\\n'
 `;
 }

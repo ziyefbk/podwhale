@@ -4,14 +4,14 @@ type Invocation = { command: string; args: string[]; options: RunnerOptions & { 
 import { mkdtemp, mkdir, writeFile, readFile, stat, rm, realpath, symlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve, dirname, basename } from 'node:path';
+import { join, resolve, dirname, basename, isAbsolute, posix } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { SOURCE_FILES, REMOTE_SOURCE_FILES, validateDeploymentConfig, loadDeploymentConfig, shellQuote,
-  sshArguments, scpArguments, publishScript, validateStageScript, processRunner, runDeployment,
+  sshArguments, scpArguments, publishScript, deploymentExecNode, validateStageScript, processRunner, runDeployment,
   redactDeploymentOutput } from './deployment.mjs';
 
-const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const ROOT = resolve(process.env.PODWHALE_DEPLOY_TEST_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url)));
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const CONFIG = { host: 'deploy.invalid', user: 'ubuntu', remote: 'https://community.invalid/xiaolanshu' };
 let failed = 0;
@@ -21,6 +21,7 @@ function check(name: string, ok: unknown, detail: unknown = "") {
 }
 async function failure(task: () => unknown) { try { await task(); return null; } catch (caught) { const error = caught as Error & { code?: string; status?: number; phase?: string; stopped?: boolean; detail?: string; }; return error; } }
 const temp = await mkdtemp(join(tmpdir(), 'podwhale-deploy-tests-'));
+let preflightCleanup: { parent: string; directory: string } | undefined;
 const shell = process.platform === 'win32' ? 'D:/Git/bin/bash.exe' : '/bin/bash';
 const shellPath = (value: string) => process.platform === 'win32' ? resolve(value).replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, drive) => '/' + drive.toLowerCase()) : value;
 
@@ -36,9 +37,10 @@ try {
     ['host', '-oProxyCommand=unsafe'], ['host', 'good;touch'], ['user', 'ubuntu -oUnsafe=yes'],
     ['port', '22 -oUnsafe=yes'], ['remoteDir', '/home/ubuntu/../other'], ['remoteDir', '/'],
     ['remoteDir', '/home/ubuntu/site;bad'], ['dataDir', '/outside/data'],
+    ['remoteDir', '/srv/\u9cb8\u7fa4'],
     ['remoteNode', '/tmp/node$(bad)'], ['remote', 'https://user:password@community.invalid'],
     ['remote', 'http://community.invalid/xiaolanshu'],
-    ['dataDir', '/home/ubuntu/xiaolanshu/backups'],
+    ['dataDir', '/home/ubuntu/podwhale/backups'],
   ]) {
     const calls: Invocation[] = [];
     const error = await failure(() => runDeployment({ repoRoot: ROOT, env: {}, config: { ...CONFIG, [field!]: value },
@@ -54,6 +56,9 @@ try {
   const loaded = await loadDeploymentConfig({ XLB_LOCAL_CONFIG: externalConfig }, ROOT);
   const aliasLoaded = await loadDeploymentConfig({ XLB_CONFIG_FILE: externalConfig }, ROOT);
   check('external private config loads in memory through either supported name', loaded.host === CONFIG.host && aliasLoaded.remote === CONFIG.remote);
+  check('new deployment defaults use the renamed physical root without changing the HTTP prefix', loaded.remoteDir === '/home/ubuntu/podwhale'
+    && loaded.dataDir === '/home/ubuntu/podwhale/data' && loaded.remoteNode === '/home/ubuntu/podwhale/runtime/bin/node'
+    && loaded.remote === CONFIG.remote);
   const configConflict = await failure(() => loadDeploymentConfig({ XLB_LOCAL_CONFIG: externalConfig, XLB_CONFIG_FILE: join(temp, 'different.json') }, ROOT));
   check('conflicting private config paths fail closed', !!configConflict);
 
@@ -96,7 +101,7 @@ try {
         const packed = await processRunner(command, args, { cwd: ROOT, timeoutMs: 10000 });
         if (packed.code !== 0) return packed;
         await writeFile(builtArchive, await readFile(args[1]!));
-        packedCommunity = await readFile(join(args[3]!, 'xiaolanshu', 'server', 'community.mjs'));
+        packedCommunity = await readFile(join(args[3]!, 'podwhale', 'server', 'community.mjs'));
         const listing = await processRunner('tar', ['-tzf', builtArchive], { cwd: ROOT, timeoutMs: 10000 });
         if (listing.code !== 0) return listing;
         archiveMembers = listing.stdout.trim().split(/\r?\n/);
@@ -106,13 +111,13 @@ try {
   check('deployment verifies before publishing', calls.map((call) => call.options.phase).join(',') === 'preflight,local-tests,pack,create-stage,upload,validate-stage,publish');
   const pack = calls.find((call) => call.options.phase === 'pack')!;
   check('local verification and source reads use the renamed repository package', SOURCE_FILES.every((file) => file.startsWith('podwhale/')) && calls.find((call) => call.options.phase === 'local-tests')!.args[0] === join(ROOT, 'podwhale', 'check.mjs'));
-  check('archive includes authorization code and only the legacy-layout service allowlist', pack.args.slice(4).join('\n') === REMOTE_SOURCE_FILES.join('\n') && pack.args.includes('xiaolanshu/server/auth.mjs') && !SOURCE_FILES.some((file) => /(?:local\.json|remote\.json|data\/|assets\/)/.test(file)));
-  check('the real archive contains legacy service paths and bytes from the renamed local source', archiveMembers.join('\n') === REMOTE_SOURCE_FILES.join('\n') && packedCommunity.equals(await readFile(join(ROOT, 'podwhale', 'server', 'community.mjs'))) && !archiveMembers.some((file) => file.startsWith('podwhale/')));
-  check('source manifest binds authorization and community source hashes', /^[a-f0-9]{64}$/.test(result.manifest!['xiaolanshu/server/auth.mjs']!) && /^[a-f0-9]{64}$/.test(result.manifest!['xiaolanshu/server/community.mjs']!));
+  check('archive includes authorization code and only the canonical service allowlist', pack.args.slice(4).join('\n') === REMOTE_SOURCE_FILES.join('\n') && pack.args.includes('podwhale/server/auth.mjs') && !SOURCE_FILES.some((file) => /(?:local\.json|remote\.json|data\/|assets\/)/.test(file)));
+  check('the real archive contains canonical service paths and bytes from the local source', archiveMembers.join('\n') === REMOTE_SOURCE_FILES.join('\n') && packedCommunity.equals(await readFile(join(ROOT, 'podwhale', 'server', 'community.mjs'))) && !archiveMembers.some((file) => file.startsWith('xiaolanshu/')));
+  check('source manifest binds authorization and community source hashes', /^[a-f0-9]{64}$/.test(result.manifest!['podwhale/server/auth.mjs']!) && /^[a-f0-9]{64}$/.test(result.manifest!['podwhale/server/community.mjs']!));
   check('all subprocesses have a timeout', calls.every((call) => call.options.timeoutMs > 0));
   const network = calls.filter((call) => ['ssh', 'scp'].includes(call.command));
   check('all SSH and SCP operations require existing trust and noninteractive authentication', network.every((call) => ['BatchMode=yes', 'StrictHostKeyChecking=yes', 'UpdateHostKeys=no'].every((option) => call.args.includes(option))));
-  check('remote destination stays one argv element', network.filter((call) => call.command === 'scp').every((call) => call.args.at(-1)!.startsWith('ubuntu@deploy.invalid:/home/ubuntu/xiaolanshu/.deploy-')));
+  check('remote destination stays one argv element', network.filter((call) => call.command === 'scp').every((call) => call.args.at(-1)!.startsWith('ubuntu@deploy.invalid:/home/ubuntu/podwhale/.deploy-')));
 
   const failedStage: string[] = [];
   await failure(() => runDeployment({ repoRoot: ROOT, env: {}, config: CONFIG,
@@ -134,7 +139,7 @@ try {
   const graphMarker = join(graphRoot, 'must-not-exist');
   const helperUrl = pathToFileURL(join(HERE, 'deployment.mjs')).href;
   const graphCode = `import {verifyModuleGraph} from ${JSON.stringify(helperUrl)}; await verifyModuleGraph(process.argv[1]);`;
-  const actualGraph = await processRunner(process.execPath, ['--experimental-vm-modules', '--input-type=module', '-e', graphCode, join(HERE, 'server', 'community.mjs')], { cwd: ROOT, timeoutMs: 10000 });
+  const actualGraph = await processRunner(process.execPath, ['--experimental-vm-modules', '--input-type=module', '-e', graphCode, join(ROOT, 'podwhale', 'server', 'community.mjs')], { cwd: ROOT, timeoutMs: 10000 });
   check('the actual community module graph links without starting a service', actualGraph.code === 0);
   await writeFile(join(graphRoot, 'dep.mjs'), 'export const ok = 1;');
   await writeFile(graphEntry, `import {ok} from './dep.mjs'; import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(graphMarker)},String(ok));`);
@@ -152,19 +157,71 @@ try {
   const quoted = await processRunner(shell, ['--noprofile', '--norc', '-c', 'printf %s ' + shellQuote(oddValue)], { cwd: ROOT, timeoutMs: 10000 });
   check('shell quoting preserves literal quotes, substitutions, and newlines', quoted.code === 0 && quoted.stdout === oddValue);
 
+  const expectedEntry = '/srv/podwhale/app/podwhale/server/community.mjs';
+  check('unit parsing accepts the direct configured Node and exact canonical entry', deploymentExecNode(
+    '{ path=/srv/podwhale/runtime/bin/node ; argv[]=/srv/podwhale/runtime/bin/node ' + expectedEntry + ' ; ignore_errors=no ; pid=1 ; }', expectedEntry) === '/srv/podwhale/runtime/bin/node');
+  const ambiguousUnit = await failure(() => deploymentExecNode('{ path=/usr/bin/node ; argv[]=/usr/bin/node -e ' + expectedEntry + ' ; }', expectedEntry));
+  check('unit parsing rejects flags or command wrappers instead of guessing the executed script', !!ambiguousUnit);
+  // Linux deployment paths deliberately accept only a narrow ASCII alphabet.
+  // Git Bash's /tmp namespace stays POSIX-shaped even when TEMP's Windows
+  // directory contains Chinese characters, spaces, or other local-only syntax.
+  const mappedTmp = await processRunner(shell, ['--noprofile', '--norc', '-c', process.platform === 'win32'
+    ? 'cygpath -w /tmp' : "printf '%s\\n' /tmp"], { cwd: ROOT, timeoutMs: 10000 });
+  const nativeTmp = mappedTmp.stdout.trim();
+  if (mappedTmp.code !== 0 || !isAbsolute(nativeTmp) || /[\r\n]/.test(nativeTmp)) throw new Error('cannot map the shell temporary namespace');
+  const preflightTemp = await mkdtemp(join(nativeTmp, 'podwhale-preflight-tests-'));
+  preflightCleanup = { parent: await realpath(nativeTmp), directory: preflightTemp };
+  const shellTemp = '/tmp/' + basename(preflightTemp);
+  for (const layout of ['canonical', 'legacy', 'dual-tree', 'wrong-working-directory', 'wrong-entry', 'wrong-node']) {
+    const sandbox = join(preflightTemp, layout), bin = join(sandbox, 'bin'), app = join(sandbox, 'app');
+    const remoteSandbox = posix.join(shellTemp, layout), remoteBin = posix.join(remoteSandbox, 'bin'), remoteApp = posix.join(remoteSandbox, 'app');
+    const data = join(sandbox, 'data'), backups = join(sandbox, 'backups');
+    const packageDir = join(app, layout === 'legacy' ? 'xiaolanshu' : 'podwhale');
+    await Promise.all([bin, data, backups, join(packageDir, 'server')].map(directory => mkdir(directory, { recursive: true })));
+    const entry = join(packageDir, 'server', 'community.mjs');
+    await writeFile(entry, 'preflight must preserve these code bytes'); await writeFile(join(data, 'feed.db'), 'preflight database bytes');
+    if (layout === 'dual-tree') await mkdir(join(app, 'xiaolanshu'));
+    const fakeNode = join(bin, 'node-fixture'), otherNode = join(bin, 'other-node-fixture');
+    const nodeWrapper = `#!/bin/bash\nset -eu\ncase "\${3-}" in *NODE_VERSION*) echo 'NODE_VERSION 24.0.0'; exit 0;; esac\nexec ${shellQuote(shellPath(process.execPath))} "$@"\n`;
+    await writeFile(fakeNode, nodeWrapper, { mode: 0o755 }); await writeFile(otherNode, nodeWrapper, { mode: 0o755 });
+    const unitNode = posix.join(remoteBin, layout === 'wrong-node' ? 'other-node-fixture' : 'node-fixture');
+    const unitEntry = posix.join(remoteApp, layout === 'wrong-entry' ? 'xiaolanshu' : 'podwhale', 'server', 'community.mjs');
+    const unitDirectory = layout === 'wrong-working-directory' ? remoteSandbox : remoteApp;
+    const controlMarker = join(sandbox, 'must-not-control-service');
+    const fakeSystemctl = join(bin, 'systemctl-fixture');
+    await writeFile(fakeSystemctl, `#!/bin/bash\nset -eu\ncase "$1" in\nis-active) exit 0;;\nshow) case "$2" in\n--property=WorkingDirectory) printf '%s\\n' ${shellQuote(unitDirectory)};;\n--property=ExecStart) printf '%s\\n' ${shellQuote('{ path=' + unitNode + ' ; argv[]=' + unitNode + ' ' + unitEntry + ' ; ignore_errors=no ; pid=1 ; }')};;\n*) exit 1;;\nesac;;\n*) echo unexpected > ${shellQuote(shellPath(controlMarker))}; exit 1;;\nesac\n`, { mode: 0o755 });
+    await writeFile(join(bin, 'sudo'), '#!/bin/bash\nset -eu\nif test "$1" = -n; then shift; fi\nif test "$1" = -l; then exit 0; fi\nexit 1\n', { mode: 0o755 });
+    const config = { ...loaded, remoteDir: remoteSandbox, dataDir: posix.join(remoteSandbox, 'data'), remoteNode: posix.join(remoteBin, 'node-fixture') };
+    const phases: string[] = [];
+    const error = await failure(() => runDeployment({ repoRoot: ROOT, env: {}, config, preflightOnly: layout === 'canonical',
+      runner: async (_command, _args, options) => {
+        phases.push(options.phase);
+        if (options.phase !== 'preflight') return { code: 1, stderr: 'unexpected work after preflight' };
+        const script = options.input.replace('SYSTEMCTL=/usr/bin/systemctl', 'SYSTEMCTL=' + shellQuote(posix.join(remoteBin, 'systemctl-fixture')))
+          .replace('set -euo pipefail', 'set -euo pipefail\nexport PATH=' + shellQuote(remoteBin) + ':$PATH');
+        return processRunner(shell, ['--noprofile', '--norc', '-s'], { cwd: ROOT, input: script, timeoutMs: 15000 });
+      } }));
+    const accepted = phases.join(',') === 'preflight'
+      && (layout === 'canonical' ? !error : error?.phase === 'preflight' && error.detail?.includes('PODWHALE_LAYOUT_MIGRATION_REQUIRED'))
+      && !existsSync(controlMarker) && (await readFile(entry, 'utf8')) === 'preflight must preserve these code bytes'
+      && (await readFile(join(data, 'feed.db'), 'utf8')) === 'preflight database bytes';
+    check('real preflight ' + (layout === 'canonical' ? 'accepts the canonical unit' : 'rejects ' + layout + ' before testing or uploading'), accepted,
+      accepted ? '' : JSON.stringify({ phases, error: error ? { name: error.name, message: error.message, phase: error.phase, detail: error.detail } : null }).slice(0, 1800));
+  }
+
   const compatRoot = join(temp, 'compatible-stage');
   const compatStage = join(compatRoot, '.deploy-test-release');
   const compatApp = join(compatStage, 'app');
   await Promise.all([join(compatRoot, 'app'), join(compatRoot, 'data'), join(compatRoot, 'backups'),
-    join(compatApp, 'xiaolanshu')].map((directory) => mkdir(directory, { recursive: true })));
+    join(compatApp, 'podwhale')].map((directory) => mkdir(directory, { recursive: true })));
   await writeFile(join(compatStage, 'source.tar.gz'), await readFile(builtArchive));
   const compatConfig = { ...loaded, remoteDir: shellPath(compatRoot), dataDir: shellPath(join(compatRoot, 'data')), remoteNode: shellPath(process.execPath) };
   const compatValidation = await processRunner(shell, ['--noprofile', '--norc', '-s'], {
     cwd: ROOT, input: validateStageScript(compatConfig, 'test-release', result.manifest!), timeoutMs: 20000,
   });
-  check('the real renamed-source archive passes legacy staging syntax, module, and digest checks', compatValidation.code === 0
-    && (await readFile(join(compatApp, 'xiaolanshu', 'server', 'community.mjs'))).equals(packedCommunity)
-    && !existsSync(join(compatApp, 'podwhale')), (compatValidation.stderr || compatValidation.stdout).slice(-2000));
+  check('the real archive passes canonical staging syntax, module, and digest checks', compatValidation.code === 0
+    && (await readFile(join(compatApp, 'podwhale', 'server', 'community.mjs'))).equals(packedCommunity)
+    && !existsSync(join(compatApp, 'xiaolanshu')), (compatValidation.stderr || compatValidation.stdout).slice(-2000));
 
   const linkRoot = join(temp, 'symlink-stage');
   const linkStage = join(linkRoot, '.deploy-test-release');
@@ -172,9 +229,9 @@ try {
   const linkApp = join(linkStage, 'app');
   const archiveSource = join(temp, 'archive-source');
   await Promise.all([join(linkRoot, 'app'), join(linkRoot, 'data'), join(linkRoot, 'backups'),
-    join(linkApp, 'xiaolanshu', 'server'), outside, archiveSource].map((directory) => mkdir(directory, { recursive: true })));
+    join(linkApp, 'podwhale', 'server'), outside, archiveSource].map((directory) => mkdir(directory, { recursive: true })));
   await writeFile(join(outside, 'icon-192.png'), 'outside sentinel');
-  await symlink(outside, join(linkApp, 'xiaolanshu', 'server', 'static'), process.platform === 'win32' ? 'junction' : 'dir');
+  await symlink(outside, join(linkApp, 'podwhale', 'server', 'static'), process.platform === 'win32' ? 'junction' : 'dir');
   const linkManifest: Record<string, string> = {};
   for (const file of REMOTE_SOURCE_FILES) {
     const target = join(archiveSource, file); await mkdir(dirname(target), { recursive: true });
@@ -185,7 +242,7 @@ try {
   const linkConfig = { ...loaded, remoteDir: shellPath(linkRoot), dataDir: shellPath(join(linkRoot, 'data')), remoteNode: '/not-needed/node' };
   const symlinkValidation = await processRunner(shell, ['--noprofile', '--norc', '-s'], { cwd: ROOT, input: validateStageScript(linkConfig, 'test-release', linkManifest), timeoutMs: 10000 });
   check('staging rejects symlink parents before archive extraction writes any source', symlinkValidation.code !== 0
-    && !existsSync(join(linkStage, 'archive-list')) && !existsSync(join(linkApp, 'xiaolanshu', 'server', 'auth.mjs'))
+    && !existsSync(join(linkStage, 'archive-list')) && !existsSync(join(linkApp, 'podwhale', 'server', 'auth.mjs'))
     && (await readFile(join(outside, 'icon-192.png'), 'utf8')) === 'outside sentinel');
 
   // Execute the actual publication script in an isolated directory. Only the
@@ -198,9 +255,9 @@ try {
     await Promise.all([bin, stage, app, data, backups].map((directory) => mkdir(directory, { recursive: true })));
     await writeFile(join(data, 'feed.db'), 'preserved database bytes');
     await writeFile(join(app, 'old-code-marker'), 'old application');
-    const legacyEntry = join(app, 'xiaolanshu', 'server', 'community.mjs');
-    await mkdir(dirname(legacyEntry), { recursive: true });
-    await writeFile(legacyEntry, 'old deployed source');
+    const installedEntry = join(app, 'podwhale', 'server', 'community.mjs');
+    await mkdir(dirname(installedEntry), { recursive: true });
+    await writeFile(installedEntry, 'old deployed source');
     const manifest: Record<string, string> = {};
     for (const file of REMOTE_SOURCE_FILES) {
       const target = join(stage, file); await mkdir(dirname(target), { recursive: true });
@@ -210,7 +267,7 @@ try {
     const statePath = shellPath(join(sandbox, 'state'));
     await writeFile(join(sandbox, 'state'), 'active\n');
     const fakeSystemctl = join(bin, 'systemctl-fake');
-    await writeFile(fakeSystemctl, `#!/bin/bash\nset -eu\ncase "$1" in\nstop) echo stop >> ${shellQuote(logPath)}; echo stopped > ${shellQuote(statePath)};;\nrestart) echo restart >> ${shellQuote(logPath)}; test "$(cat ${shellQuote(shellPath(legacyEntry))})" = 'new source xiaolanshu/server/community.mjs'; echo active > ${shellQuote(statePath)};;\nis-active) test "$(cat ${shellQuote(statePath)})" = active;;\n*) exit 1;;\nesac\n`, { mode: 0o755 });
+    await writeFile(fakeSystemctl, `#!/bin/bash\nset -eu\ncase "$1" in\nstop) echo stop >> ${shellQuote(logPath)}; echo stopped > ${shellQuote(statePath)};;\nrestart) echo restart >> ${shellQuote(logPath)}; test "$(cat ${shellQuote(shellPath(installedEntry))})" = 'new source podwhale/server/community.mjs'; echo active > ${shellQuote(statePath)};;\nis-active) test "$(cat ${shellQuote(statePath)})" = active;;\n*) exit 1;;\nesac\n`, { mode: 0o755 });
     await writeFile(join(bin, 'sudo'), '#!/bin/bash\nset -eu\nif test "$1" = -n; then shift; fi\nexec "$@"\n', { mode: 0o755 });
     await writeFile(join(bin, 'tar'), `#!/bin/bash\nset -eu\ncase "$2" in\n*/data.tar.gz) echo backup-data >> ${shellQuote(logPath)}; ${mode === 'backup-failure' ? 'exit 1' : ':'};;\n*/code.tar.gz) echo backup-code >> ${shellQuote(logPath)};;\nesac\nexec /usr/bin/tar "$@"\n`, { mode: 0o755 });
     await writeFile(join(bin, 'mv'), `#!/bin/bash\necho publish >> ${shellQuote(logPath)}\nexec /usr/bin/mv "$@"\n`, { mode: 0o755 });
@@ -228,11 +285,20 @@ try {
       check('real shell backs up stopped data before replacing or restarting code', executed.code === 0 && events.indexOf('stop') < events.indexOf('backup-data') && events.indexOf('backup-data') < events.indexOf('backup-code') && events.indexOf('backup-code') < events.indexOf('publish') && events.lastIndexOf('publish') < events.indexOf('restart') && state === 'active');
       check('data backup and code backup are retained after successful deployment', (await stat(join(backup, 'data.tar.gz'))).size > 0 && (await stat(join(backup, 'code.tar.gz'))).size > 0 && existsSync(join(backup, 'app-before', 'old-code-marker')));
       check('publication replaces the existing systemd entry without creating a shadow package tree',
-        (await readFile(legacyEntry, 'utf8')) === 'new source xiaolanshu/server/community.mjs'
-        && (await readFile(join(backup, 'app-before', 'xiaolanshu', 'server', 'community.mjs'), 'utf8')) === 'old deployed source'
-        && !existsSync(join(app, 'podwhale')));
+        (await readFile(installedEntry, 'utf8')) === 'new source podwhale/server/community.mjs'
+        && (await readFile(join(backup, 'app-before', 'podwhale', 'server', 'community.mjs'), 'utf8')) === 'old deployed source'
+        && !existsSync(join(app, 'xiaolanshu')));
       const listing = await processRunner(shell, ['--noprofile', '--norc', '-c', 'tar -tzf ' + shellQuote(shellPath(join(backup, 'data.tar.gz')))], { cwd: ROOT, timeoutMs: 10000 });
       check('data archive is relative to DATA and preserves database bytes', listing.code === 0 && listing.stdout.split(/\r?\n/).includes('./feed.db') && !listing.stdout.includes(shellPath(data)) && (await readFile(join(data, 'feed.db'), 'utf8')) === 'preserved database bytes');
+      const restoredCode = join(sandbox, 'restore-probe-code'), restoredData = join(sandbox, 'restore-probe-data');
+      await Promise.all([mkdir(restoredCode), mkdir(restoredData)]);
+      const codeRestore = await processRunner(shell, ['--noprofile', '--norc', '-c', 'tar -xzf ' + shellQuote(shellPath(join(backup, 'code.tar.gz'))) + ' -C ' + shellQuote(shellPath(restoredCode))], { cwd: ROOT, timeoutMs: 10000 });
+      const dataRestore = await processRunner(shell, ['--noprofile', '--norc', '-c', 'tar -xzf ' + shellQuote(shellPath(join(backup, 'data.tar.gz'))) + ' -C ' + shellQuote(shellPath(restoredData))], { cwd: ROOT, timeoutMs: 10000 });
+      const hash = (value: Buffer | string) => createHash('sha256').update(value).digest('hex');
+      check('isolated backup restoration preserves canonical old-code and data hashes', codeRestore.code === 0 && dataRestore.code === 0
+        && hash(await readFile(join(restoredCode, 'podwhale', 'server', 'community.mjs'))) === hash('old deployed source')
+        && hash(await readFile(join(restoredData, 'feed.db'))) === hash('preserved database bytes')
+        && !existsSync(join(restoredCode, 'xiaolanshu')));
     } else if (mode === 'backup-failure') {
       check('backup failure leaves the old code unmodified and the service stopped', executed.code !== 0 && state === 'stopped' && !events.includes('publish') && !events.includes('restart') && existsSync(join(app, 'old-code-marker')));
     } else {
@@ -242,6 +308,11 @@ try {
 } catch (caught) { const error = caught as Error & { code?: string; status?: number; phase?: string; stopped?: boolean; detail?: string; };
   check('deployment test completes without an unexpected exception', false, error.message);
 } finally {
+  if (preflightCleanup) {
+    const target = await realpath(preflightCleanup.directory);
+    if (dirname(target).toLowerCase() !== preflightCleanup.parent.toLowerCase() || !basename(target).startsWith('podwhale-preflight-tests-')) throw new Error('unsafe preflight fixture cleanup');
+    await rm(target, { recursive: true, force: true });
+  }
   const parent = await realpath(tmpdir()); const target = await realpath(temp);
   if (dirname(target).toLowerCase() !== parent.toLowerCase() || !basename(target).startsWith('podwhale-deploy-tests-')) throw new Error('unsafe test cleanup');
   await rm(target, { recursive: true, force: true });
