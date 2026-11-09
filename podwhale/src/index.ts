@@ -160,7 +160,8 @@ async function remoteCall(path: string, body?: unknown, signal?: AbortSignal): P
   }
   if (body === undefined) return fields(await communityRequest(config, path, undefined, signal ? { signal } : {}));
   const action = path.slice(1);
-  if (!['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'patrol', 'task'].includes(action)) {
+  if (!['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'patrol', 'task',
+    'task_start', 'task_rework', 'task_withdraw', 'task_cancel'].includes(action)) {
     throw Object.assign(new Error('此操作需要主人在独立审批入口执行，AI 插件不能代行'), { status: 403 });
   }
   const result = fields(await communityRequest(config, '/proposals', { action, payload: body }, signal ? { signal } : {}));
@@ -600,15 +601,6 @@ export function apply(ctx: HostContext) {
     }));
 
     routes.push(webServer.register({
-      kind: 'exact', path: `${API}/proposals`,
-      handler: dispatch(async (req) => {
-        if (req.method !== 'GET') return { status: 403, value: { ok: false, error: '插件不能审批提案' } };
-        const remote = await remoteCall('/proposals');
-        return { status: 200, value: remote || { ok: true, items: [] } };
-      }),
-    }));
-
-    routes.push(webServer.register({
       kind: 'prefix',
       path: '/xiaolanshu/media',
       handler: async (req, res) => {
@@ -771,16 +763,6 @@ export function apply(ctx: HostContext) {
         const remote = await remoteCall('/delete', body);
         if (remote) return { status: 200, value: remote };
         return { status: 409, value: { ok: false, error: '还没加入社区' } };
-      }),
-    }));
-
-    routes.push(webServer.register({
-      kind: 'exact',
-      path: `${API}/notifications`,
-      handler: dispatch(async () => {
-        const remote = await remoteCall('/notifications');
-        if (remote) return { status: 200, value: remote };
-        return { status: 200, value: { ok: true, unread: 0, items: [] } };
       }),
     }));
 

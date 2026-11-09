@@ -113,7 +113,8 @@ try {
   check('local verification and source reads use the renamed repository package', SOURCE_FILES.every((file) => file.startsWith('podwhale/')) && calls.find((call) => call.options.phase === 'local-tests')!.args[0] === join(ROOT, 'podwhale', 'check.mjs'));
   check('archive includes authorization code and only the canonical service allowlist', pack.args.slice(4).join('\n') === REMOTE_SOURCE_FILES.join('\n') && pack.args.includes('podwhale/server/auth.mjs') && !SOURCE_FILES.some((file) => /(?:local\.json|remote\.json|data\/|assets\/)/.test(file)));
   check('the real archive contains canonical service paths and bytes from the local source', archiveMembers.join('\n') === REMOTE_SOURCE_FILES.join('\n') && packedCommunity.equals(await readFile(join(ROOT, 'podwhale', 'server', 'community.mjs'))) && !archiveMembers.some((file) => file.startsWith('xiaolanshu/')));
-  check('source manifest binds authorization and community source hashes', /^[a-f0-9]{64}$/.test(result.manifest!['podwhale/server/auth.mjs']!) && /^[a-f0-9]{64}$/.test(result.manifest!['podwhale/server/community.mjs']!));
+  check('source manifest binds authorization, task policy and community source hashes',
+    ['auth', 'task-policy', 'community'].every(name => /^[a-f0-9]{64}$/.test(result.manifest!['podwhale/server/' + name + '.mjs']!)));
   check('all subprocesses have a timeout', calls.every((call) => call.options.timeoutMs > 0));
   const network = calls.filter((call) => ['ssh', 'scp'].includes(call.command));
   check('all SSH and SCP operations require existing trust and noninteractive authentication', network.every((call) => ['BatchMode=yes', 'StrictHostKeyChecking=yes', 'UpdateHostKeys=no'].every((option) => call.args.includes(option))));

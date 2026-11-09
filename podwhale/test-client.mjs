@@ -302,7 +302,7 @@ function fakeFetch(url, options) {
         return feedFetch(url, options || {});
     if (connectionFetch && path === '/api/community-connection')
         return connectionFetch(url, options || {});
-    if (taskFetch && ['/api/task', '/api/proposals', '/api/claim', '/api/deliver', '/api/confirm'].includes(path))
+    if (taskFetch && ['/api/task', '/api/proposals', '/api/claim', '/api/deliver', '/api/confirm', '/api/task_start', '/api/task_rework', '/api/task_withdraw', '/api/task_cancel'].includes(path))
         return taskFetch(url, options || {});
     if (process.env.XLB_DEBUG)
         console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
@@ -3048,7 +3048,7 @@ finally {
 const priorTaskItems = feed.tasks, priorTaskClaims = feed.claims;
 try {
     const baseTask = { ...priorTaskItems[0], ownerId: 'publisher-other', fromName: '真实任务发布者', match: 30, why: 'not a recommendation',
-        viewer: { publisher: false, claimer: false, participant: false, canClaim: true }, status: 'open' };
+        viewer: { publisher: false, claimer: false, participant: false, canClaim: true }, status: 'open', revision: 0 };
     const publisher = { ...baseTask, id: 'p0-publisher', title: '发布者验收任务', ownerId: 'o1', status: 'delivered',
         viewer: { publisher: true, claimer: false, participant: true, canClaim: false } };
     const delivery = { ...baseTask, id: 'p0-delivery', title: '我领取的任务', status: 'claimed',
@@ -3060,9 +3060,10 @@ try {
     const lateTask = { ...baseTask, id: 'p0-late', title: '迟到详情任务' };
     feed.tasks = [publisher, delivery, secondDelivery, observer, ...openTasks, lateTask];
     feed.claims = {
-        [publisher.id]: { taskId: publisher.id, ownerId: 'claimer-other', ai: '另一位接单者', delivery: '已交付的可核对正文\n<script>plain task text</script>', deliveredAt: now() },
-        [delivery.id]: { taskId: delivery.id, ownerId: 'o1', ai: '当前接单者', createdAt: now() },
-        [secondDelivery.id]: { taskId: secondDelivery.id, ownerId: 'o1', createdAt: now() },
+        [publisher.id]: { taskId: publisher.id, ownerId: 'claimer-other', ai: '另一位接单者', claimId: 'claim-publisher', revision: 1, deliveryVersion: 1,
+            delivery: '已交付的可核对正文\n<script>plain task text</script>', deliveredAt: now() },
+        [delivery.id]: { taskId: delivery.id, ownerId: 'o1', ai: '当前接单者', createdAt: now(), claimId: 'claim-delivery', revision: 0, deliveryVersion: 0 },
+        [secondDelivery.id]: { taskId: secondDelivery.id, ownerId: 'o1', createdAt: now(), claimId: 'claim-second', revision: 0, deliveryVersion: 0 },
         [observer.id]: { taskId: observer.id, status: 'delivered' },
     };
     let responseStatus = 200, malformedWrite = false, holdWrite = false, holdRead = false;
@@ -3218,6 +3219,227 @@ finally {
     joinInfo.ownerId = 'o1';
     feed.tasks = priorTaskItems;
     feed.claims = priorTaskClaims;
+}
+const phase2OriginalTasks = feed.tasks, phase2OriginalClaims = feed.claims;
+try {
+    const views = new Map();
+    const base = { ...phase2OriginalTasks[0], ownerId: 'publisher-other', fromName: '版本任务发布者', revision: 4, status: 'claimed',
+        viewer: { publisher: false, claimer: true, participant: true, canClaim: false } };
+    const addView = (task, claim, history = [], events = []) => views.set(task.id, { task, claim, history, events });
+    addView({ ...base, id: 'p2-start', title: '开始工作版本验证', revision: 3 }, { ownerId: 'o1', claimId: 'round-start', revision: 0, deliveryVersion: 0, startedAt: null, reservedUntil: now() });
+    addView({ ...base, id: 'p2-work', title: '修改后第二版交付', status: 'changes_requested' }, {
+        ownerId: 'o1', claimId: 'round-work', revision: 2, deliveryVersion: 1, startedAt: now(), delivery: '第一版正文', deliveredAt: now(),
+        deliveries: [{ version: 1, text: '第一版正文', createdAt: now(), artifacts: [] }],
+    });
+    addView({ ...base, id: 'p2-review', title: '发布者审核第二版', ownerId: 'o1', status: 'delivered', revision: 9,
+        viewer: { publisher: true, claimer: false, participant: true, canClaim: false } }, {
+        ownerId: 'claimer-other', claimId: 'round-review', revision: 4, deliveryVersion: 2, startedAt: now(), delivery: '第二版完整交付', deliveredAt: now(),
+        deliveries: [
+            { version: 1, text: '第一版保留内容', createdAt: now(), artifacts: [{ label: '第一版成果', url: 'https://deliverables.example.org/version-one' }] },
+            { version: 2, text: '第二版完整交付', createdAt: now(), artifacts: [{ label: '<img src=x onerror=bad()>', url: 'javascript:alert(1)' }] },
+        ],
+    });
+    for (const [id, status, revision] of [['p2-cancel-open', 'open', 0], ['p2-cancel-expired', 'expired', 7]]) {
+        addView({ ...base, id, title: id, ownerId: 'o1', status, revision, viewer: { publisher: true, claimer: false, participant: true, canClaim: false } }, null);
+    }
+    addView({ ...base, id: 'p2-cancel-running', title: '开工后双向取消', ownerId: 'o1', status: 'in_progress', revision: 5,
+        viewer: { publisher: true, claimer: false, participant: true, canClaim: false } }, { ownerId: 'claimer-other', claimId: 'round-cancel', revision: 1, deliveryVersion: 0, startedAt: now() });
+    addView({ ...base, id: 'p2-consent', title: '另一方同意取消', status: 'in_progress', revision: 6,
+        cancellation: { requestedBy: 'publisher-other', reason: '需求已调整', createdAt: now(), claimId: 'round-consent' } }, { ownerId: 'o1', claimId: 'round-consent', revision: 1, deliveryVersion: 0, startedAt: now() });
+    addView({ ...base, id: 'p2-former', title: '前任只读本人历史', viewer: { publisher: false, claimer: false, participant: false, canClaim: false } }, { taskId: 'p2-former', status: 'claimed', delivery: 'current-round-private-content' }, [{ ownerId: 'o1', claimId: 'my-previous-round', ai: '本人历史昵称', revision: 2, deliveryVersion: 1,
+            delivery: '我曾提交的交付正文', deliveries: [{ version: 1, text: '我曾提交的交付正文', createdAt: now(), artifacts: [] }],
+            status: 'withdrawn', endedAt: now(), reason: '本人退出原因' }], [{ id: 'own-history-event', action: 'task_withdraw', actorId: 'o1', revision: 2, createdAt: now(), reason: '本人退出记录' }]);
+    addView({ ...base, id: 'p2-expired-lease', title: '保留期结束后重新开放', status: 'open', revision: 11,
+        viewer: { publisher: false, claimer: false, participant: false, canClaim: true } }, null);
+    feed.tasks = [...views.values()].map(value => value.task);
+    feed.claims = Object.fromEntries([...views.entries()].filter((entry) => entry[1].claim !== null)
+        .map(([id, value]) => [id, value.claim]));
+    let sequence = 0, holdPost = false;
+    const held = {};
+    const pending = (action) => testResponse({ ok: true, action, status: 'pending', executed: false, proposalId: 'phase2-proposal-' + (++sequence) }, 202);
+    taskFetch = async (url, options) => {
+        const target = new URL(url, 'https://local.invalid'), path = target.pathname.replace('/xiaolanshu', '');
+        if ((options.method || 'GET') === 'GET') {
+            if (path === '/api/proposals')
+                return testResponse({ ok: true, items: [] });
+            const value = views.get(target.searchParams.get('taskId') || '');
+            return testResponse(value ? structuredClone({ ok: true, ...value }) : { ok: false }, value ? 200 : 404);
+        }
+        if (holdPost)
+            return new Promise(resolve => { held.resolve = resolve; });
+        return pending(path.slice('/api/'.length));
+    };
+    unmountTestTree();
+    petTree = await mountMain();
+    const taskNode = (action) => findNodes(petTree, node => node.props['data-task-action'] === action)[0];
+    const taskField = (field) => findNodes(petTree, node => node.props['data-task-field'] === field)[0];
+    const details = () => findNodes(petTree, node => typeof node.props['data-task-detail'] === 'string')[0];
+    const posts = () => callLog.filter(call => call.method === 'POST' && (call.path.startsWith('/api/task') || ['/api/claim', '/api/deliver', '/api/confirm'].includes(call.path)));
+    const click = async (action) => { const node = taskNode(action); if (!node)
+        throw new Error('missing phase2 control ' + action); clickNode(petTree, node); await renderPet(); };
+    const type = async (field, value) => { const node = taskField(field); if (!node)
+        throw new Error('missing phase2 field ' + field); node.props.onChange({ target: { value } }); await renderPet(); };
+    const open = async (id) => { const node = findNodes(petTree, entry => entry.props['data-open-task'] === id)[0]; if (!node)
+        throw new Error('missing phase2 task ' + id); clickNode(petTree, node); await renderPet(); };
+    const reason = async (action, text) => {
+        await click(action);
+        const input = findNodes(petTree, node => node.props['data-task-reason'] === action)[0];
+        input.props.onChange({ target: { value: text } });
+        await renderPet();
+    };
+    const tab = findNodes(petTree, node => node.type === 'button' && node.props.className === 'xls-tab' && textOf(node) === '任务广场')[0];
+    clickNode(petTree, tab);
+    await renderPet();
+    const suiteStart = callLog.length;
+    await click('new');
+    check('task details and acceptance criteria use labelled multiline controls', taskField('desc')?.type === 'textarea'
+        && taskField('acceptanceCriteria')?.type === 'textarea' && taskField('acceptanceCriteria')?.props.maxLength === 2000
+        && eventPath(petTree, taskField('deadlineAt')).some(node => node.type === 'label' && textOf(node).includes(Intl.DateTimeFormat().resolvedOptions().timeZone)));
+    await type('title', '带验收标准的任务');
+    await type('desc', '多行需求\n第二行');
+    await type('acceptanceCriteria', '验收依据'.repeat(300));
+    await type('deadlineAt', '2032-02-31T12:00');
+    const beforeInvalid = posts().length;
+    await click('publish');
+    check('an invalid local calendar deadline fails before any proposal and preserves the long criteria', posts().length === beforeInvalid
+        && taskField('acceptanceCriteria')?.props.value === '验收依据'.repeat(300));
+    await type('deadlineAt', '2032-06-15T12:30');
+    await type('tags', '1,2,3,4,5,6');
+    await click('publish');
+    check('too many task tags are rejected without silently dropping author input', posts().length === beforeInvalid && taskField('tags')?.props.value === '1,2,3,4,5,6');
+    await type('tags', '评审,复现,评审');
+    holdPost = true;
+    clickNode(petTree, taskNode('publish'));
+    await renderPet();
+    const creation = posts().at(-1);
+    check('task creation sends canonical UTC, complete criteria, multiline requirements and explicit normalized tags', creation.body?.deadlineAt === new Date('2032-06-15T12:30').toISOString() && creation.body.acceptanceCriteria === '验收依据'.repeat(300)
+        && creation.body.desc === '多行需求\n第二行' && JSON.stringify(creation.body.tags) === JSON.stringify(['评审', '复现']) && creation.body.match === undefined);
+    const social = findNodes(petTree, node => node.props['data-community-action'] === 'social')[0];
+    clickNode(petTree, social);
+    await renderPet();
+    holdPost = false;
+    held.resolve?.(pending('task'));
+    await renderPet();
+    const back = findNodes(petTree, node => node.props['data-social-action'] === 'back')[0];
+    clickNode(petTree, back);
+    await renderPet();
+    check('a valid pending creation acknowledged while inactive restores its receipt and draft on return', taskField('title')?.props.value === '带验收标准的任务' && taskField('acceptanceCriteria')?.props.value === '验收依据'.repeat(300)
+        && taskNode('publish')?.props.disabled === true && findNodes(petTree, node => node.props['data-task-pending'] === 'task').length === 1);
+    const beforeRepeat = posts().length;
+    clickNode(petTree, taskNode('publish'));
+    await renderPet();
+    check('returning from an inactive pane cannot duplicate an already accepted creation proposal', posts().length === beforeRepeat);
+    await click('cancel-draft');
+    await open('p2-start');
+    const beforeStart = posts().length;
+    holdPost = true;
+    clickNode(petTree, taskNode('task_start'));
+    clickNode(petTree, taskNode('task_start'));
+    await renderPet();
+    check('starting is one proposal bound to the exact task revision, claim round and zero delivery version', posts().length === beforeStart + 1
+        && posts().at(-1)?.body?.expectedRevision === 3 && posts().at(-1)?.body?.claimId === 'round-start' && posts().at(-1)?.body?.deliveryVersion === 0);
+    holdPost = false;
+    held.resolve?.(pending('task_start'));
+    await renderPet();
+    check('a pending start never changes the task to in-progress locally', findNodes(petTree, node => node.props['data-task-id'] === 'p2-start')[0]?.props['data-task-status'] === 'claimed');
+    await click('close');
+    await open('p2-review');
+    check('authorized participants can read every supplied delivery version with escaped text', findNodes(details(), node => node.props['data-task-delivery-version'] === '1').length === 1
+        && findNodes(details(), node => node.props['data-task-delivery-version'] === '2').length === 1
+        && textOf(details()).includes('第一版保留内容') && textOf(details()).includes('第二版完整交付')
+        && findNodes(details(), node => node.type === 'img' || node.type === 'script').length === 0);
+    check('artifact metadata produces only explicit HTTPS links without automatic media or unsafe hyperlinks', findNodes(details(), node => node.props['data-task-artifact'] === true).length === 1
+        && findNodes(details(), node => typeof node.props.href === 'string' && node.props.href.startsWith('javascript:')).length === 0
+        && findNodes(details(), node => node.props['data-task-artifact'] === true).every(node => node.props.rel === 'noopener noreferrer' && node.props.target === '_blank'));
+    const beforeReason = posts().length;
+    await reason('task_rework', '第二版缺少指定验证');
+    check('opening a rework form and editing a reason have no write side effect', posts().length === beforeReason);
+    await click('submit-task_rework');
+    check('rework binds the reviewed delivery version and keeps its reason while pending', posts().at(-1)?.body?.expectedRevision === 9
+        && posts().at(-1)?.body?.claimId === 'round-review' && posts().at(-1)?.body?.deliveryVersion === 2
+        && posts().at(-1)?.body?.reason === '第二版缺少指定验证'
+        && findNodes(petTree, node => node.props['data-task-reason'] === 'task_rework')[0]?.props.value === '第二版缺少指定验证'
+        && taskNode('submit-task_rework')?.props.disabled === true);
+    await click('close');
+    await open('p2-work');
+    await type('delivery', '修订后的交付正文');
+    await click('add-artifact');
+    const artifactInput = (field) => findNodes(petTree, node => node.props['data-task-artifact-field'] === field && node.props['data-artifact-index'] === '0')[0];
+    artifactInput('label').props.onChange({ target: { value: '交付报告' } });
+    await renderPet();
+    const invalidLinks = ['http://deliverables.example.org/report', 'https://127.0.0.1/report', 'https://localhost/report', 'https://user:pass@deliverables.example.org/report', 'https://deliverables.example.org/report?token=private', 'https://deliverables.example.org/report#part'];
+    const beforeLinks = posts().length;
+    for (const url of invalidLinks) {
+        artifactInput('url').props.onChange({ target: { value: url } });
+        await renderPet();
+        await click('deliver');
+    }
+    check('invalid artifact transports and embedded authority are rejected before any network write', posts().length === beforeLinks
+        && taskField('delivery')?.props.value === '修订后的交付正文');
+    artifactInput('url').props.onChange({ target: { value: 'https://deliverables.example.org/report' } });
+    await renderPet();
+    const currentWork = views.get('p2-work');
+    currentWork.task = { ...currentWork.task, revision: 5 };
+    await click('refresh');
+    check('a changed task revision cannot silently retarget an existing delivery draft', taskNode('deliver')?.props.disabled === true
+        && taskField('delivery')?.props.value === '修订后的交付正文' && artifactInput('url').props.value === 'https://deliverables.example.org/report');
+    const useLatest = findNodes(petTree, node => node.props['data-task-use-latest'] === 'deliver')[0];
+    clickNode(petTree, useLatest);
+    await renderPet();
+    await click('deliver');
+    check('an explicitly reviewed new basis submits the same draft and links against the current round and version', posts().at(-1)?.body?.expectedRevision === 5 && posts().at(-1)?.body?.claimId === 'round-work' && posts().at(-1)?.body?.deliveryVersion === 1
+        && JSON.stringify(posts().at(-1)?.body?.artifacts) === JSON.stringify([{ label: '交付报告', url: 'https://deliverables.example.org/report' }])
+        && taskField('delivery')?.props.value === '修订后的交付正文' && artifactInput('url').props.value === 'https://deliverables.example.org/report');
+    await reason('task_withdraw', '本人无法继续完成');
+    await click('submit-task_withdraw');
+    check('withdrawal is a version-bound proposal rather than a local deletion of work history', posts().at(-1)?.body?.claimId === 'round-work' && posts().at(-1)?.body?.deliveryVersion === 1
+        && posts().at(-1)?.body?.reason === '本人无法继续完成' && textOf(details()).includes('第一版正文'));
+    await click('close');
+    for (const id of ['p2-cancel-open', 'p2-cancel-expired']) {
+        await open(id);
+        await reason('task_cancel', '发布者关闭这项需求');
+        await click('submit-task_cancel');
+        check('a publisher can propose cancelling an unclaimed task with the exact null round: ' + id, posts().at(-1)?.body?.claimId === null && posts().at(-1)?.body?.deliveryVersion === 0
+            && posts().at(-1)?.body?.expectedRevision === views.get(id).task.revision
+            && findNodes(petTree, node => node.props['data-task-id'] === id)[0]?.props['data-task-status'] === views.get(id).task.status);
+        await click('close');
+    }
+    await open('p2-cancel-running');
+    await reason('task_cancel', '先与对方协商取消');
+    await click('submit-task_cancel');
+    const running = views.get('p2-cancel-running');
+    running.task = { ...running.task, revision: 6, cancellation: { requestedBy: 'o1', reason: '先与对方协商取消', createdAt: now(), claimId: 'round-cancel' } };
+    await click('refresh');
+    check('an approved initial cancellation request is shown as awaiting the other party while work remains active', textOf(details()).includes('任务尚未取消') && !taskNode('task_cancel')
+        && findNodes(petTree, node => node.props['data-task-id'] === 'p2-cancel-running')[0]?.props['data-task-status'] === 'in_progress');
+    await click('close');
+    await open('p2-consent');
+    await reason('task_cancel', '核对后同意结束');
+    await click('submit-task_cancel');
+    check('the other party also submits a separate cancellation proposal with the current snapshot', posts().at(-1)?.body?.claimId === 'round-consent'
+        && posts().at(-1)?.body?.expectedRevision === 6 && posts().at(-1)?.body?.deliveryVersion === 0
+        && findNodes(petTree, node => node.props['data-task-id'] === 'p2-consent')[0]?.props['data-task-status'] === 'in_progress');
+    await click('close');
+    await open('p2-former');
+    check('a former claimer sees authorized own history without gaining current-participant controls or content', textOf(details()).includes('我曾提交的交付正文') && textOf(details()).includes('本人退出记录')
+        && !textOf(details()).includes('current-round-private-content') && !taskNode('deliver') && !taskNode('confirm') && !taskNode('task_cancel'));
+    await click('close');
+    await open('p2-expired-lease');
+    check('an expired reservation projected as open and null claim stays claimable for a new owner', !!taskNode('claim') && !taskNode('claim').props.disabled);
+    await click('claim');
+    check('reclaiming never carries a previous owner claim ID, delivery version or private body', JSON.stringify(posts().at(-1)?.body) === JSON.stringify({ taskId: 'p2-expired-lease', note: '', expectedRevision: 11 })
+        && findNodes(petTree, node => node.props['data-task-pending'] === 'claim').length === 1);
+    check('task lifecycle UI never fetches artifact destinations, runs a model, or approves its own proposal', callLog.slice(suiteStart).every(call => call.url.startsWith('/xiaolanshu/'))
+        && !callLog.slice(suiteStart).some(call => call.path.includes('/approve') || call.path === '/api/social/run' || call.path === '/api/companion/messages'));
+}
+catch (caught) {
+    check('versioned task lifecycle behavior completes without throwing', false, caught instanceof Error ? caught.stack : String(caught));
+}
+finally {
+    unmountTestTree();
+    taskFetch = null;
+    feed.tasks = phase2OriginalTasks;
+    feed.claims = phase2OriginalClaims;
 }
 console.log('');
 if (failures.length === 0) {

@@ -426,9 +426,14 @@ try {
   const bDeliver = await call('/deliver', known, { taskId: bTaskId, text: '做完了' });
   check('delivery on that job is accepted', bDeliver.status === 200, bDeliver.status);
 
-  // 交付后互评：发布者评交付者，交付者评发布者，各一次
+  // 验收后互评：交付本身不能制造已完成信誉。
   const earlyRate = await call('/rate', known2, { taskId: bTaskId, score: 5, text: '太快了' });
-  check('rating is allowed right after delivery', earlyRate.status === 201, earlyRate.status);
+  check('rating before publisher acceptance is rejected', earlyRate.status === 409, earlyRate.status);
+  check('publisher accepts the delivered version before either party rates it', (await call('/confirm', known2, { taskId: bTaskId })).status === 200);
+  for (const score of [null, '5', 'invalid', 0, 6, 1.5]) {
+    check('rating requires an integer from one through five', (await call('/rate', known2, { taskId: bTaskId, score })).status === 400);
+  }
+  check('the publisher can rate accepted work', (await call('/rate', known2, { taskId: bTaskId, score: 5, text: '验收通过' })).status === 201);
 
   const rateAgain = await call('/rate', known2, { taskId: bTaskId, score: 1, text: '再评一次' });
   check('the same rater cannot rate twice', rateAgain.status === 409, rateAgain.status);

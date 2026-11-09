@@ -10,7 +10,7 @@ import { isRecord } from './types.mjs';
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const data = await mkdtemp(join(tmpdir(), 'podwhale-task-tests-'));
 const tokens = { publisher: 'xlb_' + '1'.repeat(48), claimer: 'xlb_' + '2'.repeat(48), outsider: 'xlb_' + '3'.repeat(48),
-    agent: 'xlb_' + '4'.repeat(48), revoked: 'xlb_' + '5'.repeat(48), agentExternal: 'xlb_' + '6'.repeat(48) };
+    agent: 'xlb_' + '4'.repeat(48), revoked: 'xlb_' + '5'.repeat(48), agentExternal: 'xlb_' + '6'.repeat(48), agentClaimer: 'xlb_' + '7'.repeat(48) };
 const probe = createServer();
 await new Promise(done => probe.listen(0, '127.0.0.1', done));
 const port = probe.address().port;
@@ -98,11 +98,26 @@ async function propose(token, action, payload) {
     return { status: result.status, proposal: isRecord(result.json.proposal) ? result.json.proposal : null };
 }
 async function approve(proposal, token = tokens.publisher) { return call('/proposals/approve', token, { id: proposal.id, digest: proposal.digest }); }
+async function basis(id, token = tokens.publisher) {
+    const value = (await detail(id, token)).json, task = object(value.task), claim = isRecord(value.claim) ? value.claim : null;
+    return { taskId: id, expectedRevision: task.revision, claimId: claim?.claimId ?? null, deliveryVersion: claim?.deliveryVersion ?? 0 };
+}
+async function reviewed(id, action, agent, human, extra = {}) {
+    const current = await basis(id, human);
+    const payload = action === 'claim' ? { taskId: id, expectedRevision: current.expectedRevision, ...extra } : { ...current, ...extra };
+    const pending = await propose(agent, action, payload);
+    if (pending.status !== 201 || !pending.proposal)
+        throw new Error('lifecycle proposal failed: ' + action + '/' + pending.status);
+    const result = await approve(pending.proposal, human);
+    if (result.status !== 200)
+        throw new Error('lifecycle approval failed: ' + action + '/' + result.status);
+    return result;
+}
 try {
     const future = new Date(Date.now() + 86400000).toISOString();
     const registry = {};
     for (const [name, token] of Object.entries(tokens)) {
-        const id = name === 'agent' ? 'opublisher' : name === 'agentExternal' ? 'ooutsider' : 'o' + name;
+        const id = name === 'agent' ? 'opublisher' : name === 'agentExternal' ? 'ooutsider' : name === 'agentClaimer' ? 'oclaimer' : 'o' + name;
         registry[createHash('sha256').update(token).digest('hex')] = { id, name: 'Synthetic ' + name, handle: name,
             createdAt: '2026-01-01T00:00:00.000Z', revoked: name === 'revoked', credential: { role: name.startsWith('agent') ? 'agent' : 'human', expiresAt: future } };
     }
@@ -174,8 +189,9 @@ try {
     check('old self claim remains idempotent without deleting history', (await call('/claim', tokens.publisher, { taskId: 'legacy-self' })).json.repeated === true);
     const raceId = await publish('Concurrent claim fixture');
     check('publishing one more task does not truncate historical work', (await call('/tasks')).json.total === 208 && (await detail('fixture-0')).status === 200);
-    const self = await call('/claim', tokens.publisher, { taskId: raceId, ownerId: 'oclaimer' });
-    check('owner cannot claim a new task even with a forged owner field', self.status === 409 && self.json.error === 'task_self_claim');
+    const self = await call('/claim', tokens.publisher, { taskId: raceId });
+    check('owner cannot claim a new task', self.status === 409 && self.json.error === 'task_self_claim');
+    check('task mutations reject forged identity fields', (await call('/claim', tokens.publisher, { taskId: raceId, ownerId: 'oclaimer' })).status === 400);
     const race = await Promise.all([call('/claim', tokens.claimer, { taskId: raceId }), call('/claim', tokens.outsider, { taskId: raceId })]);
     check('concurrent different owners obtain exactly one commitment', race.filter(result => result.status === 201).length === 1 && race.filter(result => result.status === 409).length === 1);
     const winningToken = race[0].status === 201 ? tokens.claimer : tokens.outsider;
@@ -223,6 +239,137 @@ try {
     check('same-time cursor ordering survives persistence and restart', items(tiedAfterRestart.json.items)[0]?.id === 'fixture-203');
     const hidden = await detail(atomicId, tokens.outsider);
     check('restart does not relax delivery privacy', Object.keys(object(hidden.json.claim)).length === 2 && !JSON.stringify(hidden.json).includes('atomic delivery'));
+    // Phase 2: all new state transitions still require a frozen agent proposal
+    // and an independent human approval, never an actor/approved flag in JSON.
+    for (const deadlineAt of ['not-a-date', '2000-01-01T00:00:00.000Z', '2099-02-30T00:00:00.000Z']) {
+        check('new tasks reject invalid or past deadlines', (await call('/task', tokens.publisher, { title: 'Invalid deadline', deadlineAt })).status === 400);
+    }
+    const deadlineAt = new Date(Date.now() + 3 * 86400000).toISOString();
+    const versioned = await call('/task', tokens.publisher, { title: 'Versioned delivery fixture', acceptanceCriteria: 'A reproducible table, contact fixture@example.org', deadlineAt });
+    const versionId = text(object(versioned.json.task).id);
+    check('acceptance criteria are redacted and the actual deadline is stored', object(versioned.json.task).deadlineAt === deadlineAt
+        && !String(object(versioned.json.task).acceptanceCriteria).includes('fixture@example.org'));
+    await reviewed(versionId, 'claim', tokens.agentClaimer, tokens.claimer, { note: 'scope of work' });
+    const claimedVersion = object((await detail(versionId, tokens.claimer)).json.claim), startBasis = await basis(versionId, tokens.claimer);
+    check('a new claim has a unique round and a twenty-four-hour reservation', typeof claimedVersion.claimId === 'string'
+        && claimedVersion.deliveryVersion === 0 && Date.parse(text(claimedVersion.reservedUntil)) - Date.parse(text(claimedVersion.createdAt)) === 86400000);
+    const startPending = await propose(tokens.agentClaimer, 'task_start', startBasis);
+    check('starting work is pending until the claimer human approves', startPending.status === 201 && !object((await detail(versionId, tokens.claimer)).json.claim).startedAt);
+    if (!startPending.proposal)
+        throw new Error('missing start fixture');
+    check('publisher cannot approve another owners start proposal', (await approve(startPending.proposal, tokens.publisher)).status === 404);
+    check('the claimer human can start the reviewed round', (await approve(startPending.proposal, tokens.claimer)).status === 200
+        && object((await detail(versionId, tokens.claimer)).json.task).status === 'in_progress');
+    check('stale task revisions cannot request a different transition', (await propose(tokens.agentClaimer, 'task_withdraw', { ...startBasis, reason: 'stale' })).status === 409);
+    check('new task transitions require their exact claim and version', (await propose(tokens.agentClaimer, 'task_withdraw', { taskId: versionId, reason: 'missing target' })).status === 400);
+    await reviewed(versionId, 'deliver', tokens.agentClaimer, tokens.claimer, { text: 'delivery-v1-evidence',
+        artifacts: [{ label: 'Report fixture@example.org', url: 'https://artifacts.example.org/version-one' }] });
+    const firstVersion = (await detail(versionId, tokens.publisher)).json;
+    check('a delivery records evidence metadata without fetching it', items(object(firstVersion.claim).deliveries).length === 1
+        && items(object(firstVersion.claim).deliveries)[0]?.version === 1);
+    check('artifact labels are redacted while valid URLs remain valid', !JSON.stringify(object(firstVersion.claim).deliveries).includes('fixture@example.org')
+        && JSON.stringify(object(firstVersion.claim).deliveries).includes('https://artifacts.example.org/version-one'));
+    for (const url of ['http://example.org/file', 'https://u:p@example.org/file', 'https://127.0.0.1/file', 'https://[::1]/file',
+        'https://host.internal/file', 'https://example.org/file?token=private', 'https://example.org/file#secret', 'javascript:alert(1)']) {
+        check('unsafe artifact URLs cannot enter a proposal', (await propose(tokens.agentClaimer, 'deliver', {
+            ...await basis(versionId, tokens.claimer), text: 'bad artifact', artifacts: [{ label: 'result', url }]
+        })).status === 400);
+    }
+    check('ratings require publisher acceptance rather than mere delivery', (await call('/rate', tokens.publisher, { taskId: versionId, score: 5 })).status === 409);
+    const staleConfirmation = await basis(versionId);
+    await reviewed(versionId, 'task_rework', tokens.agent, tokens.publisher, { reason: 'Include the missing second row' });
+    check('requesting rework preserves the first delivery and changes the state', object((await detail(versionId)).json.task).status === 'changes_requested'
+        && items(object((await detail(versionId)).json.claim).deliveries)[0]?.text === 'delivery-v1-evidence');
+    check('an old version cannot be confirmed after a rework request', (await propose(tokens.agent, 'confirm', staleConfirmation)).status === 409
+        && (await call('/confirm', tokens.publisher, { taskId: versionId })).status === 409);
+    await reviewed(versionId, 'deliver', tokens.agentClaimer, tokens.claimer, { text: 'delivery-v2-evidence',
+        artifacts: [{ label: 'Revised report', url: 'https://artifacts.example.org/version-two' }] });
+    const secondVersion = object((await detail(versionId)).json.claim);
+    check('resubmission appends version two without overwriting version one', secondVersion.deliveryVersion === 2 && items(secondVersion.deliveries).length === 2
+        && items(secondVersion.deliveries)[0]?.text === 'delivery-v1-evidence' && secondVersion.delivery === 'delivery-v2-evidence');
+    await reviewed(versionId, 'confirm', tokens.agent, tokens.publisher);
+    check('acceptance closes the reviewed version exactly once', object((await detail(versionId)).json.task).status === 'completed'
+        && (await call('/confirm', tokens.publisher, { taskId: versionId })).json.repeated === true);
+    for (const score of [null, '5', 'not-a-score', 0, 6, 1.5])
+        check('invalid scores are rejected rather than coerced to one', (await call('/rate', tokens.publisher, { taskId: versionId, score })).status === 400);
+    check('accepted task participants may rate exactly once', (await call('/rate', tokens.publisher, { taskId: versionId, score: 5 })).status === 201
+        && (await call('/rate', tokens.publisher, { taskId: versionId, score: 4 })).status === 409
+        && (await call('/rate', tokens.claimer, { taskId: versionId, score: 4 })).status === 201);
+    check('outsiders cannot rate even an accepted task', (await call('/rate', tokens.outsider, { taskId: versionId, score: 5 })).status === 403);
+    const privateId = await publish('Withdraw and reclaim private fixture');
+    await reviewed(privateId, 'claim', tokens.agentClaimer, tokens.claimer, { note: 'former-private-note' });
+    await reviewed(privateId, 'deliver', tokens.agentClaimer, tokens.claimer, { text: 'former-private-delivery',
+        artifacts: [{ label: 'former-private-label', url: 'https://artifacts.example.org/former-private-result' }] });
+    await reviewed(privateId, 'task_withdraw', tokens.agentClaimer, tokens.claimer, { reason: 'former-private-withdrawal' });
+    const formerHistory = (await detail(privateId, tokens.claimer)).json;
+    check('withdrawing delivered work retains the full former claimant history', object(formerHistory.task).status === 'open' && formerHistory.claim === null
+        && items(formerHistory.history).length === 1 && JSON.stringify(formerHistory.history).includes('former-private-result'));
+    const reclaimed = await reviewed(privateId, 'claim', tokens.agentExternal, tokens.outsider);
+    const safeReply = (value) => !JSON.stringify(value).includes('former-private-');
+    check('approving a new claimant never returns the former private history', safeReply(reclaimed.json));
+    check('direct repeated claim responses also omit former private history', safeReply((await call('/claim', tokens.outsider, { taskId: privateId })).json));
+    const startedReply = await reviewed(privateId, 'task_start', tokens.agentExternal, tokens.outsider);
+    check('start approval receipts cannot carry former private history', safeReply(startedReply.json));
+    const newDelivery = await call('/deliver', tokens.outsider, { ...await basis(privateId, tokens.outsider), text: 'new claimant delivery' });
+    check('direct delivery receipts cannot carry former private history', newDelivery.status === 200 && safeReply(newDelivery.json));
+    const newView = (await detail(privateId, tokens.outsider)).json, formerView = (await detail(privateId, tokens.claimer)).json;
+    check('the new claimant has only their own round and history', items(newView.history).length === 0 && safeReply(newView)
+        && object(newView.claim).deliveryVersion === 1);
+    check('a former claimant sees their own archive but only public current status', items(formerView.history).length === 1
+        && Object.keys(object(formerView.claim)).length === 2 && object(object(formerView.task).viewer).participant === false);
+    check('publisher retains both archived evidence and the current round', JSON.stringify((await detail(privateId)).json.history).includes('former-private-delivery')
+        && object((await detail(privateId)).json.claim).delivery === 'new claimant delivery');
+    const cancelId = await publish('Bilateral cancellation fixture');
+    await reviewed(cancelId, 'claim', tokens.agentClaimer, tokens.claimer);
+    await reviewed(cancelId, 'task_start', tokens.agentClaimer, tokens.claimer);
+    const requestCancellation = await reviewed(cancelId, 'task_cancel', tokens.agent, tokens.publisher, { reason: 'publisher cancellation request' });
+    check('publisher approval alone only requests cancellation after start', object(requestCancellation.json.result).awaitingOtherParty === true
+        && object((await detail(cancelId)).json.task).status === 'in_progress' && isRecord((await detail(cancelId)).json.claim));
+    const repeatCancellation = await reviewed(cancelId, 'task_cancel', tokens.agent, tokens.publisher, { reason: 'same side again' });
+    check('the same party cannot supply both sides of cancellation', object(repeatCancellation.json.result).awaitingOtherParty === true
+        && object((await detail(cancelId)).json.task).status === 'in_progress');
+    await reviewed(cancelId, 'task_cancel', tokens.agentClaimer, tokens.claimer, { reason: 'claimer accepts cancellation' });
+    check('the other independent owner closes cancellation and retains history', object((await detail(cancelId)).json.task).status === 'cancelled'
+        && (await detail(cancelId)).json.claim === null && items((await detail(cancelId)).json.history).length === 1);
+    check('cancelled tasks cannot be newly claimed', (await call('/claim', tokens.outsider, { taskId: cancelId })).status === 409);
+    const openCancelId = await publish('Open cancellation fixture');
+    await reviewed(openCancelId, 'task_cancel', tokens.agent, tokens.publisher, { reason: 'no longer needed' });
+    check('publisher can cancel an unclaimed task with a null claim target', object((await detail(openCancelId)).json.task).status === 'cancelled');
+    const leaseId = await publish('Unstarted expiry fixture'), startedId = await publish('Started expiry fixture'), deliveredId = await publish('Delivered expiry fixture');
+    const leaseCancelId = await publish('Expired reservation cancellation fixture');
+    const dueTask = await call('/task', tokens.publisher, { title: 'Actual deadline fixture', deadlineAt });
+    const dueId = text(object(dueTask.json.task).id);
+    for (const id of [leaseId, startedId, deliveredId, leaseCancelId])
+        await reviewed(id, 'claim', tokens.agentClaimer, tokens.claimer, { note: 'lease-private-note' });
+    await reviewed(startedId, 'task_start', tokens.agentClaimer, tokens.claimer);
+    await reviewed(deliveredId, 'deliver', tokens.agentClaimer, tokens.claimer, { text: 'retained completed effort' });
+    const beforeExpiry = await basis(leaseId, tokens.claimer), expiringStart = await propose(tokens.agentClaimer, 'task_start', beforeExpiry);
+    if (!expiringStart.proposal)
+        throw new Error('missing expiring fixture');
+    const literal = (value) => "'" + value.replaceAll("'", "''") + "'";
+    await stop();
+    for (const id of [leaseId, startedId, deliveredId, leaseCancelId])
+        database("UPDATE entities SET data=json_set(data,'$.reservedUntil','2000-01-01T00:00:00.000Z') WHERE collection='claims' AND key=" + literal(id));
+    database("UPDATE entities SET data=json_set(data,'$.deadlineAt','2000-01-01T00:00:00.000Z') WHERE collection='tasks' AND key=" + literal(dueId));
+    await start();
+    const expiredView = (await detail(leaseId, tokens.outsider)).json;
+    check('elapsed unstarted reservation reads as open with no foreign claim basis', object(expiredView.task).status === 'open'
+        && object(object(expiredView.task).viewer).canClaim === true && expiredView.claim === null);
+    check('status changes cannot invalidate an existing task cursor', (await call('/tasks?status=claimed&before=' + encodeURIComponent(leaseId))).status === 200);
+    check('a changed lease invalidates an already-reviewed start target', (await approve(expiringStart.proposal, tokens.claimer)).status === 409);
+    const oldLeaseId = beforeExpiry.claimId;
+    await reviewed(leaseId, 'claim', tokens.agentExternal, tokens.outsider);
+    const newLease = (await detail(leaseId, tokens.outsider)).json;
+    check('reclaim creates a new round without disclosing an expired private note', object(newLease.claim).claimId !== oldLeaseId
+        && !JSON.stringify(newLease).includes('lease-private-note') && items(newLease.history).length === 0);
+    check('the previous owner retains their expired reservation history', items((await detail(leaseId, tokens.claimer)).json.history)[0]?.status === 'expired');
+    for (const id of [startedId, deliveredId])
+        check('elapsed reservations cannot release started or delivered work', (await call('/claim', tokens.outsider, { taskId: id })).status === 409);
+    await reviewed(leaseCancelId, 'task_cancel', tokens.agent, tokens.publisher, { reason: 'close the expired reservation' });
+    check('publisher can close an expired unstarted reservation', object((await detail(leaseCancelId)).json.task).status === 'cancelled');
+    check('an actual deadline prevents claiming an unstarted task', object((await detail(dueId)).json.task).status === 'expired'
+        && (await call('/claim', tokens.outsider, { taskId: dueId })).status === 409);
+    check('legacy claims without reservation timestamps are never timed out', (await call('/claim', tokens.outsider, { taskId: 'legacy-self' })).status === 409);
 }
 catch (error) {
     check('task regression completes without an unexpected exception', false);

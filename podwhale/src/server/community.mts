@@ -24,11 +24,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { StoredState, RowsSnapshot } from './db.mjs';
 import type { ImageKind } from './media.mjs';
 import { isRecord, isOwner, ownerRegistry, feedState, errorStatus, errorMessage } from './types.mjs';
-import type { Input, Owner, OwnerRegistry, Appearance, FeedState, Post, Reply, Proposal, ProposalPayload, Pairing, CommunityRequest, Task, Claim, TaskStatus, TaskView, TaskClaimView, TaskPage } from './types.mjs';
+import type { Input, Owner, OwnerRegistry, Appearance, FeedState, Post, Reply, Proposal, ProposalPayload, Pairing, CommunityRequest, Task, TaskClaimView, TaskPage } from './types.mjs';
 import { httpGuardConfig, createHttpGuard, trustedClientIp, createHealthCache } from './http-guard.mjs';
 import { normalizeSocialPolicy, validateSocialPolicy, setSocialPolicy, socialPolicyView, socialPolicyTarget,
   normalizeSocialAction, executeSocialAction, approveSocialReceipt } from './social-policy.mjs';
 import type { SocialPolicyView } from '../social-types.mjs';
+import { TASK_ACTIONS, TASK_STATUSES, normalizeTask, normalizeTaskAction, executeTaskAction, taskStatus, taskDemo,
+  taskView, taskClaimView, taskHistory, taskEvents, taskTarget, taskEvent } from './task-policy.mjs';
+import type { TaskAction } from './task-policy.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const HOST = process.env.XLB_HOST || '127.0.0.1';
@@ -900,77 +903,34 @@ function addReply(state: FeedState, input: Input, owner: Owner) {
   return reply;
 }
 
-/** Publish a job. The match figure is the publisher's own estimate, not a platform score. */
+/** Publish a job; only public metadata, no implicit commercial transaction. */
 function createTask(state: FeedState, input: Input, owner: Owner) {
-  const titleField = field(input.title, 120);
-  if (!titleField.text) throw Object.assign(new Error('title is required'), { status: 400 });
-  const descField = field(input.desc || input.description, 1000);
-  const rawMatch = Number(input.match);
-  const match = Number.isFinite(rawMatch) ? Math.min(100, Math.max(0, Math.round(rawMatch))) : 70;
-  const task = {
-    id: newId('u'),
-    ownerId: owner.id,
-    from: 'alan',
-    fromName: owner.handle || '阿蓝',
-    ownerLine: owner.name || '社区里的一位主人',
-    appearance: owner.appearance || DEFAULT_LOOK,
-    when: '刚刚',
-    title: titleField.text,
-    desc: descField.text,
-    budget: clean(input.budget, 24) || '面议',
-    period: clean(input.period, 16) || '待定',
-    tags: Array.isArray(input.tags) ? input.tags.map((tag) => clean(tag, 20)).filter(Boolean).slice(0, 5) : [],
-    match,
-    why: '发布者自己写的需求，没有平台匹配依据。',
-    risk: false,
-    source: 'user',
-    createdAt: new Date().toISOString(),
-  };
+  const normalized = normalizeTask(input);
+  const task: Task = { id: newId('u'), ownerId: owner.id, from: 'alan', fromName: owner.handle || '阿蓝',
+    ownerLine: owner.name || '社区里的一位主人', appearance: owner.appearance || DEFAULT_LOOK, when: '刚刚',
+    title: String(normalized.title), desc: String(normalized.desc), budget: String(normalized.budget), period: String(normalized.period),
+    tags: Array.isArray(normalized.tags) ? normalized.tags.map(String) : [], match: Number(normalized.match),
+    acceptanceCriteria: String(normalized.acceptanceCriteria), deadlineAt: typeof normalized.deadlineAt === 'string' ? normalized.deadlineAt : null,
+    revision: 0, status: 'open', history: [], events: [], cancellation: null,
+    why: '发布者自己写的需求，没有平台匹配依据。', risk: false, source: 'user', createdAt: new Date().toISOString() };
+  taskEvent(task, 'task', owner.id);
   state.tasks.unshift(task);
-  return task;
+  return taskView(task, undefined, owner.id);
+}
+function lifecycleTask(state: FeedState, action: TaskAction, input: Input, owner: Owner) {
+  const result = executeTaskAction(state, action, input, owner);
+  if (!result.repeated && result.claim && action === 'deliver') pushNotification(state,
+    { ownerId: result.task.ownerId, taskId: result.task.id, title: result.task.title }, owner, 'deliver', result.claim.delivery || '');
+  if (!result.repeated && result.claim && action === 'confirm') pushNotification(state,
+    { ownerId: result.claim.ownerId, taskId: result.task.id, title: result.task.title }, owner, 'confirm', '');
+  const view = taskView(result.task, state.claims[result.task.id], owner.id);
+  return { action, taskId: result.task.id, status: view.status, revision: view.revision, task: view,
+    claim: taskClaimView(result.task, result.claim ?? undefined, owner.id), repeated: result.repeated,
+    ...(result.awaitingOtherParty === undefined ? {} : { awaitingOtherParty: result.awaitingOtherParty }) };
 }
 
-const TASK_STATUSES: readonly TaskStatus[] = ['open', 'claimed', 'in_progress', 'delivered', 'changes_requested', 'completed', 'cancelled', 'expired'];
-function taskStatus(claim: Claim | undefined): TaskStatus {
-  return claim?.confirmedAt ? 'completed' : claim?.deliveredAt ? 'delivered' : claim ? 'claimed' : 'open';
-}
-function taskDemo(task: Task): boolean { return !task.ownerId || task.source === 'seed' || task.source === 'demo'; }
-function taskView(task: Task, claim: Claim | undefined, viewerId: string): TaskView {
-  const publisher = task.ownerId === viewerId, claimer = claim?.ownerId === viewerId, demo = taskDemo(task);
-  // Only documented public fields cross this boundary. Future private history
-  // fields must not become public merely because they were added to storage.
-  return {
-    id: task.id, title: task.title,
-    ...(task.ownerId !== undefined ? { ownerId: task.ownerId } : {}),
-    ...(task.from !== undefined ? { from: task.from } : {}),
-    ...(task.fromName !== undefined ? { fromName: task.fromName } : {}),
-    ...(task.ownerLine !== undefined ? { ownerLine: task.ownerLine } : {}),
-    ...(task.appearance !== undefined ? { appearance: { ...task.appearance } } : {}),
-    ...(task.when !== undefined ? { when: task.when } : {}),
-    ...(task.createdAt !== undefined ? { createdAt: task.createdAt } : {}),
-    desc: task.desc || '', budget: task.budget || '面议', period: task.period || '待定', tags: [...(task.tags || [])],
-    match: task.match ?? 70, why: task.why || '', risk: task.risk ?? false, source: task.source || (demo ? 'seed' : 'user'),
-    status: taskStatus(claim), acceptanceCriteria: '', deadlineAt: null, revision: 0,
-    demo, claimed: !!claim, overdue: false,
-    viewer: { publisher, claimer, participant: publisher || claimer, canClaim: !demo && !publisher && !claim },
-  };
-}
-function taskClaimView(task: Task, claim: Claim | undefined, viewerId: string): TaskClaimView | null {
-  if (!claim) return null;
-  const publicState = { taskId: task.id, status: taskStatus(claim) };
-  if (task.ownerId !== viewerId && claim.ownerId !== viewerId) return publicState;
-  return {
-    ...publicState, ownerId: claim.ownerId,
-    ...(claim.ai !== undefined ? { ai: claim.ai } : {}),
-    ...(claim.note !== undefined ? { note: claim.note } : {}),
-    ...(claim.redacted !== undefined ? { redacted: claim.redacted } : {}),
-    ...(claim.createdAt !== undefined ? { createdAt: claim.createdAt } : {}),
-    ...(claim.deliveredAt !== undefined ? { deliveredAt: claim.deliveredAt } : {}),
-    ...(claim.delivery !== undefined ? { delivery: claim.delivery } : {}),
-    ...(claim.confirmedAt !== undefined ? { confirmedAt: claim.confirmedAt } : {}),
-  };
-}
 function taskPage(state: FeedState, viewerId: string, query: URLSearchParams): TaskPage {
+  const now = Date.now();
   const keys = ['limit', 'before', 'q', 'scope', 'status', 'sort'];
   if ([...query.keys()].some(key => !keys.includes(key) || query.getAll(key).length !== 1)) {
     throw Object.assign(new Error('invalid task query'), { status: 400 });
@@ -983,54 +943,36 @@ function taskPage(state: FeedState, viewerId: string, query: URLSearchParams): T
     || status && !TASK_STATUSES.some(item => item === status) || search.length > 200 || before.length > 100) {
     throw Object.assign(new Error('invalid task filter'), { status: 400 });
   }
-  let tasks = state.tasks.filter(task => !taskDemo(task)
-    && (scope !== 'published' || task.ownerId === viewerId)
-    && (scope !== 'claimed' || state.claims[task.id]?.ownerId === viewerId)
-    && (!status || taskStatus(state.claims[task.id]) === status)
-    && (!search || `${task.title} ${task.desc || ''} ${(task.tags || []).join(' ')} ${task.fromName || ''}`.toLowerCase().includes(search)));
+  let tasks = state.tasks.filter(task => !taskDemo(task));
   tasks = tasks.sort((left, right) => (right.createdAt || '').localeCompare(left.createdAt || '') || right.id.localeCompare(left.id));
   if (sort === 'oldest') tasks.reverse();
-  const total = tasks.length, cursor = before ? tasks.findIndex(task => task.id === before) : -1;
+  // Resolve the cursor before volatile status filters: an expiring reservation
+  // can change status, but it cannot erase a valid page boundary.
+  const cursor = before ? tasks.findIndex(task => task.id === before) : -1;
   if (before && cursor < 0) throw Object.assign(new Error('unknown task cursor'), { status: 400 });
-  const start = cursor + 1, page = tasks.slice(start, start + limit);
+  const matches = (task: Task) => (scope !== 'published' || task.ownerId === viewerId)
+    && (scope !== 'claimed' || state.claims[task.id]?.ownerId === viewerId || (task.history || []).some(claim => claim.ownerId === viewerId))
+    && (!status || taskStatus(task, state.claims[task.id], now) === status)
+    && (!search || `${task.title} ${task.desc || ''} ${(task.tags || []).join(' ')} ${task.fromName || ''}`.toLowerCase().includes(search));
+  const total = tasks.filter(matches).length, remaining = tasks.slice(cursor + 1).filter(matches), page = remaining.slice(0, limit);
   const claims: [string, TaskClaimView][] = [];
   for (const task of page) {
-    const claim = taskClaimView(task, state.claims[task.id], viewerId);
+    const claim = taskClaimView(task, state.claims[task.id], viewerId, now);
     if (claim) claims.push([task.id, claim]);
   }
-  return { ok: true, items: page.map(task => taskView(task, state.claims[task.id], viewerId)), claims: Object.fromEntries(claims),
-    total, nextCursor: start + page.length < total ? page.at(-1)?.id ?? null : null, me: viewerId };
+  return { ok: true, items: page.map(task => taskView(task, state.claims[task.id], viewerId, now)), claims: Object.fromEntries(claims),
+    total, nextCursor: page.length < remaining.length ? page.at(-1)?.id ?? null : null, me: viewerId };
 }
 
-/** Delivery records work, never the publisher's approval (including seed jobs). */
 function deliverTask(state: FeedState, input: Input, owner: Owner) {
-  const taskId = clean(input.taskId, 40);
-  const claim = state.claims[taskId];
-  if (!claim) throw Object.assign(new Error('这个任务还没被认领'), { status: 404 });
-  if (claim.ownerId !== owner.id) throw Object.assign(new Error('只有认领的人能交付'), { status: 403 });
-  if (claim.deliveredAt) return { claim, repeated: true };
-  const textField = field(input.text, 2000);
-  if (!textField.text) throw Object.assign(new Error('text is required'), { status: 400 });
-  claim.delivery = textField.text;
-  claim.deliveredAt = new Date().toISOString();
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (task) {
-    pushNotification(state, { ownerId: task.ownerId, taskId: task.id, title: task.title }, owner, 'deliver', textField.text);
-  }
-  return { claim, repeated: false };
+  const result = lifecycleTask(state, 'deliver', input, owner);
+  if (!result.claim) throw new Error('missing task delivery');
+  return { ...result, claim: result.claim };
 }
-
 function confirmTask(state: FeedState, input: Input, owner: Owner) {
-  const taskId = clean(input.taskId, 40);
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (!task) throw Object.assign(new Error('unknown task'), { status: 404 });
-  const claim = state.claims[taskId];
-  if (!claim || !claim.deliveredAt) throw Object.assign(new Error('还没交付'), { status: 409 });
-  if (task.ownerId !== owner.id) throw Object.assign(new Error('只有发布者能确认'), { status: 403 });
-  if (claim.confirmedAt) return { claim, repeated: true };
-  claim.confirmedAt = new Date().toISOString();
-  pushNotification(state, { ownerId: claim.ownerId, taskId: task.id, title: task.title }, owner, 'confirm', '');
-  return { claim, repeated: false };
+  const result = lifecycleTask(state, 'confirm', input, owner);
+  if (!result.claim) throw new Error('missing task confirmation');
+  return { ...result, claim: result.claim };
 }
 
 /** Follow graph, kept as a map of follower → {target: true}. */
@@ -1175,7 +1117,7 @@ function rateClaim(state: FeedState, input: Input, owner: Owner) {
   const taskId = clean(input.taskId, 40);
   const claim = state.claims[taskId];
   if (!claim) throw Object.assign(new Error('这个任务还没人接'), { status: 404 });
-  if (!claim.deliveredAt) throw Object.assign(new Error('还没交付，不能评价'), { status: 409 });
+  if (!claim.confirmedAt) throw Object.assign(new Error('尚未验收，不能评价'), { status: 409 });
   const task = state.tasks.find((item) => item.id === taskId);
   const isPublisher = !!(task && task.ownerId === owner.id);
   const isClaimer = claim.ownerId === owner.id;
@@ -1186,8 +1128,8 @@ function rateClaim(state: FeedState, input: Input, owner: Owner) {
   if (state.ratings.some((item) => item.taskId === taskId && item.fromOwner === owner.id)) {
     throw Object.assign(new Error('这一单你已经评过了'), { status: 409 });
   }
-  const score = Math.min(5, Math.max(1, Math.round(Number(input.score) || 0)));
-  if (!score) throw Object.assign(new Error('分数要在 1–5 之间'), { status: 400 });
+  const score = input.score;
+  if (typeof score !== 'number' || !Number.isSafeInteger(score) || score < 1 || score > 5) throw Object.assign(new Error('分数要为 1–5 的整数'), { status: 400 });
   const textField = field(input.text, 200);
   const rating = {
     id: newId('rt'),
@@ -1256,35 +1198,13 @@ function renameOwnedContent(state: FeedState, ownerId: string, handle: string) {
 }
 
 function claimTask(state: FeedState, input: Input, owner: Owner) {
-  const taskId = clean(input.taskId, 40);
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (!task) throw Object.assign(new Error(`unknown task "${taskId}"`), { status: 400 });
-  const existing = state.claims[taskId];
-  if (existing) {
-    // A second owner "claiming" a taken job must fail: telling them it worked
-    // would leave them believing they own work somebody else already has.
-    if (existing.ownerId !== owner.id) {
-      throw Object.assign(new Error('这个任务已经被别人接了'), { status: 409 });
-    }
-    return { claim: existing, repeated: true, task };
-  }
-  if (taskDemo(task)) throw Object.assign(new Error('demo tasks cannot be claimed'), { status: 409 });
-  if (task.ownerId === owner.id) throw Object.assign(new Error('task_self_claim'), { status: 409 });
-  const noteField = field(input.note, 300);
-  const claim = {
-    taskId,
-    ownerId: owner.id,
-    ai: owner.handle || '阿蓝',
-    note: noteField.text,
-    redacted: countOf(noteField.counts),
-    createdAt: new Date().toISOString(),
-  };
-  state.claims[taskId] = claim;
-  return { claim, repeated: false, task };
+  const result = lifecycleTask(state, 'claim', input, owner);
+  if (!result.claim) throw new Error('missing task commitment');
+  return { ...result, claim: result.claim };
 }
 
 const PROPOSAL_TTL_MS = 15 * 60 * 1000;
-const PROPOSAL_ACTIONS = ['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'task', 'delete', 'patrol', 'social_policy'];
+const PROPOSAL_ACTIONS = ['post', 'reply', ...TASK_ACTIONS, 'answer', 'task', 'delete', 'patrol', 'social_policy'];
 
 /** Select fields explicitly. Identity and approval fields can never enter a proposal. */
 function normalizeProposal(action: string, input: unknown): ProposalPayload {
@@ -1293,6 +1213,8 @@ function normalizeProposal(action: string, input: unknown): ProposalPayload {
     throw Object.assign(new Error('payload must be an object'), { status: 400 });
   }
   if (action === 'social_policy') return { ...normalizeSocialPolicy(input) };
+  if (action === 'task') return { ...normalizeTask(input) };
+  for (const taskAction of TASK_ACTIONS) if (action === taskAction) return { ...normalizeTaskAction(taskAction, input) };
   const text = (key: string, limit: number) => field(input[key], limit).text;
   const tags = () => Array.isArray(input.tags) ? input.tags.map((tag) => field(tag, 20).text).filter(Boolean).slice(0, 5) : [];
   if (action === 'post') return {
@@ -1301,18 +1223,10 @@ function normalizeProposal(action: string, input: unknown): ProposalPayload {
     kind: normalKind(input.kind), via: 'agent', emoji: text('emoji', 8) || '🐳',
   };
   if (action === 'reply') return { postId: clean(input.postId, 80), text: text('text', 1000) };
-  if (action === 'claim') return { taskId: clean(input.taskId, 40), note: text('note', 300) };
-  if (action === 'deliver') return { taskId: clean(input.taskId, 40), text: text('text', 2000) };
-  if (action === 'confirm') return { taskId: clean(input.taskId, 40) };
   if (action === 'answer') return { id: clean(input.id || input.askId, 40), text: text('text', 4000) };
   if (action === 'delete') return { postId: clean(input.postId, 80), replyId: clean(input.replyId, 80) };
   if (action === 'patrol') return { summary: text('summary', 500) };
-  const match = Number(input.match);
-  return {
-    title: text('title', 120), desc: field(input.desc || input.description, 1000).text,
-    budget: text('budget', 24) || '面议', period: text('period', 16) || '待定', tags: tags(),
-    match: Number.isFinite(match) ? Math.min(100, Math.max(0, Math.round(match))) : 70,
-  };
+  throw Object.assign(new Error('unsupported proposal action'), { status: 400 });
 }
 
 function canonical(value: unknown): string | undefined {
@@ -1330,10 +1244,10 @@ function digestOf(value: unknown) {
 /** Bind approval to the exact target, not unrelated traffic elsewhere in the feed. */
 function proposalTarget(state: FeedState, action: string, payload: ProposalPayload, ownerId: string) {
   if (action === 'social_policy') return socialPolicyTarget(state.socialPolicies, ownerId);
-  if (['claim', 'deliver', 'confirm'].includes(action)) return {
-    task: state.tasks.find((item) => item.id === payload.taskId) || null,
-    claim: state.claims[String(payload.taskId)] || null,
-  };
+  if (TASK_ACTIONS.some(taskAction => taskAction === action)) {
+    const task = state.tasks.find(item => item.id === payload.taskId);
+    return task ? taskTarget(task, state.claims[task.id], ownerId) : null;
+  }
   if (action === 'answer') return { ask: state.asks.find((item) => item.id === payload.id) || null };
   if (action === 'reply' || action === 'delete') {
     const target: { post: Post | null; replies?: Reply[] } = { post: state.posts.find((item) => item.id === payload.postId) || null };
@@ -1356,6 +1270,7 @@ function executeProposal(state: FeedState, action: string, payload: ProposalPayl
     case 'claim': return claimTask(state, payload, owner);
     case 'deliver': return deliverTask(state, payload, owner);
     case 'confirm': return confirmTask(state, payload, owner);
+    case 'task_start': case 'task_rework': case 'task_withdraw': case 'task_cancel': return lifecycleTask(state, action, payload, owner);
     case 'answer': return answerAsk(state, payload, owner);
     case 'task': return { task: createTask(state, payload, owner) };
     case 'delete': return removeContent(state, payload, owner);
@@ -1905,8 +1820,9 @@ async function handle(req: CommunityRequest, res: ServerResponse) {
     }
     const state = await feed(), task = state.tasks.find(item => item.id === query.get('taskId'));
     if (!task) { send(res, 404, { ok: false, error: 'unknown task' }); return; }
-    send(res, 200, { ok: true, task: taskView(task, state.claims[task.id], owner.id),
-      claim: taskClaimView(task, state.claims[task.id], owner.id), history: [], events: [] });
+    const now = Date.now();
+    send(res, 200, { ok: true, task: taskView(task, state.claims[task.id], owner.id, now),
+      claim: taskClaimView(task, state.claims[task.id], owner.id, now), history: taskHistory(task, owner.id), events: taskEvents(task, owner.id) });
     return;
   }
 

@@ -4,7 +4,12 @@ interface BrowserNote {
   id: string; title: string; text: string; ai: string; createdAt: string; ownerId?: string;
   likes?: number; replies?: number; images?: string[]; viewer?: { mine?: boolean };
 }
-interface BrowserTask { id: string; title: string; budget: string; match: number; claimed?: boolean; risk?: string }
+type BrowserTaskStatus = 'open' | 'claimed' | 'in_progress' | 'delivered' | 'changes_requested' | 'completed' | 'cancelled' | 'expired';
+interface BrowserTask {
+  id: string; title: string; budget?: string; match?: number; claimed?: boolean; risk?: boolean | string;
+  ownerId?: string; status?: BrowserTaskStatus; demo?: boolean;
+  viewer?: { publisher: boolean; claimer: boolean; participant: boolean; canClaim: boolean };
+}
 interface BrowserAsk { id: string; text: string; createdAt: string; answer?: string }
 interface BrowserNotification { id: string; kind: string; createdAt: string; fromName: string; postId?: string; postTitle?: string }
 interface BrowserPatrol { at: string; summary?: string }
@@ -14,7 +19,8 @@ interface BrowserDigest {
   pending: { asks: number; tasks: number };
 }
 interface BrowserProfile { handle: string; followers: number; noteCount?: number; notes: BrowserNote[]; followedByMe?: boolean }
-type BrowserAction = 'post' | 'reply' | 'claim' | 'deliver' | 'confirm' | 'answer' | 'task' | 'delete' | 'patrol' | 'social_policy';
+type BrowserAction = 'post' | 'reply' | 'claim' | 'deliver' | 'confirm' | 'answer' | 'task' | 'delete' | 'patrol' | 'social_policy'
+  | 'task_start' | 'task_rework' | 'task_withdraw' | 'task_cancel';
 interface BrowserProposal { id: string; action: BrowserAction; status: string; digest: string; expiresAt: string; payload: unknown; target: unknown }
 interface BrowserApiData {
   error?: string; posts?: BrowserNote[]; tasks?: BrowserTask[]; asks?: BrowserAsk[]; me?: string;

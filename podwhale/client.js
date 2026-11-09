@@ -128,6 +128,37 @@ window.__ModuleLoader__.load({
             'task.pending': '待主人批准',
             'task.notConfirmed': '未能确认提交结果。草稿已保留，请先核对待审提案再重试。',
             'task.deadline': '截止时间',
+            'task.tags': '标签（逗号分隔，最多 5 个）',
+            'task.optional': '可留空',
+            'task.invalidDraft': '请检查截止时间和标签：时间必须有效，标签最多 5 个，每个不超过 20 字。草稿已保留。',
+            'task.start': '申请开始工作',
+            'task.rework': '申请返工',
+            'task.withdraw': '申请退出接单',
+            'task.cancel': '申请取消任务',
+            'task.reason': '原因',
+            'task.reasonHint': '说明原因，最多 1000 字。',
+            'task.sendAction': '提交这项申请',
+            'task.cancelAction': '收起申请',
+            'task.versionMissing': '社区暂未提供完整版本信息。请刷新或升级社区，草稿已保留。',
+            'task.changed': '任务已更新，请核对最新内容和版本后再提交。草稿已保留。',
+            'task.useLatest': '已核对，按当前版本继续',
+            'task.version': '交付版本',
+            'task.artifacts': '成果链接',
+            'task.artifactLabel': '链接名称',
+            'task.artifactUrl': 'HTTPS 链接',
+            'task.addArtifact': '添加成果链接',
+            'task.removeArtifact': '移除链接',
+            'task.artifactHint': '正文和成果链接只向获准参与者公开。仅记录链接，不会自动访问。',
+            'task.invalidArtifacts': '最多 5 个成果链接；请填写名称和不带账号、查询参数或片段的公网 HTTPS 地址。草稿已保留。',
+            'task.history': '历史接单与交付',
+            'task.events': '任务记录',
+            'task.history.withdrawn': '已退出',
+            'task.history.cancelled': '已取消',
+            'task.history.expired': '已过期',
+            'task.cancelRequested': '任务取消申请已记录，任务尚未取消；需要另一方独立批准。',
+            'task.cancelOther': '对方申请取消，请核对原因。提交同意申请后仍需独立主人审批。',
+            'task.noHistory': '暂无记录。',
+            'task.participant': '任务参与者',
             'profile.rating': '好评',
             'tag.search': '按这个标签搜',
             'me.rating': '好评',
@@ -523,6 +554,37 @@ window.__ModuleLoader__.load({
             'task.pending': 'Waiting for owner approval',
             'task.notConfirmed': 'Submission could not be confirmed. Your draft is saved. Check pending proposals before retrying.',
             'task.deadline': 'Deadline',
+            'task.tags': 'Tags (comma-separated, up to 5)',
+            'task.optional': 'Optional',
+            'task.invalidDraft': 'Check the deadline and tags: use a valid time and up to 5 tags of 20 characters each. Your draft is saved.',
+            'task.start': 'Request to start work',
+            'task.rework': 'Request changes',
+            'task.withdraw': 'Request to withdraw',
+            'task.cancel': 'Request cancellation',
+            'task.reason': 'Reason',
+            'task.reasonHint': 'Explain why, up to 1000 characters.',
+            'task.sendAction': 'Submit this proposal',
+            'task.cancelAction': 'Close proposal form',
+            'task.versionMissing': 'The community has not supplied complete version information. Refresh or upgrade it. Your draft is saved.',
+            'task.changed': 'This task has changed. Review its current content and version before submitting. Your draft is saved.',
+            'task.useLatest': 'Reviewed; use the current version',
+            'task.version': 'Delivery version',
+            'task.artifacts': 'Artifact links',
+            'task.artifactLabel': 'Link name',
+            'task.artifactUrl': 'HTTPS link',
+            'task.addArtifact': 'Add artifact link',
+            'task.removeArtifact': 'Remove link',
+            'task.artifactHint': 'Text and links are visible only to authorized participants. Links are recorded, never fetched automatically.',
+            'task.invalidArtifacts': 'Use up to 5 named public HTTPS links without credentials, queries or fragments. Your draft is saved.',
+            'task.history': 'Past claims and deliveries',
+            'task.events': 'Task history',
+            'task.history.withdrawn': 'Withdrawn',
+            'task.history.cancelled': 'Cancelled',
+            'task.history.expired': 'Expired',
+            'task.cancelRequested': 'Cancellation was requested; the task is still active. The other owner must approve independently.',
+            'task.cancelOther': 'The other party requested cancellation. Review the reason. Your agreement still needs independent owner approval.',
+            'task.noHistory': 'No history yet.',
+            'task.participant': 'Task participant',
             'profile.rating': 'rating',
             'me.rating': 'rating',
             'me.edit': 'Edit',
@@ -1282,6 +1344,11 @@ window.__ModuleLoader__.load({
 .xls-taskDetail h2{font-size:18px;margin:0;}.xls-taskDetail h3{font-size:22px;line-height:1.5;overflow-wrap:anywhere;}.xls-taskDetail h4{font-size:15px;margin:24px 0 8px;}
 .xls-taskActions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .xls-taskBody{font-size:15px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;}
+.xls-taskVersion{padding:16px 0;border-top:1px solid var(--dsw-alias-border-l1);margin-top:16px;}
+.xls-taskVersion h5{font-size:14px;margin:0;}.xls-taskLinks{padding-left:22px;line-height:1.9;overflow-wrap:anywhere;}
+.xls-taskLinks a{color:var(--xls-accent);text-decoration:underline;}.xls-taskArtifact{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;margin:12px 0;}
+.xls-taskArtifact>.xls-chip{justify-self:start;}.xls-taskActions>.xls-btn{width:auto;flex:1 1 180px;}
+@container xls-community (max-width:720px){.xls-taskArtifact{grid-template-columns:minmax(0,1fr);}}
 .xls-btn{min-height:44px;padding:8px 16px;border-radius:12px;border:0;background:#2b45d6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;width:100%;}
 .xls-btn:hover{filter:brightness(1.06);}
 .xls-btn:disabled{opacity:.62;cursor:default;filter:none;}
@@ -1953,6 +2020,60 @@ window.__ModuleLoader__.load({
                 : null), h('div', { className: 'xls-hint' }, tr('compose.hint')), h('div', { className: 'xls-composeActions' }, h('button', { className: 'xls-btn ghost', style: { width: 'auto' }, onClick: props.onClose }, tr('compose.cancel')), h('button', { className: 'xls-btn', style: { width: 'auto' }, disabled: !props.draft.trim(), onClick: props.onPublish }, tr('compose.publish')))));
         }
         const TASK_STATUSES = ['open', 'claimed', 'in_progress', 'delivered', 'changes_requested', 'completed', 'cancelled', 'expired'];
+        const EMPTY_TASK_DRAFT = { title: '', desc: '', budget: '', period: '', acceptanceCriteria: '', deadlineAt: '', tags: '' };
+        const TASK_ACTION_LABELS = { task: 'task.publish', claim: 'task.claim', deliver: 'task.submitDelivery', confirm: 'task.confirm',
+            task_start: 'task.start', task_rework: 'task.rework', task_withdraw: 'task.withdraw', task_cancel: 'task.cancel' };
+        const taskInteger = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+        function taskArtifactUrl(value) {
+            try {
+                if (!/^https:\/\//i.test(value) || /[\x00-\x20\x7f?#]/.test(value))
+                    return null;
+                const url = new URL(value), host = url.hostname.toLowerCase();
+                if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || !host.includes('.')
+                    || /^[\d.]+$/.test(host) || host.includes(':') || /(?:^|\.)(?:localhost|local|internal|lan|corp|localdomain)$/.test(host)
+                    || host.endsWith('.home.arpa'))
+                    return null;
+                return url.href;
+            }
+            catch {
+                return null;
+            }
+        }
+        function taskBasis(task, claim) {
+            if (!taskInteger(task.revision))
+                return null;
+            if (!claim)
+                return { expectedRevision: task.revision, claimId: null, deliveryVersion: 0 };
+            if (typeof claim.claimId !== 'string' || !claim.claimId || !taskInteger(claim.deliveryVersion))
+                return null;
+            return { expectedRevision: task.revision, claimId: claim.claimId, deliveryVersion: claim.deliveryVersion };
+        }
+        function sameTaskBasis(left, right) {
+            return !!left && !!right && left.expectedRevision === right.expectedRevision && left.claimId === right.claimId && left.deliveryVersion === right.deliveryVersion;
+        }
+        function taskDeliveryRecord(value) {
+            return companionRecord(value) && taskInteger(value.version) && value.version > 0 && typeof value.text === 'string' && typeof value.createdAt === 'string'
+                && Array.isArray(value.artifacts) && value.artifacts.every((artifact) => companionRecord(artifact)
+                && typeof artifact.label === 'string' && typeof artifact.url === 'string');
+        }
+        function taskClaimFields(value) {
+            return companionRecord(value) && ['taskId', 'ownerId', 'ai', 'note', 'createdAt', 'delivery', 'deliveredAt', 'confirmedAt', 'claimId']
+                .every(key => value[key] === undefined || typeof value[key] === 'string')
+                && ['startedAt', 'reservedUntil'].every(key => value[key] === undefined || value[key] === null || typeof value[key] === 'string')
+                && ['revision', 'deliveryVersion'].every(key => value[key] === undefined || taskInteger(value[key]))
+                && (value.deliveries === undefined || Array.isArray(value.deliveries) && value.deliveries.every(taskDeliveryRecord));
+        }
+        function taskDeadline(value) {
+            if (!value.trim())
+                return null;
+            const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+            const date = new Date(value);
+            if (!match || !Number.isFinite(date.getTime()) || date.getTime() <= Date.now()
+                || [date.getFullYear(), date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes()]
+                    .some((part, index) => part !== Number(match[index + 1])))
+                throw new Error('invalid local deadline');
+            return date.toISOString();
+        }
         function taskStatus(task, claim) {
             if (task.status && TASK_STATUSES.includes(task.status))
                 return task.status;
@@ -1965,7 +2086,7 @@ window.__ModuleLoader__.load({
         function taskRecord(value) {
             if (!companionRecord(value))
                 return false;
-            const viewer = value.viewer;
+            const viewer = value.viewer, cancellation = value.cancellation;
             return typeof value.id === 'string' && /^[A-Za-z0-9_-]{1,160}$/.test(value.id)
                 && typeof value.title === 'string' && !!value.title.trim()
                 && ['from', 'fromName', 'ownerLine', 'ownerId', 'when', 'createdAt', 'budget', 'period', 'desc', 'acceptanceCriteria']
@@ -1975,22 +2096,31 @@ window.__ModuleLoader__.load({
                 && (value.deadlineAt === undefined || value.deadlineAt === null || typeof value.deadlineAt === 'string')
                 && (value.revision === undefined || typeof value.revision === 'number' && Number.isSafeInteger(value.revision) && value.revision >= 0)
                 && ['demo', 'claimed', 'overdue'].every(key => value[key] === undefined || typeof value[key] === 'boolean')
+                && (cancellation === undefined || cancellation === null || companionRecord(cancellation)
+                    && ['requestedBy', 'reason', 'createdAt', 'claimId'].every(key => typeof cancellation[key] === 'string'))
                 && (viewer === undefined || companionRecord(viewer)
                     && ['publisher', 'claimer', 'participant', 'canClaim'].every(key => typeof viewer[key] === 'boolean'));
         }
         function taskDetailRecord(value, id) {
             if (!companionRecord(value) || value.ok !== true || !taskRecord(value.task) || value.task.id !== id
-                || !Array.isArray(value.history) || !Array.isArray(value.events))
+                || !Array.isArray(value.history) || !value.history.every((item) => taskClaimFields(item)
+                && ['withdrawn', 'cancelled', 'expired'].includes(String(item.status)) && typeof item.endedAt === 'string' && typeof item.reason === 'string')
+                || !Array.isArray(value.events) || !value.events.every((item) => companionRecord(item)
+                && ['id', 'action', 'actorId', 'createdAt'].every(key => typeof item[key] === 'string') && taskInteger(item.revision)
+                && ['claimId', 'claimOwnerId', 'reason'].every(key => item[key] === undefined || typeof item[key] === 'string')))
                 return false;
             const claim = value.claim;
-            return claim === null || companionRecord(claim)
-                && ['taskId', 'ownerId', 'ai', 'note', 'createdAt', 'delivery', 'deliveredAt', 'confirmedAt']
-                    .every(key => claim[key] === undefined || typeof claim[key] === 'string');
+            return claim === null || taskClaimFields(claim) && (claim.status === undefined || TASK_STATUSES.includes(claim.status));
         }
         function TaskSheet(props) {
-            return h('div', { className: 'xls-mask', onClick: props.onClose }, h(ModalPanel, { className: 'xls-compose', label: tr('task.publish'), onClose: props.onClose }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: '#4D6BFE' } }, '＋'), h('span', { className: 'xls-ptitle' }, tr('task.publish'))), h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')), ['title', 'desc', 'budget', 'period'].map((key) => h('label', { className: 'xls-taskField', key }, h('span', null, tr('task.' + key)), h('input', { className: 'xls-replyInput', 'data-task-field': key,
+            return h('div', { className: 'xls-mask', onClick: props.onClose }, h(ModalPanel, { className: 'xls-compose', label: tr('task.publish'), onClose: props.onClose }, h('div', { className: 'xls-composeTop' }, h('span', { className: 'xls-saiAva', style: { background: '#4D6BFE' } }, '＋'), h('span', { className: 'xls-ptitle' }, tr('task.publish'))), h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')), ['title', 'budget', 'period', 'tags'].map((key) => h('label', { className: 'xls-taskField', key }, h('span', null, tr('task.' + key)), h('input', { className: 'xls-replyInput', 'data-task-field': key,
+                maxLength: key === 'title' ? 120 : key === 'budget' ? 24 : key === 'period' ? 16 : 120,
                 value: props.draft[key], disabled: props.busy,
-                onChange: (event) => props.onDraft(key, event.target.value) }))), props.error ? h('p', { role: 'alert', className: 'xls-taskHint' }, props.error) : null, props.pending ? h('p', { role: 'status', className: 'xls-taskHint', 'data-task-pending': 'task' }, tr('task.pending')) : null, h('div', { className: 'xls-composeActions' }, h('button', { type: 'button', className: 'xls-btn ghost', 'data-task-action': 'cancel-draft', style: { width: 'auto' }, onClick: props.onClose }, tr('compose.cancel')), h('button', {
+                onChange: (event) => props.onDraft(key, event.target.value) }))), ['desc', 'acceptanceCriteria'].map(key => h('label', { className: 'xls-taskField', key }, h('span', null, tr(key === 'desc' ? 'task.desc' : 'task.acceptance')), h('textarea', { className: 'xls-replyInput', 'data-task-field': key, rows: key === 'desc' ? 5 : 4,
+                maxLength: key === 'desc' ? 1000 : 2000, value: props.draft[key], disabled: props.busy,
+                onChange: (event) => props.onDraft(key, event.target.value) }))), h('label', { className: 'xls-taskField' }, h('span', null, tr('task.deadline') + '（' + Intl.DateTimeFormat().resolvedOptions().timeZone + '）'), h('input', { className: 'xls-replyInput', type: 'datetime-local', 'data-task-field': 'deadlineAt',
+                value: props.draft.deadlineAt, disabled: props.busy,
+                onChange: (event) => props.onDraft('deadlineAt', event.target.value) }), h('span', { className: 'xls-taskHint' }, tr('task.optional'))), props.error ? h('p', { role: 'alert', className: 'xls-taskHint' }, props.error) : null, props.pending ? h('p', { role: 'status', className: 'xls-taskHint', 'data-task-pending': 'task' }, tr('task.pending')) : null, h('div', { className: 'xls-composeActions' }, h('button', { type: 'button', className: 'xls-btn ghost', 'data-task-action': 'cancel-draft', style: { width: 'auto' }, onClick: props.onClose }, tr('compose.cancel')), h('button', {
                 className: 'xls-btn',
                 style: { width: 'auto' },
                 'data-task-action': 'publish',
@@ -3190,7 +3320,7 @@ window.__ModuleLoader__.load({
             const [localLook, setLocalLook] = useState(null);
             const [askDraft, setAskDraft] = useState('');
             const [taskOpen, setTaskOpen] = useState(false);
-            const [taskDraft, setTaskDraft] = useState({ title: '', desc: '', budget: '', period: '' });
+            const [taskDraft, setTaskDraft] = useState(() => ({ ...EMPTY_TASK_DRAFT }));
             const [taskId, setTaskId] = useState(null);
             const [taskDetail, setTaskDetail] = useState(null);
             const [taskDetailIdentity, setTaskDetailIdentity] = useState(null);
@@ -3200,6 +3330,11 @@ window.__ModuleLoader__.load({
             const [taskLoadError, setTaskLoadError] = useState(false);
             const [taskRefresh, setTaskRefresh] = useState(0);
             const [deliveryDrafts, setDeliveryDrafts] = useState({});
+            const [artifactDrafts, setArtifactDrafts] = useState({});
+            const [taskReasons, setTaskReasons] = useState({});
+            const [taskActionForm, setTaskActionForm] = useState(null);
+            const taskBasesRef = useRef(new Map());
+            const [taskBases, setTaskBases] = useState({});
             const taskJobs = useRef(new Map());
             const taskReceiptsRef = useRef(new Map());
             const [taskWork, setTaskWork] = useState({});
@@ -3347,8 +3482,13 @@ window.__ModuleLoader__.load({
                 closeTaskForm();
                 closeTaskDetails();
                 setTaskDetail(null);
-                setTaskDraft({ title: '', desc: '', budget: '', period: '' });
+                setTaskDraft({ ...EMPTY_TASK_DRAFT });
                 setDeliveryDrafts({});
+                setArtifactDrafts({});
+                setTaskReasons({});
+                setTaskActionForm(null);
+                taskBasesRef.current.clear();
+                setTaskBases({});
                 setTaskErrors({});
                 taskJobs.current.clear();
                 taskReceiptsRef.current.clear();
@@ -3365,6 +3505,29 @@ window.__ModuleLoader__.load({
                 canClaim: !!myOwnerId && !!task.ownerId && task.ownerId !== myOwnerId && !claim,
             };
             const ownerEntry = safeCommunityUrl(join.url);
+            const rememberTaskBasis = (action, task, claim) => {
+                const key = action + ':' + task.id;
+                let basis = taskBasesRef.current.get(key);
+                if (!basis) {
+                    const current = taskBasis(task, claim);
+                    if (!current)
+                        return null;
+                    basis = current;
+                    taskBasesRef.current.set(key, current);
+                    setTaskBases(previous => ({ ...previous, [key]: current }));
+                }
+                return basis;
+            };
+            const taskExpectation = (action, task) => {
+                const currentClaim = taskDetail?.task.id === task.id ? taskDetail.claim : null;
+                const current = taskBasis(task, currentClaim), expected = rememberTaskBasis(action, task, currentClaim);
+                const key = action + ':' + task.id;
+                if (!current || !expected || !sameTaskBasis(current, expected)) {
+                    setTaskErrors(previous => ({ ...previous, [key]: tr(current && expected ? 'task.changed' : 'task.versionMissing') }));
+                    return null;
+                }
+                return expected;
+            };
             const publishTaskState = () => {
                 const work = {};
                 const receipts = {};
@@ -3375,6 +3538,8 @@ window.__ModuleLoader__.load({
                 setTaskWork(work);
                 setTaskReceipts(receipts);
             };
+            useEffect(() => { if (props.active)
+                publishTaskState(); }, [props.active]);
             useEffect(() => {
                 if (!props.active || !taskId)
                     return;
@@ -3450,7 +3615,8 @@ window.__ModuleLoader__.load({
                     || expectedAction && (data.action !== expectedAction || data.ok !== true)) {
                     throw new Error('invalid pending proposal');
                 }
-                setToast(tr('toast.pending'));
+                if (!expectedAction)
+                    setToast(tr('toast.pending'));
                 return data;
             };
             const submitTaskProposal = async (action, id, body) => {
@@ -3465,17 +3631,21 @@ window.__ModuleLoader__.load({
                 try {
                     const response = await fetch('/xiaolanshu/api/' + action, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
                     if (!response.ok)
-                        throw new Error('task request rejected');
+                        throw new Error(response.status === 409 ? 'task_changed' : 'task_request_rejected');
                     const receipt = await showPending(response, action);
-                    if (!receipt || !taskActive.current || version !== taskIdentityVersion.current)
+                    if (!receipt || version !== taskIdentityVersion.current)
                         return;
                     taskJobs.current.set(key, 'pending');
                     taskReceiptsRef.current.set(key, { id: String(receipt.proposalId), action, taskId: id, status: 'pending' });
-                    setBump(previous => previous + 1);
+                    if (taskActive.current) {
+                        setToast(tr('toast.pending'));
+                        setBump(previous => previous + 1);
+                    }
                 }
-                catch {
+                catch (error) {
                     if (taskActive.current && version === taskIdentityVersion.current)
-                        setTaskErrors(previous => ({ ...previous, [key]: tr('task.notConfirmed') }));
+                        setTaskErrors(previous => ({ ...previous,
+                            [key]: tr(error instanceof Error && error.message === 'task_changed' ? 'task.changed' : 'task.notConfirmed') }));
                 }
                 finally {
                     if (version === taskIdentityVersion.current) {
@@ -3557,7 +3727,19 @@ window.__ModuleLoader__.load({
                 const title = taskDraft.title.trim();
                 if (!title)
                     return;
-                await submitTaskProposal('task', null, { title, desc: taskDraft.desc, budget: taskDraft.budget, period: taskDraft.period, tags: [] });
+                let deadlineAt;
+                const tags = Array.from(new Set(taskDraft.tags.split(/[,，\n]/).map(tag => tag.trim()).filter(Boolean)));
+                try {
+                    deadlineAt = taskDeadline(taskDraft.deadlineAt);
+                    if (tags.length > 5 || tags.some(tag => tag.length > 20))
+                        throw new Error('invalid tags');
+                }
+                catch {
+                    setTaskErrors(previous => ({ ...previous, 'task:new': tr('task.invalidDraft') }));
+                    return;
+                }
+                await submitTaskProposal('task', null, { title, desc: taskDraft.desc, budget: taskDraft.budget, period: taskDraft.period,
+                    acceptanceCriteria: taskDraft.acceptanceCriteria, deadlineAt, tags });
             };
             useEffect(() => {
                 if (!props.active)
@@ -3686,7 +3868,20 @@ window.__ModuleLoader__.load({
                 const text = (Object.prototype.hasOwnProperty.call(deliveryDrafts, task.id) ? deliveryDrafts[task.id] || '' : '').trim();
                 if (!text)
                     return;
-                await submitTaskProposal('deliver', task.id, { taskId: task.id, text });
+                const basis = taskExpectation('deliver', task);
+                if (!basis)
+                    return;
+                const drafts = Object.prototype.hasOwnProperty.call(artifactDrafts, task.id) ? artifactDrafts[task.id] || [] : [];
+                const artifacts = [];
+                for (const draft of drafts) {
+                    const label = draft.label.trim(), url = taskArtifactUrl(draft.url.trim());
+                    if (!label || label.length > 100 || !url || url.length > 2048 || drafts.length > 5) {
+                        setTaskErrors(previous => ({ ...previous, ['deliver:' + task.id]: tr('task.invalidArtifacts') }));
+                        return;
+                    }
+                    artifacts.push({ label, url });
+                }
+                await submitTaskProposal('deliver', task.id, { taskId: task.id, text, artifacts, ...basis });
             };
             const saveProfile = async () => {
                 try {
@@ -3706,7 +3901,20 @@ window.__ModuleLoader__.load({
                 }
             };
             const confirmTaskDone = async (task) => {
-                await submitTaskProposal('confirm', task.id, { taskId: task.id });
+                const basis = taskExpectation('confirm', task);
+                if (basis)
+                    await submitTaskProposal('confirm', task.id, { taskId: task.id, ...basis });
+            };
+            const lifecycleTask = async (action, task) => {
+                const basis = taskExpectation(action, task);
+                if (!basis)
+                    return;
+                const reason = (taskReasons[action + ':' + task.id] || '').trim();
+                if (action !== 'task_start' && (!reason || reason.length > 1000)) {
+                    setTaskErrors(previous => ({ ...previous, [action + ':' + task.id]: tr('task.reasonHint') }));
+                    return;
+                }
+                await submitTaskProposal(action, task.id, { taskId: task.id, ...basis, ...(action === 'task_start' ? {} : { reason }) });
             };
             const saveLook = async (next) => {
                 const look = { shape: next.shape, palette: next.palette, accessory: next.accessory };
@@ -3836,7 +4044,9 @@ window.__ModuleLoader__.load({
                 setToast(tr('toast.published'));
             };
             const claim = async (task) => {
-                await submitTaskProposal('claim', task.id, { taskId: task.id, note: '' });
+                const basis = taskExpectation('claim', task);
+                if (basis)
+                    await submitTaskProposal('claim', task.id, { taskId: task.id, note: '', expectedRevision: basis.expectedRevision });
             };
             const addComment = async (postId, text) => {
                 try {
@@ -3938,19 +4148,84 @@ window.__ModuleLoader__.load({
                 const key = action + ':' + (id || 'new'), receipt = taskReceipts[key];
                 return h('div', null, taskWork[key] === 'sending' ? h('p', { role: 'status', className: 'xls-taskHint' }, tr('task.sending')) : null, receipt?.status === 'pending' ? h('p', { role: 'status', className: 'xls-taskHint', 'data-task-pending': action }, tr('task.pending') + ' · ' + receipt.id) : null, taskErrors[key] ? h('p', { role: 'alert', className: 'xls-taskHint' }, taskErrors[key]) : null);
             };
-            const taskSheet = taskId ? h('div', { className: 'xls-mask', onClick: closeTaskDetails }, h(ModalPanel, { className: 'xls-taskDetail', label: tr('task.detail'), active: props.active, onClose: closeTaskDetails }, h('div', { className: 'xls-taskActions' }, h('h2', null, tr('task.detail')), h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'close', onClick: closeTaskDetails }, tr('task.close'))), taskLoading ? h('p', { className: 'xls-taskHint', role: 'status', 'data-task-loading': true }, tr('task.loading')) : null, taskLoadError ? h('p', { className: 'xls-taskHint', role: 'alert' }, tr('task.loadFailed')) : null, selectedTask ? h('div', { 'data-task-detail': selectedTask.id }, h('h3', null, selectedTask.title), h('p', { className: 'xls-taskHint' }, tr('task.status') + '：' + tr('task.status.' + selectedStatus)), h('p', { className: 'xls-taskHint' }, tr('task.author') + '：' + (selectedTask.fromName || selectedTask.from || tr('task.authorUnknown'))), h('h4', null, tr('task.requirements')), h('p', { className: 'xls-taskBody' }, selectedTask.desc || tr('task.noRequirements')), selectedTask.acceptanceCriteria ? h('div', null, h('h4', null, tr('task.acceptance')), h('p', { className: 'xls-taskBody' }, selectedTask.acceptanceCriteria)) : null, selectedTask.deadlineAt ? h('p', { className: 'xls-taskHint' }, tr('task.deadline') + '：' + selectedTask.deadlineAt) : null, h('h4', null, tr('task.deliveryText')), h('p', { className: 'xls-taskBody', 'data-task-delivery': true }, selectedRoles?.participant
-                ? selectedClaim?.delivery || tr('task.noDelivery') : tr('task.privateDelivery')), demoTasks || selectedTask.demo ? h('p', { className: 'xls-taskHint' }, tr('task.demo')) : h('div', null, h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')), selectedRoles?.canClaim && selectedStatus === 'open'
+            const taskBasisNotice = (action, task, claim) => {
+                const key = action + ':' + task.id, current = taskBasis(task, claim), cached = taskBases[key];
+                if (current && (!cached || sameTaskBasis(current, cached)))
+                    return null;
+                return h('div', { className: 'xls-taskHint', 'data-task-basis': action }, h('p', { role: 'status' }, tr(current ? 'task.changed' : 'task.versionMissing')), current ? h('button', { type: 'button', className: 'xls-chip', 'data-task-use-latest': action,
+                    onClick: () => {
+                        taskBasesRef.current.set(key, current);
+                        setTaskBases(previous => ({ ...previous, [key]: current }));
+                        setTaskErrors(previous => ({ ...previous, [key]: '' }));
+                    } }, tr('task.useLatest')) : null);
+            };
+            const deliveryView = (delivery) => h('div', { className: 'xls-taskVersion', key: delivery.version, 'data-task-delivery-version': String(delivery.version) }, h('h5', null, tr('task.version') + ' ' + delivery.version), h('p', { className: 'xls-period' }, delivery.createdAt), h('p', { className: 'xls-taskBody' }, delivery.text), delivery.artifacts.length ? h('ul', { className: 'xls-taskLinks' }, delivery.artifacts.map((artifact, index) => {
+                const url = taskArtifactUrl(artifact.url);
+                return h('li', { key: index }, url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', referrerPolicy: 'no-referrer',
+                    'data-task-artifact': true }, artifact.label) : h('span', null, artifact.label), h('span', { className: 'xls-taskHint' }, ' ' + artifact.url));
+            })) : null);
+            const artifactsOf = (id) => Object.prototype.hasOwnProperty.call(artifactDrafts, id) ? artifactDrafts[id] || [] : [];
+            const artifactEditors = (task, claim) => h('div', null, h('h4', null, tr('task.artifacts')), h('p', { className: 'xls-taskHint' }, tr('task.artifactHint')), artifactsOf(task.id).map((artifact, index) => h('div', { className: 'xls-taskArtifact', key: index }, ['label', 'url'].map(field => h('label', { className: 'xls-taskField', key: field }, h('span', null, tr(field === 'label' ? 'task.artifactLabel' : 'task.artifactUrl')), h('input', { className: 'xls-replyInput', type: field === 'url' ? 'url' : 'text', 'data-task-artifact-field': field, 'data-artifact-index': String(index),
+                value: artifact[field], maxLength: field === 'url' ? 2048 : 100, disabled: taskWork['deliver:' + task.id] === 'sending',
+                onChange: (event) => {
+                    rememberTaskBasis('deliver', task, claim);
+                    setArtifactDrafts(previous => ({ ...previous, [task.id]: (Object.prototype.hasOwnProperty.call(previous, task.id) ? previous[task.id] || [] : [])
+                            .map((item, position) => position === index ? { ...item, [field]: event.target.value } : item) }));
+                } }))), h('button', { type: 'button', className: 'xls-chip', 'data-task-remove-artifact': String(index), disabled: taskWork['deliver:' + task.id] === 'sending',
+                onClick: () => {
+                    rememberTaskBasis('deliver', task, claim);
+                    setArtifactDrafts(previous => ({ ...previous,
+                        [task.id]: (Object.prototype.hasOwnProperty.call(previous, task.id) ? previous[task.id] || [] : []).filter((_item, position) => position !== index) }));
+                } }, tr('task.removeArtifact')))), h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'add-artifact', disabled: artifactsOf(task.id).length >= 5 || taskWork['deliver:' + task.id] === 'sending',
+                onClick: () => {
+                    rememberTaskBasis('deliver', task, claim);
+                    setArtifactDrafts(previous => ({ ...previous,
+                        [task.id]: [...(Object.prototype.hasOwnProperty.call(previous, task.id) ? previous[task.id] || [] : []), { label: '', url: '' }] }));
+                } }, tr('task.addArtifact')));
+            const lifecycleControls = (task, claim) => {
+                const roles = taskRoles(task, claim), status = taskStatus(task, claim), terminal = ['completed', 'cancelled', 'expired'].includes(status);
+                const reasonActions = [];
+                if (roles.publisher && status === 'delivered')
+                    reasonActions.push('task_rework');
+                if (roles.claimer && !terminal)
+                    reasonActions.push('task_withdraw');
+                if (!['completed', 'cancelled'].includes(status) && task.cancellation?.requestedBy !== myOwnerId
+                    && (roles.publisher || !terminal && roles.claimer && !!claim?.startedAt))
+                    reasonActions.push('task_cancel');
+                const form = taskActionForm?.taskId === task.id && reasonActions.includes(taskActionForm.action) ? taskActionForm : null;
+                return h('div', null, roles.claimer && status === 'claimed' ? h('div', null, taskBasisNotice('task_start', task, claim), h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'task_start', disabled: !!taskWork['task_start:' + task.id] || !taskBasis(task, claim)
+                        || !!taskBases['task_start:' + task.id] && !sameTaskBasis(taskBases['task_start:' + task.id], taskBasis(task, claim)),
+                    onClick: () => lifecycleTask('task_start', task) }, tr('task.start')), taskNotice('task_start', task.id)) : null, h('div', { className: 'xls-taskActions' }, reasonActions.map(action => h('button', { type: 'button', className: 'xls-chip', key: action,
+                    'data-task-action': action, 'aria-expanded': form?.action === action, disabled: !!taskWork[action + ':' + task.id],
+                    onClick: () => { rememberTaskBasis(action, task, claim); setTaskActionForm({ taskId: task.id, action }); } }, tr(TASK_ACTION_LABELS[action])))), form ? h('div', { className: 'xls-taskVersion', 'data-task-action-form': form.action }, h('h4', null, tr(TASK_ACTION_LABELS[form.action])), taskBasisNotice(form.action, task, claim), h('label', { className: 'xls-taskField' }, h('span', null, tr('task.reason')), h('textarea', { className: 'xls-replyInput', rows: 4, maxLength: 1000, 'data-task-reason': form.action,
+                    value: taskReasons[form.action + ':' + task.id] || '', disabled: taskWork[form.action + ':' + task.id] === 'sending',
+                    onChange: (event) => setTaskReasons(previous => ({ ...previous, [form.action + ':' + task.id]: event.target.value })) })), h('div', { className: 'xls-taskActions' }, h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'submit-' + form.action,
+                    disabled: !!taskWork[form.action + ':' + task.id] || !(taskReasons[form.action + ':' + task.id] || '').trim()
+                        || !taskBasis(task, claim) || !!taskBases[form.action + ':' + task.id] && !sameTaskBasis(taskBases[form.action + ':' + task.id], taskBasis(task, claim)),
+                    onClick: () => lifecycleTask(form.action, task) }, tr('task.sendAction')), h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'close-action', onClick: () => setTaskActionForm(null) }, tr('task.cancelAction'))), taskNotice(form.action, task.id)) : null);
+            };
+            const taskSheet = taskId ? h('div', { className: 'xls-mask', onClick: closeTaskDetails }, h(ModalPanel, { className: 'xls-taskDetail', label: tr('task.detail'), active: props.active, onClose: closeTaskDetails }, h('div', { className: 'xls-taskActions' }, h('h2', null, tr('task.detail')), h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'close', onClick: closeTaskDetails }, tr('task.close'))), taskLoading ? h('p', { className: 'xls-taskHint', role: 'status', 'data-task-loading': true }, tr('task.loading')) : null, taskLoadError ? h('p', { className: 'xls-taskHint', role: 'alert' }, tr('task.loadFailed')) : null, selectedTask ? h('div', { 'data-task-detail': selectedTask.id }, h('h3', null, selectedTask.title), h('p', { className: 'xls-taskHint' }, tr('task.status') + '：' + tr('task.status.' + selectedStatus)), h('p', { className: 'xls-taskHint' }, tr('task.author') + '：' + (selectedTask.fromName || selectedTask.from || tr('task.authorUnknown'))), h('h4', null, tr('task.requirements')), h('p', { className: 'xls-taskBody' }, selectedTask.desc || tr('task.noRequirements')), selectedTask.acceptanceCriteria ? h('div', null, h('h4', null, tr('task.acceptance')), h('p', { className: 'xls-taskBody' }, selectedTask.acceptanceCriteria)) : null, selectedTask.deadlineAt ? h('p', { className: 'xls-taskHint' }, tr('task.deadline') + '：' + selectedTask.deadlineAt) : null, h('h4', null, tr('task.deliveryText')), selectedRoles?.participant && selectedClaim?.deliveries?.length
+                ? h('div', { 'data-task-delivery': true }, selectedClaim.deliveries.map(deliveryView))
+                : h('p', { className: 'xls-taskBody', 'data-task-delivery': true }, selectedRoles?.participant
+                    ? selectedClaim?.delivery || tr('task.noDelivery') : tr('task.privateDelivery')), taskDetail && taskDetail.history.length ? h('div', { 'data-task-history': true }, h('h4', null, tr('task.history')), taskDetail.history.map((entry, index) => h('div', { className: 'xls-taskVersion', key: entry.claimId || index }, h('p', { className: 'xls-taskHint' }, (entry.ai || tr('task.participant')) + ' · ' + tr('task.history.' + entry.status) + ' · ' + entry.endedAt), h('p', { className: 'xls-taskBody' }, entry.reason), entry.deliveries?.length ? entry.deliveries.map(deliveryView) : entry.delivery ? h('p', { className: 'xls-taskBody' }, entry.delivery) : null))) : null, taskDetail && taskDetail.events.length ? h('div', { 'data-task-events': true }, h('h4', null, tr('task.events')), h('ol', { className: 'xls-taskLinks' }, taskDetail.events.map(event => h('li', { key: event.id }, h('span', null, event.createdAt + ' · ' + (Object.prototype.hasOwnProperty.call(TASK_ACTION_LABELS, event.action)
+                ? tr(TASK_ACTION_LABELS[event.action]) : event.action)), event.reason ? h('p', { className: 'xls-taskBody' }, event.reason) : null)))) : null, demoTasks || selectedTask.demo ? h('p', { className: 'xls-taskHint' }, tr('task.demo')) : h('div', null, h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')), selectedRoles?.canClaim && selectedStatus === 'open'
                 ? h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'claim',
-                    disabled: !!taskWork['claim:' + selectedTask.id] || !joined || offline, onClick: () => claim(selectedTask) }, tr('task.claim')) : null, taskNotice('claim', selectedTask.id), selectedRoles?.claimer && ['claimed', 'in_progress', 'changes_requested'].includes(selectedStatus)
+                    disabled: !!taskWork['claim:' + selectedTask.id] || !taskBasis(selectedTask, selectedClaim) || !joined || offline
+                        || !!taskBases['claim:' + selectedTask.id] && !sameTaskBasis(taskBases['claim:' + selectedTask.id], taskBasis(selectedTask, selectedClaim)), onClick: () => claim(selectedTask) }, tr('task.claim')) : null, selectedRoles?.canClaim && selectedStatus === 'open' ? taskBasisNotice('claim', selectedTask, selectedClaim) : null, taskNotice('claim', selectedTask.id), selectedRoles?.claimer && ['claimed', 'in_progress', 'changes_requested'].includes(selectedStatus)
                 ? h('div', null, h('label', { className: 'xls-taskField' }, h('span', null, tr('task.deliverHint')), h('textarea', { className: 'xls-replyInput', 'data-task-field': 'delivery', rows: 5, maxLength: 2000,
                     value: Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) ? deliveryDrafts[selectedTask.id] || '' : '',
                     disabled: taskWork['deliver:' + selectedTask.id] === 'sending',
-                    onChange: (event) => setDeliveryDrafts(previous => ({ ...previous, [selectedTask.id]: event.target.value })) })), h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'deliver',
-                    disabled: !!taskWork['deliver:' + selectedTask.id] || !(Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) && deliveryDrafts[selectedTask.id]?.trim()) || !joined || offline,
+                    onChange: (event) => {
+                        rememberTaskBasis('deliver', selectedTask, selectedClaim);
+                        setDeliveryDrafts(previous => ({ ...previous, [selectedTask.id]: event.target.value }));
+                    } })), artifactEditors(selectedTask, selectedClaim), taskBasisNotice('deliver', selectedTask, selectedClaim), h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'deliver',
+                    disabled: !!taskWork['deliver:' + selectedTask.id] || !(Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) && deliveryDrafts[selectedTask.id]?.trim()) || !joined || offline
+                        || !taskBasis(selectedTask, selectedClaim) || !!taskBases['deliver:' + selectedTask.id] && !sameTaskBasis(taskBases['deliver:' + selectedTask.id], taskBasis(selectedTask, selectedClaim)),
                     onClick: () => deliverTask(selectedTask) }, tr('task.submitDelivery'))) : null, taskNotice('deliver', selectedTask.id), selectedRoles?.publisher && selectedStatus === 'delivered'
                 ? h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'confirm',
-                    disabled: !!taskWork['confirm:' + selectedTask.id] || !selectedClaim?.delivery?.trim() || !joined || offline,
-                    onClick: () => confirmTaskDone(selectedTask) }, tr('task.confirm')) : null, taskNotice('confirm', selectedTask.id), selectedStatus === 'completed' && selectedRoles?.participant ? h('p', { className: 'xls-taskHint' }, tr('task.ownerRating')) : null, ownerEntry ? h('a', { className: 'xls-chip', 'data-task-owner-entry': true, href: ownerEntry + '/m', target: '_blank', rel: 'noopener noreferrer' }, tr('task.ownerEntry')) : null)) : null, h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'refresh', disabled: taskLoading,
+                    disabled: !!taskWork['confirm:' + selectedTask.id] || !taskBasis(selectedTask, selectedClaim) || !selectedClaim?.delivery?.trim() || !joined || offline
+                        || !!taskBases['confirm:' + selectedTask.id] && !sameTaskBasis(taskBases['confirm:' + selectedTask.id], taskBasis(selectedTask, selectedClaim)),
+                    onClick: () => confirmTaskDone(selectedTask) }, tr('task.confirm')) : null, selectedRoles?.publisher && selectedStatus === 'delivered' ? taskBasisNotice('confirm', selectedTask, selectedClaim) : null, taskNotice('confirm', selectedTask.id), selectedTask.cancellation && !['completed', 'cancelled', 'expired'].includes(selectedStatus) ? h('div', { className: 'xls-taskVersion', 'data-task-cancellation': true }, h('p', { className: 'xls-taskHint', role: 'status' }, tr(selectedTask.cancellation.requestedBy === myOwnerId ? 'task.cancelRequested' : 'task.cancelOther')), h('p', { className: 'xls-taskBody' }, selectedTask.cancellation.reason)) : null, lifecycleControls(selectedTask, selectedClaim), selectedStatus === 'completed' && selectedRoles?.participant ? h('p', { className: 'xls-taskHint' }, tr('task.ownerRating')) : null, ownerEntry ? h('a', { className: 'xls-chip', 'data-task-owner-entry': true, href: ownerEntry + '/m', target: '_blank', rel: 'noopener noreferrer' }, tr('task.ownerEntry')) : null)) : null, h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'refresh', disabled: taskLoading,
                 onClick: () => setTaskRefresh(value => value + 1) }, tr('task.retry')))) : null;
             // ----------------------------------------------------------------- me
             const me = h('div', { className: 'xls-me-grid' }, h('div', null, h('div', { className: 'xls-panel xls-hero' }, h('div', { className: 'xls-bigava' }, h(Portrait, { look: myLook, size: 56 })), h('div', { className: 'xls-heroName' }, myProfile.handle || AGENTS.alan.name), h('div', { className: 'xls-heroOwner' }, '主人：' + (myProfile.name || AGENTS.alan.owner) + ' · ' + tr('me.joined')

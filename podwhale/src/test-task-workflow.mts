@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { humanSession } from './server/test-human-session.mjs';
+import { registerTaskRoutes } from './task-http.mjs';
 import type { CompanionConnection } from './companion-types.mjs';
 import type { Dispose, EffectContext, HostContext, PatrolRuntimeContext, RegisteredTool,
   ScheduleService, WebRoute, WebServer } from './host-types.mjs';
@@ -41,6 +42,7 @@ const remoteFile = join(home, 'xiaolanshu', 'remote.json');
 const cookie = 'task_fixture=synthetic-desktop';
 const claimNote = 'TASK_PRIVATE_CLAIM_NOTE_SENTINEL';
 const deliveryText = 'TASK_PRIVATE_DELIVERY_SENTINEL';
+const revisedDelivery = 'TASK_PRIVATE_REVISED_DELIVERY_SENTINEL';
 const title = '三个合成账号的独立审批任务';
 const failures: string[] = [];
 const cleanups: Dispose[] = [];
@@ -74,6 +76,15 @@ function string(value: unknown): string {
 }
 function claimOf(reply: Reply): Record<string, unknown> | null {
   return reply.body.claim === null ? null : record(reply.body.claim);
+}
+function expectation(reply: Reply) {
+  const task = record(reply.body.task), claim = claimOf(reply);
+  if (typeof task.revision !== 'number' || !Number.isSafeInteger(task.revision) || task.revision < 0
+    || claim && (typeof claim.deliveryVersion !== 'number' || !Number.isSafeInteger(claim.deliveryVersion) || claim.deliveryVersion < 0)) {
+    throw new Error('Missing fixture task or delivery version');
+  }
+  return { expectedRevision: task.revision, claimId: claim ? string(claim.claimId) : null,
+    deliveryVersion: claim ? claim.deliveryVersion as number : 0 };
 }
 async function pending(reply: Reply, action: string, account: Account): Promise<Proposal> {
   check(action + ' Host request returns a nonexecuted pending 202', reply.status === 202
@@ -221,6 +232,62 @@ async function startHost(options: { withoutConnection?: boolean } = {}) {
   check('forged model arguments cannot invoke any original write tool outside isolation', forbidden);
 }
 
+async function receiptBoundary() {
+  const routes: WebRoute[] = [];
+  const carrier = createServer((req, res) => {
+    const path = new URL(req.url || '/', 'http://localhost').pathname;
+    const route = routes.find(value => value.path === path);
+    if (!route) { res.writeHead(404, { 'content-type': 'application/json' }); res.end('{"ok":false}'); return; }
+    Promise.resolve(route.handler(req, res)).catch(() => {
+      if (!res.headersSent) res.writeHead(500, { 'content-type': 'application/json' });
+      if (!res.writableEnded) res.end('{"ok":false}');
+    });
+  });
+  carriers.push(carrier);
+  carrier.listen(0, '127.0.0.1'); await once(carrier, 'listening');
+  const address = carrier.address();
+  if (!address || typeof address === 'string') throw new Error('Missing receipt carrier address');
+  const base = 'http://127.0.0.1:' + address.port;
+  const diagnostic = 'TASK_UPSTREAM_PRIVATE_DIAGNOSTIC_SENTINEL';
+  let upstream: Record<string, unknown> | Error = {};
+  const connection: CompanionConnection = {
+    requestRejection(req) {
+      return this === connection && req.headers.host === new URL(base).host
+        && req.headers.origin === base && req.headers.cookie === cookie ? undefined : 403;
+    },
+  };
+  cleanups.push(registerTaskRoutes({ connection,
+    webServer: { getOrigin: () => base, register(route) { routes.push(route); return () => { const index = routes.indexOf(route); if (index >= 0) routes.splice(index, 1); }; } },
+    async request() { if (upstream instanceof Error) throw upstream; return upstream; },
+    async readFeed() { return { posts: [], tasks: [], claims: {} }; },
+  }));
+  const call = () => request(base + '/xiaolanshu/api/task', { body: { title: '合成回执校验' }, headers: { cookie, origin: base } });
+  const valid = { ok: true, status: 'pending', executed: false, action: 'task', proposalId: 'proposal-fixture-safe' };
+  for (const [name, altered] of [
+    ['an executed operation', { executed: true }],
+    ['a mismatched action', { action: 'reply' }],
+    ['an invalid proposal identity', { proposalId: 'invalid/identity' }],
+  ] as const) {
+    upstream = { ...valid, ...altered, payload: { text: diagnostic }, digest: diagnostic };
+    const response = await call();
+    check('Host rejects ' + name + ' instead of claiming pending success', response.status === 502
+      && response.body.code === 'task_receipt_invalid' && !response.raw.includes(diagnostic));
+  }
+  for (const [status, code] of [[503, 'task_unavailable'], [409, 'task_conflict']] as const) {
+    upstream = Object.assign(new Error(diagnostic), { ...(status === 409 ? { status } : {}), code: diagnostic });
+    const response = await call();
+    check('upstream failure exposes only the fixed Host code at status ' + status, response.status === status
+      && response.body.code === code && response.body.error === code && !response.raw.includes(diagnostic));
+  }
+  upstream = { ...valid, payload: { title: '完整合成内容', text: diagnostic }, digest: 'c'.repeat(64),
+    proposal: { id: valid.proposalId, payload: { text: diagnostic }, target: { delivery: diagnostic } } };
+  const response = await call();
+  check('a legitimate pending receipt publishes exactly five safe fields', response.status === 202
+    && response.body.ok === true && response.body.status === 'pending' && response.body.executed === false
+    && response.body.action === 'task' && response.body.proposalId === valid.proposalId
+    && Object.keys(response.body).sort().join(',') === 'action,executed,ok,proposalId,status' && !response.raw.includes(diagnostic));
+}
+
 async function cleanup() {
   let failed = false;
   for (const dispose of cleanups.reverse()) {
@@ -346,6 +413,21 @@ try {
   check('approved delivery is visible to the publisher but is not completion', record(delivered.body.task).status === 'delivered'
     && claimOf(delivered)?.delivery === deliveryText && typeof claimOf(delivered)?.deliveredAt === 'string'
     && claimOf(delivered)?.confirmedAt === undefined);
+  const ownProposals = await desktop(claimer, '/proposals');
+  check('authorized proposal reads preserve the claimant private delivery evidence', ownProposals.status === 200
+    && ownProposals.raw.includes(deliveryText) && ownProposals.raw.includes(claimNote));
+  const ownNotifications = await desktop(publisher, '/notifications');
+  check('authorized publisher notifications preserve the actual delivery notice', ownNotifications.status === 200
+    && ownNotifications.raw.includes(deliveryText));
+  for (const path of ['/proposals', '/notifications']) {
+    for (const options of [{ anonymous: true }, { foreign: true }]) {
+      const response = await desktop(claimer, path, undefined, options);
+      check((options.anonymous ? 'anonymous' : 'foreign-origin') + ' private Host read is denied: ' + path,
+        response.status === 403 && !response.raw.includes(claimNote) && !response.raw.includes(deliveryText));
+    }
+    check('private Host view allows GET only: ' + path, (await desktop(claimer, path, {})).status === 405);
+    check('private Host view rejects injected query fields: ' + path, (await desktop(claimer, path + '?ownerId=' + publisher.id)).status === 400);
+  }
   for (const account of [publisher, claimer]) {
     const response = await desktop(account, '/feed');
     const ownClaim = record(record(response.body.claims)[taskId]);
@@ -362,10 +444,28 @@ try {
   const outsiderClaims = record((await desktop(outsider, '/tasks')).body.claims);
   check('third-party list claim metadata stays restricted after delivery', Object.keys(record(outsiderClaims[taskId])).sort().join(',') === 'status,taskId');
 
+  const reworkProposal = await pending(await desktop(publisher, '/task_rework', { taskId, ...expectation(delivered),
+    reason: '请按照验收标准补齐合成结果' }), 'task_rework', publisher);
+  check('pending rework does not change the delivered task', record((await desktop(publisher, detailPath)).body.task).status === 'delivered');
+  check('publisher independent approval requests rework', (await decide(publisher, reworkProposal)).status === 200);
+  const rework = await desktop(claimer, detailPath);
+  check('rework preserves the first delivered version', record(rework.body.task).status === 'changes_requested'
+    && records(claimOf(rework)?.deliveries).some(entry => entry.version === 1 && entry.text === deliveryText));
+  const secondDelivery = await pending(await desktop(claimer, '/deliver', { taskId, ...expectation(rework), text: revisedDelivery,
+    artifacts: [{ label: '合成结果附件记录', url: 'https://artifacts.example.org/fixture-result.txt' }] }), 'deliver', claimer);
+  check('pending revised delivery does not erase the rework requirement', record((await desktop(publisher, detailPath)).body.task).status === 'changes_requested');
+  check('claimer independent approval records a second delivery', (await decide(claimer, secondDelivery)).status === 200);
+  const redelivered = await desktop(publisher, detailPath);
+  const versions = records(claimOf(redelivered)?.deliveries);
+  check('redelivery appends the new version and preserves the original', claimOf(redelivered)?.deliveryVersion === 2 && versions.length === 2
+    && versions[0]?.text === deliveryText && versions[1]?.text === revisedDelivery
+    && records(versions[1]?.artifacts)[0]?.url === 'https://artifacts.example.org/fixture-result.txt');
+  check('outsider cannot read either version after rework', !(await desktop(outsider, detailPath)).raw.includes(revisedDelivery));
+
   check('claimant cannot propose publisher confirmation', (await desktop(claimer, '/confirm', { taskId })).status === 403);
   check('third party cannot propose publisher confirmation', (await desktop(outsider, '/confirm', { taskId })).status === 403);
   check('denied third-party operations create no proposal', records((await remote('/proposals', outsider.agent)).body.items).length === 0);
-  const confirmProposal = await pending(await desktop(publisher, '/confirm', { taskId }), 'confirm', publisher);
+  const confirmProposal = await pending(await desktop(publisher, '/confirm', { taskId, ...expectation(redelivered) }), 'confirm', publisher);
   const beforeConfirm = await desktop(claimer, detailPath);
   check('pending confirmation leaves task delivered and unconfirmed', record(beforeConfirm.body.task).status === 'delivered'
     && claimOf(beforeConfirm)?.confirmedAt === undefined);
@@ -375,12 +475,55 @@ try {
   check('completion requires and records the publisher decision', record(completed.body.task).status === 'completed'
     && typeof claimOf(completed)?.confirmedAt === 'string');
   check('the same approval cannot execute twice', (await decide(publisher, confirmProposal)).status === 409);
+
+  const cancelTitle = '合成任务的双方取消审批';
+  const newTask = await pending(await desktop(publisher, '/task', { title: cancelTitle, desc: '用于验证真实开工、退出与双方取消',
+    acceptanceCriteria: '两位主人分别批准后才结束', deadlineAt: new Date(Date.now() + 86400000).toISOString() }), 'task', publisher);
+  check('independent approval creates the cancellation workflow fixture', (await decide(publisher, newTask)).status === 200);
+  const cancelTask = records((await desktop(publisher, '/tasks?scope=published')).body.items).find(value => value.title === cancelTitle);
+  if (!cancelTask) throw new Error('Missing cancellation fixture task');
+  const cancelId = string(cancelTask.id), cancelPath = '/task?taskId=' + encodeURIComponent(cancelId);
+  const claimCancellation = async () => {
+    const proposal = await pending(await desktop(claimer, '/claim', { taskId: cancelId, note: '合成任务认领' }), 'claim', claimer);
+    check('independent claimant approval records a cancellation-test claim', (await decide(claimer, proposal)).status === 200);
+  };
+  await claimCancellation();
+  const withdrawal = await pending(await desktop(claimer, '/task_withdraw', { taskId: cancelId,
+    ...expectation(await desktop(claimer, cancelPath)), reason: '本轮合成测试退出认领' }), 'task_withdraw', claimer);
+  check('pending withdrawal preserves the current claim', record((await desktop(publisher, cancelPath)).body.task).status === 'claimed');
+  check('claimant independent approval withdraws the current round', (await decide(claimer, withdrawal)).status === 200);
+  const withdrawn = await desktop(claimer, cancelPath);
+  check('withdrawal reopens the task while retaining participant history', record(withdrawn.body.task).status === 'open'
+    && withdrawn.body.claim === null && records(withdrawn.body.history).length === 1);
+  await claimCancellation();
+  const start = await pending(await desktop(claimer, '/task_start', { taskId: cancelId,
+    ...expectation(await desktop(claimer, cancelPath)) }), 'task_start', claimer);
+  check('pending start does not mark the work as in progress', record((await desktop(publisher, cancelPath)).body.task).status === 'claimed');
+  check('claimant independent approval starts the actual claim round', (await decide(claimer, start)).status === 200);
+  const started = await desktop(publisher, cancelPath);
+  check('approved start records the in-progress state', record(started.body.task).status === 'in_progress'
+    && typeof claimOf(started)?.startedAt === 'string');
+  const cancelReason = 'TASK_PRIVATE_CANCEL_REASON_SENTINEL';
+  const firstCancel = await pending(await desktop(publisher, '/task_cancel', { taskId: cancelId, ...expectation(started), reason: cancelReason }), 'task_cancel', publisher);
+  const beforeCancel = await desktop(publisher, cancelPath);
+  check('pending cancellation creates neither cancellation request nor cancellation', record(beforeCancel.body.task).status === 'in_progress'
+    && record(beforeCancel.body.task).cancellation === null);
+  check('publisher independent approval submits its cancellation request', (await decide(publisher, firstCancel)).status === 200);
+  const requested = await desktop(claimer, cancelPath);
+  check('one side cancellation approval leaves the work running', record(requested.body.task).status === 'in_progress'
+    && record(record(requested.body.task).cancellation).requestedBy === publisher.id);
+  check('third party cannot obtain the participants cancellation reason', !(await desktop(outsider, cancelPath)).raw.includes(cancelReason));
+  const secondCancel = await pending(await desktop(claimer, '/task_cancel', { taskId: cancelId, ...expectation(requested), reason: '另一方核对后同意取消' }), 'task_cancel', claimer);
+  check('second cancellation proposal alone still leaves the work running', record((await desktop(publisher, cancelPath)).body.task).status === 'in_progress');
+  check('the other independent human approves the second cancellation', (await decide(claimer, secondCancel)).status === 200);
+  check('only both approved cancellation requests cancel the started task', record((await desktop(publisher, cancelPath)).body.task).status === 'cancelled');
   check('Host task routes repeatedly consult the bound connection authority', authorityCalls >= 20);
   await startHost({ withoutConnection: true });
-  for (const path of ['/feed', '/tasks', detailPath]) {
+  for (const path of ['/feed', '/proposals', '/notifications', '/tasks', detailPath]) {
     check('Host without connection authority exposes no private task route: ' + path.split('?')[0],
       (await desktop(publisher, path)).status === 404);
   }
+  await receiptBoundary();
 } catch {
   check('task workflow fixture completes without an unexpected exception', false);
 } finally {

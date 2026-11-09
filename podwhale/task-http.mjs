@@ -3,10 +3,15 @@ const MAX_BODY = 64 * 1024;
 const ACTION_FIELDS = {
     task: ['title', 'desc', 'description', 'budget', 'period', 'tags', 'match', 'acceptanceCriteria', 'deadlineAt'],
     claim: ['taskId', 'note', 'expectedRevision'],
-    deliver: ['taskId', 'text', 'artifacts', 'expectedRevision', 'claimId'],
+    deliver: ['taskId', 'text', 'artifacts', 'expectedRevision', 'claimId', 'deliveryVersion'],
     confirm: ['taskId', 'expectedRevision', 'claimId', 'deliveryVersion'],
+    task_start: ['taskId', 'expectedRevision', 'claimId', 'deliveryVersion'],
+    task_rework: ['taskId', 'reason', 'expectedRevision', 'claimId', 'deliveryVersion'],
+    task_withdraw: ['taskId', 'reason', 'expectedRevision', 'claimId', 'deliveryVersion'],
+    task_cancel: ['taskId', 'reason', 'expectedRevision', 'claimId', 'deliveryVersion'],
 };
 const LIST_FIELDS = ['limit', 'before', 'q', 'scope', 'status', 'sort'];
+const READ_ONLY = ['feed', 'tasks', 'proposals', 'notifications'];
 function object(value) { return !!value && typeof value === 'object' && !Array.isArray(value); }
 function fault(code, status = 400) { return Object.assign(new Error(code), { code, status }); }
 function authenticate(req, connection) {
@@ -97,14 +102,14 @@ function parameters(req, allowed) {
 }
 export function registerTaskRoutes({ webServer, connection, request, readFeed }) {
     const stops = [];
-    for (const action of ['feed', 'tasks', ...Object.keys(ACTION_FIELDS)]) {
+    for (const action of [...READ_ONLY, ...Object.keys(ACTION_FIELDS)]) {
         stops.push(webServer.register({ kind: 'exact', path: BASE + '/' + action, async handler(req, res) {
                 try {
                     authenticate(req, connection);
-                    if (req.method === 'GET' && (action === 'feed' || action === 'task' || action === 'tasks')) {
+                    if (req.method === 'GET' && (READ_ONLY.includes(action) || action === 'task')) {
                         if (req.headers['transfer-encoding'] !== undefined || req.headers['content-length'] !== undefined && req.headers['content-length'] !== '0')
                             throw fault('task_invalid_input');
-                        const query = parameters(req, action === 'feed' ? ['limit', 'before', 'q'] : action === 'task' ? ['taskId'] : LIST_FIELDS);
+                        const query = parameters(req, action === 'feed' ? ['limit', 'before', 'q'] : action === 'task' ? ['taskId'] : action === 'tasks' ? LIST_FIELDS : []);
                         if (action === 'task' && !/^[a-zA-Z0-9_-]{1,80}$/.test(query.get('taskId') ?? ''))
                             throw fault('task_invalid_input');
                         if (action === 'feed') {
@@ -112,13 +117,17 @@ export function registerTaskRoutes({ webServer, connection, request, readFeed })
                             return;
                         }
                         const result = await request('/' + action + (query.size ? '?' + query.toString() : ''));
+                        if (!result && (action === 'proposals' || action === 'notifications')) {
+                            send(res, 200, { ok: true, items: [], ...(action === 'notifications' ? { unread: 0 } : {}) });
+                            return;
+                        }
                         if (!result)
                             throw fault('task_not_joined', 409);
                         send(res, 200, result);
                         return;
                     }
-                    if (req.method !== 'POST' || action === 'tasks' || action === 'feed') {
-                        res.setHeader('allow', action === 'task' ? 'GET, POST' : action === 'tasks' || action === 'feed' ? 'GET' : 'POST');
+                    if (req.method !== 'POST' || READ_ONLY.includes(action)) {
+                        res.setHeader('allow', action === 'task' ? 'GET, POST' : READ_ONLY.includes(action) ? 'GET' : 'POST');
                         throw fault('task_method_not_allowed', 405);
                     }
                     parameters(req, []);

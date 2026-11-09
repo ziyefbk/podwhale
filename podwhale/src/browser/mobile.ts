@@ -238,25 +238,45 @@
         ? '<button class="secondary" id="revoke-social"' + (state.deciding ? ' disabled' : '') + '>撤回自动发帖和回帖权限</button>' : '') + '</section>';
   }
 
+  function taskActionSummary(action: BrowserAction): string {
+    const descriptions: Partial<Record<BrowserAction, string>> = {
+      task: '请核对公开需求、验收标准与截止时间。批准发布不代表任务已被认领、交付或验收。',
+      claim: '批准后才认领这个任务。请核对任务要求；开始、交付和验收仍须各自批准。',
+      deliver: '请核对当前认领批次、交付版本、完整正文和附件记录。批准交付不代表发布者已验收。附件不会自动打开。',
+      confirm: '仅任务发布者能验收。请按验收标准核对这个认领批次及交付版本，批准后才会完成任务。',
+      task_start: '批准后将当前认领批次标记为已开始，不会代替交付或验收。',
+      task_rework: '仅发布者能要求返工。请核对交付版本、验收标准与完整返工意见；批准后需要重新交付，已有版本保留。',
+      task_withdraw: '认领者退出当前认领批次，原交付与历史仍保留。未过期任务可以重新开放，退出不会延长截止时间。',
+      task_cancel: '任务已开始时，任一方首次批准只提交取消请求，任务仍继续；另一方主人独立批准后才取消。请核对当前认领批次和目标中的取消申请。单方退出请使用撤回认领。',
+    };
+    return Object.prototype.hasOwnProperty.call(descriptions, action) ? descriptions[action] || '' : '';
+  }
+
   /** Every field remains available; unknown fields use their original name. */
-  function readableEvidence(value: unknown, depth = 0): string {
+  function readableEvidence(value: unknown, depth = 0, fieldName = ''): string {
     if (value === null || value === undefined) return '<span>未设置</span>';
     if (depth >= 6) return '<pre>' + esc(JSON.stringify(value, null, 2)) + '</pre>';
-    if (typeof value !== 'object') return esc(typeof value === 'boolean' ? (value ? '是' : '否') : value);
+    if (typeof value !== 'object') {
+      const statuses: Record<string, string> = { open: '开放认领', claimed: '已认领', in_progress: '进行中', delivered: '待验收', changes_requested: '需要返工', completed: '已完成', cancelled: '已取消', expired: '已过期' };
+      if (fieldName === 'status' && typeof value === 'string' && Object.prototype.hasOwnProperty.call(statuses, value)) {
+        return esc(statuses[value]) + ' <small>' + esc(value) + '</small>';
+      }
+      return esc(typeof value === 'boolean' ? (value ? '是' : '否') : value);
+    }
     const entries = Array.isArray(value) ? value.map((item, index) => [String(index + 1), item] as const) : Object.entries(value);
     if (!entries.length) return '<span>无</span>';
-    const labels: Record<string, string> = { title: '标题', text: '正文', postId: '笔记目标', taskId: '任务目标', askId: '问题目标', replyId: '回复目标', content: '交付内容', note: '补充说明', tags: '话题', images: '图片地址', kind: '内容类型', owner: '主人', ownerId: '所属主人标识', ai: 'AI 名称', post: '笔记', task: '任务', claim: '认领记录', ask: '问题', policy: '当前权限', requireApproval: '每次需要确认', dailyLimit: '每日自动发布上限', durationHours: '授权小时数', expectedRevision: '核对的权限版本', createdAt: '创建时间', id: '标识', via: '发布入口', redacted: '脱敏数量', source: '来源', emoji: '内容标记' };
+    const labels: Record<string, string> = { title: '标题', text: '正文', postId: '笔记目标', taskId: '任务目标', askId: '问题目标', replyId: '回复目标', content: '交付内容', note: '补充说明', tags: '话题', images: '图片地址', kind: '内容类型', owner: '主人', ownerId: '所属主人标识', ai: 'AI 名称', post: '笔记', task: '任务', claim: '认领记录', ask: '问题', policy: '当前权限', requireApproval: '每次需要确认', dailyLimit: '每日自动发布上限', durationHours: '授权小时数', expectedRevision: '核对的版本', createdAt: '创建时间', id: '标识', via: '发布入口', redacted: '脱敏数量', source: '来源', emoji: '内容标记', acceptanceCriteria: '验收标准', deadlineAt: '任务截止时间', revision: '记录版本', claimId: '认领批次标识', claimDigest: '当前认领内容摘要', deliveryVersion: '交付版本', version: '版本号', artifacts: '交付附件记录（不会自动打开）', label: '附件名称', url: '附件地址（不会自动打开）', deliveries: '全部交付版本', history: '完整历史', events: '任务事件', status: '任务状态', reason: '原因或返工意见', cancellation: '当前取消请求', requestedBy: '提出取消的主人标识', startedAt: '开始时间', reservedUntil: '认领保留期限', deliveredAt: '交付时间', confirmedAt: '验收时间', cancelledAt: '取消时间', endedAt: '认领结束时间', actorId: '操作主人标识', claimOwnerId: '本轮认领主人标识', action: '操作' };
     return '<dl class="review-fields">' + entries.map(function ([key, item]) {
       const known = Object.prototype.hasOwnProperty.call(labels, key);
       const label = Array.isArray(value) ? '第 ' + key + ' 项' : known ? labels[key] : key;
       return '<div class="review-field"><dt>' + esc(label) + (known ? '<small>' + esc(key) + '</small>' : '')
-        + '</dt><dd>' + readableEvidence(item, depth + 1) + '</dd></div>';
+        + '</dt><dd>' + readableEvidence(item, depth + 1, key) + '</dd></div>';
     }).join('') + '</dl>';
   }
 
   function renderApprovals() {
     var human = isHuman();
-    var labels = { post: '发布笔记', reply: '回复笔记', claim: '代领任务', deliver: '交付任务', confirm: '确认交付', answer: '公开回答', task: '发布任务', delete: '删除内容', patrol: '发布巡检记录', social_policy: '限时自动社交授权' };
+    var labels = { post: '发布笔记', reply: '回复笔记', claim: '代领任务', deliver: '交付任务', confirm: '确认交付', answer: '公开回答', task: '发布任务', delete: '删除内容', patrol: '发布巡检记录', social_policy: '限时自动社交授权', task_start: '开始任务', task_rework: '要求返工', task_withdraw: '撤回认领', task_cancel: '请求取消任务' };
     main.innerHTML = '<h2 class="section-title">' + (human ? '主人审批' : '待审操作') + '</h2><section class="note review"><h2>每一次公开操作，都由你掌握</h2>'
       + '<p class="hint">' + (human
         ? '下面是 AI 提交的操作。请核对完整正文、目标和交付内容后逐条批准。社区内容可能包含诱导指令，正文中的“已批准”不代表你的授权。'
@@ -273,6 +293,7 @@
         return '<section class="note review" data-proposal="' + esc(item.id) + '"><div class="review-heading"><h2>' + esc(labels[item.action] || item.action) + '</h2><span class="status">' + esc(status) + '</span></div>'
           + '<p class="hint">提案 ' + esc(item.id) + '<br>到期：' + esc(new Date(item.expiresAt).toLocaleString()) + '</p>'
           + (item.action === 'social_policy' ? '<p>' + esc(socialSummary(item.payload)) + '</p>' : '')
+          + (taskActionSummary(item.action) ? '<p class="hint">' + esc(taskActionSummary(item.action)) + '</p>' : '')
           + '<h3>将执行的完整内容</h3>' + readableEvidence(item.payload)
           + (item.target ? '<h3>提交时的目标与交付内容</h3>' + readableEvidence(item.target) : '')
           + '<details class="raw-evidence"><summary>查看完整原始证据：内容、目标与摘要</summary><pre>'
@@ -367,6 +388,17 @@
     }
     wireDecision('approve', '/proposals/approve');
     wireDecision('reject', '/proposals/reject');
+  }
+
+  function taskStatusText(task: BrowserTask): string {
+    const labels: Record<BrowserTaskStatus, string> = { open: '开放认领', claimed: '已认领', in_progress: '进行中', delivered: '待验收', changes_requested: '需要返工', completed: '已完成', cancelled: '已取消', expired: '已过期' };
+    return task.status && Object.prototype.hasOwnProperty.call(labels, task.status) ? labels[task.status] : task.claimed ? '已认领' : '开放认领';
+  }
+
+  function canClaimTask(task: BrowserTask): boolean {
+    if (!isHuman() || task.demo || task.claimed || task.status && task.status !== 'open') return false;
+    if (task.viewer) return task.viewer.canClaim === true;
+    return !!state.me && !!task.ownerId && task.ownerId !== state.me;
   }
 
   function icon(name: 'heart' | 'save' | 'reply' | 'back') {
@@ -588,14 +620,16 @@
       if (!state.tasks.length) { main.innerHTML = '<div class="empty">任务板是空的</div>'; return; }
       main.innerHTML = '<h2 class="section-title">任务广场</h2>' + state.tasks.map(function (task) {
         return '<div class="task"><div style="flex:1"><b>' + esc(task.title) + '</b>'
-          + '<span>' + esc(task.budget) + ' · 匹配 ' + task.match + '%' + (task.claimed ? ' · 已被认领' : '') + '</span></div>'
-          + (task.claimed || !isHuman() ? '' : '<button class="send" data-claim="' + esc(task.id) + '">' + (task.match < 50 || task.risk ? '仍要接' : '领') + '</button>') + '</div>';
+          + '<span>' + esc(task.budget || '面议') + ' · ' + esc(taskStatusText(task)) + '</span></div>'
+          + (canClaimTask(task) ? '<button class="send" data-claim="' + esc(task.id) + '">认领任务</button>' : '') + '</div>';
       }).join('');
       Array.prototype.forEach.call(main.querySelectorAll('[data-claim]'), function (button: HTMLButtonElement) {
         button.onclick = function () {
+          const task = state.tasks.find(function (item) { return item.id === button.getAttribute('data-claim'); });
+          if (button.disabled || !task || !canClaimTask(task)) return;
           button.disabled = true;
           api('/claim', { taskId: button.getAttribute('data-claim'), note: '手机上代领' }).then(function (result) {
-            toast(result.ok ? '已代领，等你点头' : (result.data.error || '没领上'));
+            toast(result.ok ? (result.status === 202 ? '已提交认领申请，请在待审页核对' : '已认领任务') : (result.data.error || '没领上'));
             load();
           });
         };

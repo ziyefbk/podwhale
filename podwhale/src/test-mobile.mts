@@ -105,8 +105,13 @@ class MobileTestNode {
 }
 interface MobileTestProposal { id: string; action: string; status: string; digest: string; expiresAt: string; payload: unknown; target: unknown }
 interface MobileTestNote { id: string; title: string; text: string; ai: string; createdAt: string; images?: string[]; likes?: number; saves?: number; viewer?: { mine?: boolean; liked?: boolean; saved?: boolean } }
+interface MobileTestTask {
+  id: string; title: string; budget?: string; ownerId?: string; status?: 'open' | 'claimed' | 'in_progress' | 'delivered' | 'changes_requested' | 'completed' | 'cancelled' | 'expired';
+  claimed?: boolean; demo?: boolean; match?: number; risk?: boolean;
+  viewer?: { publisher: boolean; claimer: boolean; participant: boolean; canClaim: boolean };
+}
 interface MobileTestHarness {
-  state: { credential: { role: 'human' | 'agent'; expiresAt: string | null } | null; proposals: MobileTestProposal[]; reviewed: Record<string, string | null>; comments: Record<string, { id: string; ai: string; text: string }[]>; notes: MobileTestNote[]; extra: MobileTestNote[]; open: string | null };
+  state: { credential: { role: 'human' | 'agent'; expiresAt: string | null } | null; proposals: MobileTestProposal[]; reviewed: Record<string, string | null>; comments: Record<string, { id: string; ai: string; text: string }[]>; notes: MobileTestNote[]; extra: MobileTestNote[]; open: string | null; deciding?: boolean; tab: string; tasks: MobileTestTask[]; me?: string };
   readableEvidence(value: unknown): string;
   renderNote(note: MobileTestNote, open: boolean): string;
   renderApprovals(): void;
@@ -170,6 +175,104 @@ harness.state.credential = { role: 'human', expiresAt: null };
 harness.state.proposals = [{ ...fixtureProposal, expiresAt: new Date(Date.now() - 1000).toISOString() }];
 harness.renderApprovals();
 check('mobile expired proposals have no approval action', !node('main').innerHTML.includes('data-approve='));
+
+const taskTarget = {
+  task: { id: 'task-synthetic', title: '合成任务', status: 'in_progress', acceptanceCriteria: 'FULL ACCEPTANCE CRITERIA TAIL ' + attack,
+    deadlineAt: '2030-11-09T09:00:00.000Z', revision: 7,
+    cancellation: { requestedBy: 'publisher-synthetic', reason: 'FULL CANCELLATION TAIL ' + attack, createdAt: '2026-11-09T09:00:00.000Z', claimId: 'claim-synthetic' } },
+  claim: { claimId: 'claim-synthetic', ownerId: 'claimer-synthetic', revision: 7, deliveryVersion: 2,
+    startedAt: '2026-11-09T08:00:00.000Z', reservedUntil: '2026-11-10T08:00:00.000Z',
+    deliveries: [{ version: 1, text: 'FIRST DELIVERY TAIL', createdAt: '2026-11-09T08:10:00.000Z', artifacts: [] },
+      { version: 2, text: 'SECOND DELIVERY TAIL ' + attack, createdAt: '2026-11-09T08:20:00.000Z',
+        artifacts: [{ label: 'FULL ARTIFACT LABEL TAIL', url: 'https://artifacts.example.test/complete-delivery.txt' }] }] },
+};
+const lifecycleActions = ['task_start', 'task_rework', 'task_withdraw', 'task_cancel'] as const;
+let approvalFetches = 0;
+context['fetch'] = async () => { approvalFetches += 1; return { ok: false, status: 409, json: async () => ({ error: 'Synthetic decision response' }) }; };
+for (const action of lifecycleActions) {
+  const proposal = { ...fixtureProposal, id: 'proposal-' + action, action,
+    payload: { taskId: 'task-synthetic', expectedRevision: 7, claimId: 'claim-synthetic', deliveryVersion: 2, reason: 'FULL REWORK OR EXIT TAIL ' + attack }, target: taskTarget };
+  harness.state.proposals = [proposal]; harness.state.reviewed = {}; harness.state.credential = { role: 'human', expiresAt: null };
+  harness.renderApprovals();
+  const rendered = node('main').innerHTML;
+  check('mobile lifecycle proposal retains complete versioned evidence: ' + action, rendered.includes('FULL ACCEPTANCE CRITERIA TAIL')
+    && rendered.includes('2030-11-09T09:00:00.000Z') && rendered.includes('claim-synthetic') && rendered.includes('expectedRevision')
+    && rendered.includes('deliveryVersion') && rendered.includes('FIRST DELIVERY TAIL') && rendered.includes('SECOND DELIVERY TAIL')
+    && rendered.includes('FULL ARTIFACT LABEL TAIL') && rendered.includes('https://artifacts.example.test/complete-delivery.txt')
+    && rendered.includes('FULL CANCELLATION TAIL') && rendered.includes('FULL REWORK OR EXIT TAIL'));
+  check('mobile lifecycle approval keeps human review disabled until its digest is checked: ' + action,
+    rendered.includes('data-approve="' + proposal.id + '" disabled') && rendered.includes('class="raw-evidence"'));
+  check('mobile lifecycle evidence stays inert text without attachment loading: ' + action,
+    !rendered.includes('<img') && !rendered.includes('<iframe') && !rendered.includes('<a ') && rendered.includes('&lt;img'));
+}
+check('mobile displaying task versions and artifacts performs no network request', approvalFetches === 0);
+check('mobile task approval explains the first cancellation request without promising immediate cancellation',
+  node('main').innerHTML.includes('首次批准只提交取消请求，任务仍继续') && node('main').innerHTML.includes('另一方主人独立批准后才取消'));
+const taskEvidence = harness.readableEvidence({ ...taskTarget, history: [{ status: 'changes_requested', endedAt: '2026-11-08T09:00:00.000Z',
+  reason: 'FULL ARCHIVE REWORK TAIL ' + attack }], events: [{ action: 'task_withdraw', actorId: 'former-synthetic', reason: 'FULL EVENT TAIL' }] });
+check('mobile unknown or archived task evidence is preserved with readable status and escaped text', taskEvidence.includes('FULL ARCHIVE REWORK TAIL')
+  && taskEvidence.includes('FULL EVENT TAIL') && taskEvidence.includes('需要返工') && taskEvidence.includes('changes_requested')
+  && !taskEvidence.includes('<img') && taskEvidence.includes('&lt;img'));
+
+const approveTask = new MobileTestNode();
+approveTask.setAttribute('data-approve', 'proposal-task_cancel');
+node('main').queryResults['[data-approve]'] = [approveTask];
+node('main').queryResults['[data-approve], [data-reject]'] = [approveTask];
+harness.state.reviewed['proposal-task_cancel'] = 'wrong-digest'; harness.renderApprovals();
+approveTask.onclick?.();
+check('mobile task approval handler cannot submit an unchecked digest', approvalFetches === 0);
+harness.state.reviewed['proposal-task_cancel'] = fixtureProposal.digest;
+harness.state.credential = { role: 'agent', expiresAt: null }; approveTask.onclick?.();
+check('mobile task approval handler rejects a stale button after agent role change', approvalFetches === 0);
+harness.state.credential = { role: 'human', expiresAt: null };
+let decisionBody: unknown;
+context['fetch'] = async (url: string, init: { body?: string }) => {
+  if (url.endsWith('/proposals/approve')) { approvalFetches += 1; decisionBody = JSON.parse(init.body || '{}') as unknown; }
+  return { ok: false, status: 409, json: async () => ({ error: 'Synthetic decision response' }) };
+};
+approveTask.onclick?.(); approveTask.onclick?.();
+check('mobile task approval submits only the immutable id and digest once', approvalFetches === 1
+  && JSON.stringify(decisionBody) === JSON.stringify({ id: 'proposal-task_cancel', digest: fixtureProposal.digest }));
+await new Promise<void>(resolve => setImmediate(resolve));
+node('main').queryResults['[data-approve]'] = [];
+node('main').queryResults['[data-approve], [data-reject]'] = [];
+harness.state.deciding = false;
+
+const availableTask: MobileTestTask = { id: 'open-foreign', title: '合成可认领任务', status: 'open', ownerId: 'publisher-synthetic',
+  viewer: { publisher: false, claimer: false, participant: false, canClaim: true } };
+harness.state.tab = 'tasks'; harness.state.me = 'claimer-synthetic'; harness.state.tasks = [availableTask,
+  { ...availableTask, id: 'own-task', ownerId: 'claimer-synthetic', viewer: { publisher: true, claimer: false, participant: true, canClaim: false } },
+  { ...availableTask, id: 'completed-task', status: 'completed' }, { ...availableTask, id: 'demo-task', demo: true },
+  { id: 'legacy-foreign', title: '旧合成任务', ownerId: 'publisher-synthetic', match: 1, risk: true },
+  { id: 'legacy-self', title: '自己的旧任务', ownerId: 'claimer-synthetic' }];
+harness.render();
+let taskMarkup = node('main').innerHTML;
+check('mobile task list uses real status without a missing match score', taskMarkup.includes('开放认领') && taskMarkup.includes('已完成')
+  && !taskMarkup.includes('undefined%') && !taskMarkup.includes('匹配') && !taskMarkup.includes('仍要接'));
+check('mobile task claiming follows server viewer capability and real lifecycle state', taskMarkup.includes('data-claim="open-foreign"')
+  && !taskMarkup.includes('data-claim="own-task"') && !taskMarkup.includes('data-claim="completed-task"') && !taskMarkup.includes('data-claim="demo-task"'));
+check('mobile legacy claim fallback excludes self without invented match or risk restrictions', taskMarkup.includes('data-claim="legacy-foreign"')
+  && !taskMarkup.includes('data-claim="legacy-self"'));
+harness.state.credential = { role: 'agent', expiresAt: null }; harness.render();
+check('mobile task list remains readonly for an agent session', !node('main').innerHTML.includes('data-claim='));
+const claimButton = new MobileTestNode(); claimButton.setAttribute('data-claim', availableTask.id);
+node('main').queryResults['[data-claim]'] = [claimButton];
+harness.state.credential = { role: 'human', expiresAt: null }; harness.render();
+let taskClaims = 0;
+context['fetch'] = async (url: string) => {
+  if (url.endsWith('/claim')) taskClaims += 1;
+  return { ok: true, status: 200, json: async () => url.endsWith('/whoami') ? { credential: { role: 'human', expiresAt: null } }
+    : url.includes('/feed?') ? { posts: [], tasks: harness.state.tasks, comments: {}, me: 'claimer-synthetic' } : { items: [] } };
+};
+harness.state.credential = { role: 'agent', expiresAt: null }; claimButton.onclick?.();
+check('mobile stale task claim button cannot act after session downgrade', taskClaims === 0);
+harness.state.credential = { role: 'human', expiresAt: null };
+claimButton.onclick?.(); claimButton.onclick?.();
+check('mobile human task claim ignores repeated clicks while submitting', taskClaims === 1);
+await new Promise<void>(resolve => setImmediate(resolve));
+check('mobile successful direct human claim reports the actual completed operation', node('toast').textContent === '已认领任务');
+node('main').queryResults['[data-claim]'] = [];
+harness.state.tab = 'feed';
 
 interface ReactionTestResponse { ok: boolean; status: number; json(): Promise<Record<string, unknown>> }
 const reactionResponse = (ok: boolean, data: Record<string, unknown>, status = 200): ReactionTestResponse => ({ ok, status, json: async () => data });

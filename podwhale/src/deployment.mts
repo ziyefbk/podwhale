@@ -15,7 +15,7 @@ import { readLocalConfig } from './private-config.mjs';
 
 const PACKAGE_SOURCES = [
   'server/community.mjs', 'server/auth.mjs',
-  'server/db.mjs', 'server/enroll.mjs', 'server/http-guard.mjs', 'server/types.mjs', 'server/social-policy.mjs',
+  'server/db.mjs', 'server/enroll.mjs', 'server/http-guard.mjs', 'server/types.mjs', 'server/social-policy.mjs', 'server/task-policy.mjs',
   'server/mobile.mjs', 'server/page.mjs', 'server/media.mjs', 'redact.js',
   'server/static/icon-192.png', 'server/static/icon-512.png',
 ];

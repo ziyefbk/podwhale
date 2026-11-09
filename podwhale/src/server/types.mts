@@ -17,17 +17,28 @@ export interface Post {
   emoji?: string; source?: string; appearance?: Appearance; redacted?: number; g?: string[]; h?: number;
 }
 export interface Reply { id: string; ownerId?: string; ai?: string; text?: string; createdAt?: string; redacted?: number }
-export interface Claim { ownerId: string; taskId?: string; ai?: string; note?: string; redacted?: number; createdAt?: string; deliveredAt?: string; delivery?: string; confirmedAt?: string }
+export interface TaskArtifact { label: string; url: string }
+export interface TaskDelivery { version: number; text: string; createdAt: string; artifacts: TaskArtifact[] }
+export interface Claim {
+  ownerId: string; taskId?: string; ai?: string; note?: string; redacted?: number; createdAt?: string; deliveredAt?: string; delivery?: string; confirmedAt?: string;
+  claimId?: string; revision?: number; deliveryVersion?: number; startedAt?: string | null; reservedUntil?: string | null; deliveries?: TaskDelivery[];
+}
+export interface TaskClaimHistory extends Claim { claimId: string; status: 'withdrawn' | 'cancelled' | 'expired'; endedAt: string; reason: string }
+export interface TaskEvent { id: string; action: string; actorId: string; revision: number; createdAt: string; claimId?: string; claimOwnerId?: string; reason?: string }
+export interface TaskCancellation { requestedBy: string; reason: string; createdAt: string; claimId: string }
 export interface Task {
   id: string; title: string; ownerId?: string; from?: string; fromName?: string; ownerLine?: string;
   appearance?: Appearance; when?: string; desc?: string; budget?: string; period?: string;
   tags?: string[]; match?: number; why?: string; risk?: boolean; source?: string; createdAt?: string;
+  acceptanceCriteria?: string; deadlineAt?: string | null; revision?: number; status?: TaskStatus;
+  history?: TaskClaimHistory[]; events?: TaskEvent[]; cancellation?: TaskCancellation | null;
 }
 export type TaskStatus = 'open' | 'claimed' | 'in_progress' | 'delivered' | 'changes_requested' | 'completed' | 'cancelled' | 'expired';
 export interface TaskView extends Task {
   status: TaskStatus; acceptanceCriteria: string; deadlineAt: string | null; revision: number;
   demo: boolean; claimed: boolean; overdue: boolean;
   viewer: { publisher: boolean; claimer: boolean; participant: boolean; canClaim: boolean };
+  cancellation: TaskCancellation | null;
 }
 /** A public task state must not require (or accidentally expose) a stored owner or delivery. */
 export type TaskClaimView = { taskId: string; status: TaskStatus } & Partial<Claim>;
@@ -77,10 +88,34 @@ function isPost(value: unknown): value is Post {
     && optional(value, 'redacted', number) && optional(value, 'h', number);
 }
 function isReply(value: unknown): value is Reply { return isRecord(value) && fields(value, ['id'], ['ownerId', 'ai', 'text', 'createdAt']) && optional(value, 'redacted', number); }
-function isClaim(value: unknown): value is Claim { return isRecord(value) && fields(value, ['ownerId'], ['taskId', 'ai', 'note', 'createdAt', 'deliveredAt', 'delivery', 'confirmedAt']) && optional(value, 'redacted', number); }
+const revision = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+const timestamp = (value: unknown): value is string => string(value) && Number.isFinite(Date.parse(value));
+function isArtifact(value: unknown): value is TaskArtifact { return isRecord(value) && fields(value, ['label', 'url']); }
+function isDelivery(value: unknown): value is TaskDelivery {
+  return isRecord(value) && revision(value.version) && value.version > 0 && fields(value, ['text', 'createdAt'])
+    && Array.isArray(value.artifacts) && value.artifacts.every(isArtifact);
+}
+function isClaim(value: unknown): value is Claim {
+  return isRecord(value) && fields(value, ['ownerId'], ['taskId', 'ai', 'note', 'createdAt', 'deliveredAt', 'delivery', 'confirmedAt', 'claimId'])
+    && optional(value, 'redacted', number) && ['revision', 'deliveryVersion'].every(key => optional(value, key, revision))
+    && ['startedAt', 'reservedUntil'].every(key => optional(value, key, input => input === null || timestamp(input)))
+    && optional(value, 'deliveries', input => Array.isArray(input) && input.every(isDelivery));
+}
+function isTaskHistory(value: unknown): value is TaskClaimHistory {
+  return isClaim(value) && isRecord(value) && fields(value, ['claimId', 'endedAt', 'reason']) && ['withdrawn', 'cancelled', 'expired'].includes(String(value.status));
+}
+function isTaskEvent(value: unknown): value is TaskEvent {
+  return isRecord(value) && fields(value, ['id', 'action', 'actorId', 'createdAt'], ['claimId', 'claimOwnerId', 'reason']) && revision(value.revision);
+}
+function isCancellation(value: unknown): value is TaskCancellation { return isRecord(value) && fields(value, ['requestedBy', 'reason', 'createdAt', 'claimId']); }
 function isTask(value: unknown): value is Task {
   return isRecord(value) && fields(value, ['id', 'title'], ['ownerId', 'from', 'fromName', 'ownerLine', 'when', 'desc', 'budget', 'period', 'why', 'source', 'createdAt'])
-    && optional(value, 'appearance', isAppearance) && optional(value, 'tags', strings) && optional(value, 'match', number) && optional(value, 'risk', boolean);
+    && optional(value, 'appearance', isAppearance) && optional(value, 'tags', strings) && optional(value, 'match', number) && optional(value, 'risk', boolean)
+    && optional(value, 'acceptanceCriteria', string) && optional(value, 'deadlineAt', input => input === null || timestamp(input))
+    && optional(value, 'revision', revision) && optional(value, 'status', input => ['open', 'claimed', 'in_progress', 'delivered', 'changes_requested', 'completed', 'cancelled', 'expired'].includes(String(input)))
+    && optional(value, 'history', input => Array.isArray(input) && input.every(isTaskHistory))
+    && optional(value, 'events', input => Array.isArray(input) && input.every(isTaskEvent))
+    && optional(value, 'cancellation', input => input === null || isCancellation(input));
 }
 function isNotification(value: unknown): value is Notification { return isRecord(value) && fields(value, ['id', 'kind'], ['fromName', 'text', 'createdAt', 'to', 'postTitle', 'fromId']) && ['postId', 'taskId', 'refId', 'readAt'].every((key) => optional(value, key, nullableString)); }
 function isAsk(value: unknown): value is Ask { return isRecord(value) && fields(value, ['id', 'ownerId', 'text', 'createdAt']) && ['answer', 'answerPostId', 'answeredAt'].every((key) => optional(value, key, nullableString)) && optional(value, 'redacted', number); }

@@ -38,17 +38,24 @@ interface ClientWirePost {
   appearance?: ClientLook | null; source?: string;
 }
 type ClientTaskStatus = 'open' | 'claimed' | 'in_progress' | 'delivered' | 'changes_requested' | 'completed' | 'cancelled' | 'expired';
-type ClientTaskAction = 'task' | 'claim' | 'deliver' | 'confirm';
+type ClientTaskAction = 'task' | 'claim' | 'deliver' | 'confirm' | 'task_start' | 'task_rework' | 'task_withdraw' | 'task_cancel';
 interface ClientTask {
   id: string; title: string; from?: string; ownerLine?: string; when?: string; budget?: string; period?: string;
   match?: number; desc?: string; tags?: string[]; why?: string; risk?: boolean; claimed?: boolean;
   appearance?: ClientLook | null; fromName?: string; ownerId?: string; createdAt?: string;
   status?: ClientTaskStatus; acceptanceCriteria?: string; deadlineAt?: string | null; revision?: number; demo?: boolean; overdue?: boolean;
+  cancellation?: { requestedBy: string; reason: string; createdAt: string; claimId: string } | null;
   viewer?: { publisher: boolean; claimer: boolean; participant: boolean; canClaim: boolean };
 }
 interface ClientClaim { taskId?: string; status?: ClientTaskStatus; ownerId?: string; ai?: string; note?: string;
-  createdAt?: string; delivery?: string; deliveredAt?: string; confirmedAt?: string }
-interface ClientTaskDetail { ok: true; task: ClientTask; claim: ClientClaim | null; history: unknown[]; events: unknown[] }
+  createdAt?: string; delivery?: string; deliveredAt?: string; confirmedAt?: string; claimId?: string; revision?: number;
+  deliveryVersion?: number; startedAt?: string | null; reservedUntil?: string | null; deliveries?: ClientTaskDelivery[] }
+interface ClientTaskArtifact { label: string; url: string }
+interface ClientTaskDelivery { version: number; text: string; createdAt: string; artifacts: ClientTaskArtifact[] }
+interface ClientTaskHistory extends Omit<ClientClaim, 'status'> { status: 'withdrawn' | 'cancelled' | 'expired'; endedAt: string; reason: string }
+interface ClientTaskEvent { id: string; action: string; actorId: string; claimId?: string; claimOwnerId?: string; revision: number; createdAt: string; reason?: string }
+interface ClientTaskBasis { expectedRevision: number; claimId: string | null; deliveryVersion: number }
+interface ClientTaskDetail { ok: true; task: ClientTask; claim: ClientClaim | null; history: ClientTaskHistory[]; events: ClientTaskEvent[] }
 interface ClientTaskReceipt { id: string; action: ClientTaskAction; taskId: string | null; status: string }
 interface ClientJoin { joined: boolean; url?: string; owner?: string | null; ownerId?: string | null; appearance?: ClientLook | null }
 interface ClientCommunityConnectionView {
@@ -136,7 +143,7 @@ interface ClientSocialDraft {
 }
 interface ClientSocialPolicyDraft { postApproval: boolean; replyApproval: boolean; postLimit: string; replyLimit: string; duration: string }
 interface ClientPetNote { id: string; text: string }
-interface ClientTaskDraft { title: string; desc: string; budget: string; period: string }
+interface ClientTaskDraft { title: string; desc: string; budget: string; period: string; acceptanceCriteria: string; deadlineAt: string; tags: string }
 interface ClientIconProps { size?: number | undefined }
 interface ClientCreatureProps extends ClientIconProps { look?: ClientLook | null | undefined }
 interface ClientAvatarProps extends ClientCreatureProps { ai?: string | undefined; className?: string | undefined }
