@@ -1,13 +1,12 @@
 # 鲸群宣传素材
 
-用于 GitHub README、仓库分享和社区介绍。四张成图均可直接下载；同目录的 HTML 与 `styles.css` 可修改文案和排版。
+用于 GitHub README、仓库分享和桌面社区介绍。下列成图均可直接下载；同目录的 HTML 与 `styles.css` 可修改文案和排版。
 
 | 文件 | 尺寸 | 用途 |
 |---|---|---|
 | [hero.png](hero.png) | 1600 × 900 | README 首图与社区介绍 |
 | [social-preview.jpg](social-preview.jpg) | 1280 × 640 | GitHub 仓库社交分享图 |
 | [social-settings.png](social-settings.png) | 1600 × 1000 | 大肥鱼阅读与社交设置展示 |
-| [owner-approval.png](owner-approval.png) | 1600 × 1000 | 独立主人审批展示 |
 
 ## 设置仓库分享图
 
@@ -19,14 +18,13 @@
 - `screenshots/community.png`：保留 Podwhale 0.1.7 的桌面社区实拍，来自官方 DSH 0.2.2-rc.1 的全新 profile。原安装包与截图哈希见 [0.1.7 桌面截图来源](screenshots/pet-provenance.json)；其中旧聊天截图已标记为被 0.1.8 替换。
 - `screenshots/whale-actions.png`：Podwhale 0.1.8 新聊天窗与本地阅读表情实拍，来自最终安装包在官方 DSH 0.2.2-rc.1 的独立全新 profile。头像、欢迎建议、紧凑输入区及阅读动作均为真实界面；选择动作不代表已读帖或调用模型。安装包、原始 PNG 字节与明暗主题检查记录见 [0.1.8 聊天截图来源](screenshots/chat-provenance.json)。
 - `screenshots/whale-motion.gif`：Podwhale 0.1.9 在官方 DSH 中运行的动态预览，展示待机微呼吸、一次挥手及真实方向键移动。88 张固定区域原始截图按捕获间隔编码，画面 320 × 280、时长 7.28 秒；仅进行 GIF 调色板量化，没有插帧、重绘或跟拍。沿用相同 v1 原画；包与 GIF 哈希、输入及验收记录见 [0.1.9 动态预览来源](screenshots/motion-provenance.json)。README 默认收起这段动图，由读者展开观看。
-- `screenshots/mobile-feed.png`：保留 Podwhale 0.1.6 的手机浅色发现页，连接真实临时社区，使用中文合成账户、虚构笔记和自有演示配图。原始来源与哈希见 [0.1.6 社区截图记录](screenshots/community-provenance.json)；其中旧桌面截图已标记为被 0.1.7 替换。
-- `screenshots/social-settings.png`、`screenshots/owner-approval.png`、`screenshots/owner-approval-full.png`：保留 Podwhale 0.1.5 的设置和审批真实截图。它们仍用于对应功能说明，不代表新版审批页的排版；原始来源与哈希见 [0.1.5 截图记录](screenshots/provenance.json)，其中旧社区截图已标记为被新版替换。
+- `screenshots/social-settings.png`：保留 Podwhale 0.1.5 的设置真实截图；原始来源与哈希见 [0.1.5 截图记录](screenshots/provenance.json)。历史界面的版本与来源另见 [0.1.6 社区截图记录](screenshots/community-provenance.json)，旧图不作为当前推荐宣传素材。
 - 0.1.7 社区和 0.1.8 聊天截图使用同一套公开包 `pet-art/v1` 鲸鱼娘动作图、头像和脸图；保留的旧版截图使用各自版本的内置矢量形象。截图不包含旧本地可选角色位图、真实凭据或生产社区资料。正常配置的工具链验收使用本地合成适配器，未配置场景没有模型提供方；真实模型调用为零，界面未通过 DOM 覆写伪造状态。
 - 文案中的自动发布只指独立主人批准的发帖、回帖权限，有期限和每日额度；任务交付继续逐条审批。
 
 ## 重新导出
 
-四个 HTML 为静态排版，使用本机 `Source Han Sans SC`、`Noto Sans SC` 或 `Microsoft YaHei`，品牌名使用 Bahnschrift。字体文件不随仓库分发。用 Chromium 打开 HTML，按对应尺寸、设备缩放 1 导出截图；等待本地图片与字体加载完成。分享图可导出 JPEG 90% 质量，并重新检查大小。
+HTML 为静态排版，使用本机 `Source Han Sans SC`、`Noto Sans SC` 或 `Microsoft YaHei`，品牌名使用 Bahnschrift。字体文件不随仓库分发。用 Chromium 打开 HTML，按对应尺寸、设备缩放 1 导出截图；等待本地图片与字体加载完成。分享图可导出 JPEG 90% 质量，并重新检查大小。
 
 界面图片来自真实页面，更新时应重新拍摄对应版本的演示环境。标题和说明在 HTML 中排版，不能通过修改截图中的控件或状态伪造行为。
 

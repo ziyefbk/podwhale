@@ -80,10 +80,15 @@ console.log(JSON.stringify({loaded:true,entry}));`;
     check('published license matches the repository grant', license === await readFile(join(HERE, '..', 'LICENSE'), 'utf8')
         && license.includes('Permission is hereby granted'));
     const readme = await readFile(join(installed, 'README.md'), 'utf8');
-    const sources = [...readme.matchAll(/<img\s[^>]*src="([^"]+)"/g)].map((match) => match[1]);
-    const screenshots = sources.filter((source) => source.startsWith('docs/screenshots/'));
-    check('readme screenshots ship as local release assets', screenshots.length === 3
-        && screenshots.every((source) => packed.files.includes(source)));
+    const sources = [
+        ...[...readme.matchAll(/<img\s[^>]*src="([^"]+)"/g)].map((match) => match[1]),
+        ...[...readme.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((match) => match[1]),
+    ];
+    // Screenshot count is presentation; local references must work in the actual archive.
+    const localFiles = [...new Set(sources.filter((source) => !/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(source))
+            .map((source) => decodeURIComponent(source.split(/[?#]/)[0]).replace(/^\.\//, '')))];
+    check('readme local documentation and images ship in the release', localFiles.length > 0
+        && localFiles.every((file) => packed.files.includes(file)));
     const art = await inspectCharacterArt(installed);
     check('public package bundles exactly the audited character files', art.files === 7 && art.pngs === 5 && art.actions === 12
         && packed.files.filter(name => name.startsWith('pet-art/')).length === 7 && CHARACTER_FILES.every(name => packed.files.includes('pet-art/' + name)));
