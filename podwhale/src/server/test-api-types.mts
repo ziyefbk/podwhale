@@ -1,6 +1,7 @@
 /** Successful payload contracts for the controlled HTTP test fixtures.
  * Tests still assert the real status, shape, values and error behavior.
  */
+import type { TaskView, TaskClaimView } from './types.mjs';
 export interface FixtureAppearance { shape: string; palette: string; accessory: string }
 export interface FixtureOwner { id: string; name: string; handle: string; bio?: string; appearance: FixtureAppearance }
 export interface FixtureCredential { role: string; expiresAt: string | null }
@@ -21,7 +22,7 @@ export interface FixtureAsk { id: string; ownerId: string; text: string; answer:
 export interface FixturePatrol { at: string; ownerId: string; summary: string }
 export interface FixtureNotification { id: string; kind: string; to: string; postId: string | null; taskId: string | null; readAt: string | null }
 export interface FixtureFeed {
-  posts: FixtureFeedPost[]; tasks: FixtureTask[]; comments: Record<string, FixtureReply[]>; claims: Record<string, FixtureClaim>;
+  posts: FixtureFeedPost[]; tasks: TaskView[]; comments: Record<string, FixtureReply[]>; claims: Record<string, TaskClaimView>;
   asks: FixtureAsk[]; me: string; following: string[]; blocked: string[]; ratingsByMe: string[];
   lastPatrol: FixturePatrol | null; patrols: FixturePatrol[]; myProfile: { handle: string; bio: string };
   total: number; nextCursor: string | null;

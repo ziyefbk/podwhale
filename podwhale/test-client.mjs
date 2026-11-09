@@ -276,6 +276,7 @@ let socialFetch = null;
 let replyFetch = null;
 let feedFetch = null;
 let connectionFetch = null;
+let taskFetch = null;
 function testResponse(value, status = 200) {
     return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(value), text: () => Promise.resolve(JSON.stringify(value)) };
 }
@@ -301,6 +302,8 @@ function fakeFetch(url, options) {
         return feedFetch(url, options || {});
     if (connectionFetch && path === '/api/community-connection')
         return connectionFetch(url, options || {});
+    if (taskFetch && ['/api/task', '/api/proposals', '/api/claim', '/api/deliver', '/api/confirm'].includes(path))
+        return taskFetch(url, options || {});
     if (process.env.XLB_DEBUG)
         console.log('  fetch:', String(url), '→', path, routes[path] === undefined ? '(no route)' : 'asks=' + (typeof routes[path] === 'object' && routes[path] !== null && 'asks' in routes[path] && Array.isArray(routes[path].asks) ? routes[path].asks.length : 'none'));
     const payload = routes[path] !== undefined ? routes[path] : {};
@@ -424,14 +427,15 @@ function renderNode(element, path = 'root') {
     push(props.children);
     const node = { type: type, props: props, children: children.map((child, index) => renderNode(child, path + '.' + index)).filter((child) => child !== null) };
     const identity = typeof props['data-open-post'] === 'string' ? 'post:' + props['data-open-post']
-        : typeof props['data-chat-action'] === 'string' ? 'chat:' + props['data-chat-action']
-            : typeof props['data-pet-choice'] === 'string' ? 'pet-choice:' + props['data-pet-choice']
-                : typeof props['data-motion-choice'] === 'string' ? 'motion-choice:' + props['data-motion-choice']
-                    : typeof props['data-connection-action'] === 'string' ? 'connection-action:' + props['data-connection-action']
-                        : typeof props['data-connection-field'] === 'string' ? 'connection-field:' + props['data-connection-field']
-                            : typeof props['data-connection-mode'] === 'string' ? 'connection-mode:' + props['data-connection-mode']
-                                : typeof props['data-chat-prompt'] === 'string' ? 'chat-prompt:' + props['data-chat-prompt']
-                                    : typeof props.id === 'string' ? 'id:' + props.id : type + ':' + path;
+        : typeof props['data-open-task'] === 'string' ? 'task:' + props['data-open-task']
+            : typeof props['data-chat-action'] === 'string' ? 'chat:' + props['data-chat-action']
+                : typeof props['data-pet-choice'] === 'string' ? 'pet-choice:' + props['data-pet-choice']
+                    : typeof props['data-motion-choice'] === 'string' ? 'motion-choice:' + props['data-motion-choice']
+                        : typeof props['data-connection-action'] === 'string' ? 'connection-action:' + props['data-connection-action']
+                            : typeof props['data-connection-field'] === 'string' ? 'connection-field:' + props['data-connection-field']
+                                : typeof props['data-connection-mode'] === 'string' ? 'connection-mode:' + props['data-connection-mode']
+                                    : typeof props['data-chat-prompt'] === 'string' ? 'chat-prompt:' + props['data-chat-prompt']
+                                        : typeof props.id === 'string' ? 'id:' + props.id : type + ':' + path;
     let target = stableDom.get(identity);
     if (!target) {
         target = new TestDomTarget(node);
@@ -3038,6 +3042,182 @@ finally {
     feedFetch = null;
     routes['/api/join'] = originalJoinRoute;
     Date.now = actualNow;
+}
+// Task requests exercise the actual Page and modal, including legacy HTTP
+// statuses. An accepted proposal never mutates the fixture's domain state.
+const priorTaskItems = feed.tasks, priorTaskClaims = feed.claims;
+try {
+    const baseTask = { ...priorTaskItems[0], ownerId: 'publisher-other', fromName: '真实任务发布者', match: 30, why: 'not a recommendation',
+        viewer: { publisher: false, claimer: false, participant: false, canClaim: true }, status: 'open' };
+    const publisher = { ...baseTask, id: 'p0-publisher', title: '发布者验收任务', ownerId: 'o1', status: 'delivered',
+        viewer: { publisher: true, claimer: false, participant: true, canClaim: false } };
+    const delivery = { ...baseTask, id: 'p0-delivery', title: '我领取的任务', status: 'claimed',
+        viewer: { publisher: false, claimer: true, participant: true, canClaim: false } };
+    const secondDelivery = { ...delivery, id: 'p0-second-delivery', title: '另一单交付草稿' };
+    const observer = { ...baseTask, id: 'p0-observer', title: '非参与者任务', status: 'delivered',
+        viewer: { publisher: false, claimer: false, participant: false, canClaim: false } };
+    const openTasks = [200, 201, 202].map(status => ({ ...baseTask, id: 'p0-open-' + status, title: '低旧匹配值的任务 ' + status }));
+    const lateTask = { ...baseTask, id: 'p0-late', title: '迟到详情任务' };
+    feed.tasks = [publisher, delivery, secondDelivery, observer, ...openTasks, lateTask];
+    feed.claims = {
+        [publisher.id]: { taskId: publisher.id, ownerId: 'claimer-other', ai: '另一位接单者', delivery: '已交付的可核对正文\n<script>plain task text</script>', deliveredAt: now() },
+        [delivery.id]: { taskId: delivery.id, ownerId: 'o1', ai: '当前接单者', createdAt: now() },
+        [secondDelivery.id]: { taskId: secondDelivery.id, ownerId: 'o1', createdAt: now() },
+        [observer.id]: { taskId: observer.id, status: 'delivered' },
+    };
+    let responseStatus = 200, malformedWrite = false, holdWrite = false, holdRead = false;
+    let writeSequence = 0;
+    const held = {};
+    const detailFor = (id) => ({ ok: true, task: feed.tasks.find(task => task.id === id),
+        claim: id === observer.id ? { taskId: id, status: 'delivered', delivery: 'private-delivery-must-not-render' } : feed.claims[id] || null,
+        history: [], events: [] });
+    const receiptFor = (action) => ({ ok: true, status: 'pending', executed: false, action, proposalId: 'proposal-task-fixture-' + (++writeSequence) });
+    taskFetch = async (url, options) => {
+        const target = new URL(url, 'https://local.invalid'), path = target.pathname.replace('/xiaolanshu', '');
+        if ((options.method || 'GET') === 'GET') {
+            if (path === '/api/proposals')
+                return testResponse({ ok: true, items: [] });
+            const id = target.searchParams.get('taskId') || '';
+            if (holdRead) {
+                if (options.signal)
+                    held.signal = options.signal;
+                return new Promise(resolve => { held.read = resolve; });
+            }
+            return testResponse(detailFor(id));
+        }
+        if (holdWrite)
+            return new Promise(resolve => { held.write = resolve; });
+        const action = path.slice('/api/'.length);
+        return testResponse(malformedWrite ? { ...receiptFor(action), executed: true } : receiptFor(action), responseStatus);
+    };
+    unmountTestTree();
+    petTree = await mountMain();
+    const taskNode = (name) => findNodes(petTree, node => node.props['data-task-action'] === name)[0];
+    const taskField = (name) => findNodes(petTree, node => node.props['data-task-field'] === name)[0];
+    const taskDetails = () => findNodes(petTree, node => typeof node.props['data-task-detail'] === 'string')[0];
+    const taskPosts = () => callLog.filter(call => ['/api/task', '/api/claim', '/api/deliver', '/api/confirm'].includes(call.path) && call.method === 'POST');
+    const clickTask = async (name) => { const node = taskNode(name); if (!node)
+        throw new Error('missing task control ' + name); clickNode(petTree, node); await renderPet(); };
+    const openTask = async (id) => {
+        const node = findNodes(petTree, entry => entry.props['data-open-task'] === id)[0];
+        if (!node)
+            throw new Error('missing task ' + id);
+        clickNode(petTree, node);
+        await renderPet();
+    };
+    const tab = findNodes(petTree, node => node.type === 'button' && node.props.className === 'xls-tab' && textOf(node) === '任务广场')[0];
+    clickNode(petTree, tab);
+    await renderPet();
+    const suiteStart = callLog.length;
+    check('real tasks never display legacy match percentages or invented agent negotiations', findNodes(petTree, node => node.props.className === 'xls-matchrow' || node.props.className === 'xls-why').length === 0
+        && !textOf(petTree).includes('双方 AI 对齐细节'));
+    const actualTasks = feed.tasks;
+    feed.tasks = [];
+    await renderPet();
+    check('an online empty task list is a real empty state and never falls back to sample jobs', findNodes(petTree, node => node.props['data-task-empty'] === 'empty').length === 1
+        && findNodes(petTree, node => typeof node.props['data-task-id'] === 'string').length === 0
+        && !textOf(petTree).includes('复现一组 vLLM 多卡 P95 数据'));
+    feed.tasks = actualTasks;
+    await renderPet();
+    await openTask(publisher.id);
+    check('opening task details reads the exact task and displays its real delivery as escaped text', callLog.some(call => call.path === '/api/task' && call.url.endsWith('taskId=' + publisher.id))
+        && textOf(taskDetails()).includes('已交付的可核对正文')
+        && findNodes(taskDetails(), node => node.type === 'script' || node.type === 'img').length === 0);
+    check('the publisher can request confirmation when another owner delivered', !!taskNode('confirm') && !taskNode('confirm').props.disabled
+        && !taskNode('deliver') && !taskNode('claim'));
+    const ownerLink = findNodes(taskDetails(), node => node.props['data-task-owner-entry'] === true)[0];
+    check('owner approval is a separate fixed link with no credential or embedded approval handler', ownerLink?.props.href === joinInfo.url + '/m'
+        && ownerLink.props.rel === 'noopener noreferrer' && !ownerLink.props.onClick);
+    const beforeConfirm = taskPosts().length;
+    holdWrite = true;
+    clickNode(petTree, taskNode('confirm'));
+    clickNode(petTree, taskNode('confirm'));
+    await renderPet();
+    check('two confirmation clicks before a rerender submit only one request', taskPosts().length === beforeConfirm + 1 && taskNode('confirm')?.props.disabled === true);
+    holdWrite = false;
+    held.write?.(testResponse(receiptFor('confirm'), 200));
+    await renderPet();
+    check('a legacy HTTP200 pending confirmation stays pending rather than completing the task', findNodes(petTree, node => node.props['data-task-pending'] === 'confirm').length === 1
+        && findNodes(petTree, node => node.props['data-task-id'] === publisher.id)[0]?.props['data-task-status'] === 'delivered');
+    await clickTask('close');
+    await openTask(observer.id);
+    check('nonparticipants get no private delivery or task mutation controls', !textOf(taskDetails()).includes('private-delivery-must-not-render')
+        && !taskNode('confirm') && !taskNode('deliver') && !taskNode('claim'));
+    await clickTask('close');
+    await openTask(delivery.id);
+    taskField('delivery').props.onChange({ target: { value: '交付草稿不会因失败或待审丢失' } });
+    await renderPet();
+    responseStatus = 500;
+    await clickTask('deliver');
+    check('a rejected delivery preserves the draft and shows a retryable inline error', taskField('delivery')?.props.value === '交付草稿不会因失败或待审丢失'
+        && findNodes(taskDetails(), node => node.props.role === 'alert').length === 1 && !taskNode('deliver')?.props.disabled);
+    responseStatus = 201;
+    await clickTask('deliver');
+    check('a legacy HTTP201 pending delivery keeps its text and blocks accidental resubmission', taskField('delivery')?.props.value === '交付草稿不会因失败或待审丢失' && taskNode('deliver')?.props.disabled === true
+        && findNodes(petTree, node => node.props['data-task-pending'] === 'deliver').length === 1);
+    await clickTask('close');
+    await openTask(secondDelivery.id);
+    check('delivery drafts are isolated by task identity', taskField('delivery')?.props.value === '');
+    taskField('delivery').props.onChange({ target: { value: '另一单的独立草稿' } });
+    await renderPet();
+    await clickTask('close');
+    await openTask(delivery.id);
+    check('closing and reopening a task preserves its own pending draft and submission lock', taskField('delivery')?.props.value === '交付草稿不会因失败或待审丢失' && taskNode('deliver')?.props.disabled === true);
+    await clickTask('close');
+    for (const status of [200, 201, 202]) {
+        responseStatus = status;
+        await openTask('p0-open-' + status);
+        check('an old low match value never vetoes an otherwise permitted claim: ' + status, !!taskNode('claim') && !taskNode('claim').props.disabled);
+        await clickTask('claim');
+        check('a valid pending claim is recognized from its body at HTTP' + status, findNodes(petTree, node => node.props['data-task-pending'] === 'claim').length === 1 && taskNode('claim')?.props.disabled === true
+            && findNodes(petTree, node => node.props['data-task-id'] === 'p0-open-' + status)[0]?.props['data-task-status'] === 'open');
+        await clickTask('close');
+    }
+    await clickTask('new');
+    for (const [name, value] of [['title', '新任务真实草稿'], ['desc', '保留具体要求'], ['budget', '面议'], ['period', '两天']]) {
+        taskField(name).props.onChange({ target: { value: value } });
+        await renderPet();
+    }
+    malformedWrite = true;
+    responseStatus = 200;
+    await clickTask('publish');
+    check('a success status with an invalid execution receipt never clears a task draft', taskField('title')?.props.value === '新任务真实草稿'
+        && taskField('desc')?.props.value === '保留具体要求' && findNodes(petTree, node => node.props.role === 'alert').length > 0
+        && taskNode('publish')?.props.disabled === false);
+    malformedWrite = false;
+    responseStatus = 202;
+    await clickTask('publish');
+    check('publishing a task submits a pending proposal, preserves every field, and leaves the form open', taskField('title')?.props.value === '新任务真实草稿' && taskField('desc')?.props.value === '保留具体要求'
+        && taskField('budget')?.props.value === '面议' && taskField('period')?.props.value === '两天'
+        && taskNode('publish')?.props.disabled === true && findNodes(petTree, node => node.props['data-task-pending'] === 'task').length === 1);
+    await clickTask('cancel-draft');
+    holdRead = true;
+    await openTask(lateTask.id);
+    check('an unresolved task read has an explicit loading state with no stale action', findNodes(petTree, node => node.props['data-task-loading'] === true).length === 1 && !taskNode('claim') && !taskNode('confirm'));
+    await clickTask('close');
+    const beforeLate = taskPosts().length;
+    held.read?.(testResponse(detailFor(lateTask.id)));
+    await renderPet();
+    check('closing aborts a task read and ignores its late detail response', held.signal?.aborted === true && !taskDetails() && taskPosts().length === beforeLate);
+    holdRead = false;
+    await clickTask('new');
+    joinInfo.ownerId = 'different-owner';
+    await renderPet();
+    check('a changed community identity closes private task forms and clears old pending work', !taskField('title') && !taskDetails() && !findNodes(petTree, node => typeof node.props['data-task-pending'] === 'string').length);
+    await clickTask('new');
+    check('a different owner never inherits another account task or delivery drafts', taskField('title')?.props.value === '' && taskField('desc')?.props.value === '' && !taskNode('publish')?.props['data-task-pending']);
+    check('task browsing and proposals never call a model, a human approval route, or direct rating', !callLog.slice(suiteStart).some(call => call.path.includes('/approve') || call.path === '/api/rate'
+        || call.path === '/api/social/run' || call.path === '/api/companion/messages'));
+}
+catch (caught) {
+    check('task proposal and detail behavior completes without throwing', false, caught instanceof Error ? caught.stack : String(caught));
+}
+finally {
+    unmountTestTree();
+    taskFetch = null;
+    joinInfo.ownerId = 'o1';
+    feed.tasks = priorTaskItems;
+    feed.claims = priorTaskClaims;
 }
 console.log('');
 if (failures.length === 0) {

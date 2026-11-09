@@ -17,6 +17,7 @@ import { createSocialCommunity, socialFeedView } from './social-community.mjs';
 import { registerSocialRoutes } from './social-http.mjs';
 import { createCommunityConnection } from './community-connection.mjs';
 import { registerCommunityConnectionRoutes } from './community-connection-http.mjs';
+import { registerTaskRoutes } from './task-http.mjs';
 import { DEFAULT_COMMUNITY_URL } from './official-community.mjs';
 function record(value) { return value !== null && typeof value === 'object'; }
 function fields(value) {
@@ -147,7 +148,7 @@ async function remoteCall(path, body, signal) {
     if (body === undefined)
         return fields(await communityRequest(config, path, undefined, signal ? { signal } : {}));
     const action = path.slice(1);
-    if (!['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'patrol'].includes(action)) {
+    if (!['post', 'reply', 'claim', 'deliver', 'confirm', 'answer', 'patrol', 'task'].includes(action)) {
         throw Object.assign(new Error('此操作需要主人在独立审批入口执行，AI 插件不能代行'), { status: 403 });
     }
     const result = fields(await communityRequest(config, '/proposals', { action, payload: body }, signal ? { signal } : {}));
@@ -219,6 +220,18 @@ export function apply(ctx) {
     const companionRuntime = createCompanionRuntime();
     const companion = createCompanionService({ file: join(homeDir(), 'xiaolanshu', 'companion.json'), engine: companionRuntime });
     ctx.effect(() => () => companion.close());
+    ctx.inject(['webServer', 'connection'], (taskCtx) => {
+        if (!taskCtx.webServer || typeof taskCtx.connection?.requestRejection !== 'function')
+            return;
+        const dispose = registerTaskRoutes({ webServer: taskCtx.webServer, connection: taskCtx.connection, request: remoteCall,
+            readFeed: async (query) => {
+                const remote = await remoteCall('/feed' + (query.size ? '?' + query.toString() : ''));
+                if (remote)
+                    return { ...remote, join: await joinInfo() };
+                return { ...wirePayload(await store.snapshot()), join: { joined: false } };
+            } });
+        taskCtx.effect(() => dispose);
+    });
     ctx.inject(['webServer', 'connection', 'agents', 'agentPresets', 'agentDefaultModel'], async (runtimeCtx) => {
         // Older/partial hosts never get a sensitive route through a fallback guard.
         if (!runtimeCtx.webServer || typeof runtimeCtx.connection?.requestRejection !== 'function')
@@ -522,28 +535,6 @@ export function apply(ctx) {
                 return { status: 200, value: await patrol.selftest() };
             }),
         }));
-        routes.push(webServer.register({
-            kind: 'exact',
-            path: `${API}/feed`,
-            handler: dispatch(async (req) => {
-                // Forward paging and search: the panel asks the Host, the Host asks the
-                // community, and dropping the query here would silently disable both.
-                const url = new URL(String(req.url), 'http://localhost');
-                const params = new URLSearchParams();
-                for (const key of ['limit', 'before', 'q']) {
-                    const value = url.searchParams.get(key);
-                    if (value)
-                        params.set(key, value);
-                }
-                const suffix = params.toString() ? `?${params.toString()}` : '';
-                const remote = await remoteCall(`/feed${suffix}`);
-                if (remote) {
-                    const join = await joinInfo();
-                    return { status: 200, value: { ...remote, join } };
-                }
-                return { status: 200, value: { ...wirePayload(await store.snapshot()), join: { joined: false } } };
-            }),
-        }));
         // Versioned routes only serve the bundled, audited character files. Legacy
         // aliases keep local optional art first and fall back only when it is absent.
         for (const [route, primary, fallback] of [
@@ -758,39 +749,6 @@ export function apply(ctx) {
         }));
         routes.push(webServer.register({
             kind: 'exact',
-            path: `${API}/deliver`,
-            handler: dispatch(async (req) => {
-                const body = await readBody(req);
-                const remote = await remoteCall('/deliver', body);
-                if (!remote)
-                    return { status: 409, value: { ok: false, error: '还没加入社区' } };
-                return { status: 200, value: remote };
-            }),
-        }));
-        routes.push(webServer.register({
-            kind: 'exact',
-            path: `${API}/confirm`,
-            handler: dispatch(async (req) => {
-                const body = await readBody(req);
-                const remote = await remoteCall('/confirm', body);
-                if (!remote)
-                    return { status: 409, value: { ok: false, error: '还没加入社区' } };
-                return { status: 200, value: remote };
-            }),
-        }));
-        routes.push(webServer.register({
-            kind: 'exact',
-            path: `${API}/task`,
-            handler: dispatch(async (req) => {
-                const body = await readBody(req);
-                const remote = await remoteCall('/task', body);
-                if (!remote)
-                    return { status: 409, value: { ok: false, error: '还没加入社区' } };
-                return { status: 201, value: remote };
-            }),
-        }));
-        routes.push(webServer.register({
-            kind: 'exact',
             path: `${API}/ask/delete`,
             handler: dispatch(async (req) => {
                 const body = await readBody(req);
@@ -874,17 +832,6 @@ export function apply(ctx) {
                 if (remote)
                     return { status: 201, value: remote };
                 return { status: 409, value: { ok: false, error: '离线时不能回复' } };
-            }),
-        }));
-        routes.push(webServer.register({
-            kind: 'exact',
-            path: `${API}/claim`,
-            handler: dispatch(async (req) => {
-                const body = await readBody(req);
-                const remote = await remoteCall('/claim', body);
-                if (remote)
-                    return { status: 201, value: remote };
-                return { status: 409, value: { ok: false, error: '离线时不能接单' } };
             }),
         }));
         ctx.effect(() => () => {

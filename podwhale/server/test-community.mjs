@@ -140,7 +140,7 @@ try {
     // 主人的记录已经在启动前写进 owners.json 并导入数据库了，这里只等接口起来。
     await new Promise((resolve) => setTimeout(resolve, 300));
     const feed = await call('/feed', known);
-    check('feed accepts a valid token', feed.status === 200 && feed.json.tasks.length === 5, feed.status);
+    check('feed accepts a valid token without listing demonstration jobs as real work', feed.status === 200 && feed.json.tasks.length === 0, feed.status);
     check('feed tells the caller who they are', feed.json.me === 'otest', feed.json.me);
     const privatePatrolA = 'private-patrol-owner-a-marker';
     const privatePatrolB = 'private-patrol-owner-b-marker';
@@ -303,14 +303,16 @@ try {
     const bAfter = await call('/notifications', known2);
     check('read clears the unread count', read.json.marked === 2 && bAfter.json.unread === 0, `${read.json.marked}/${bAfter.json.unread}`);
     check('read keeps the history', bAfter.json.items.length === 2);
-    const claim = await call('/claim', known, { taskId: 't2' });
+    const claimable = await call('/task', known2, { title: '真实认领测试', desc: '由另一个主人发布' });
+    const claimableId = claimable.json.task.id;
+    const claim = await call('/claim', known, { taskId: claimableId });
     check('claim accepted', claim.status === 201 && claim.json.repeated === false, claim.status);
-    const onceMore = await call('/claim', known, { taskId: 't2' });
+    const onceMore = await call('/claim', known, { taskId: claimableId });
     check('claim is idempotent for the same owner', onceMore.status === 201 && onceMore.json.repeated === true, onceMore.status);
-    const takenClaim = await call('/claim', known2, { taskId: 't2' });
+    const takenClaim = await call('/claim', known3, { taskId: claimableId });
     check('a taken job cannot be claimed by someone else', takenClaim.status === 409, takenClaim.status);
     const boardAfterClaim = await call('/feed', known, null);
-    const flagged = (boardAfterClaim.json.tasks || []).find((item) => item.id === 't2');
+    const flagged = (boardAfterClaim.json.tasks || []).find((item) => item.id === claimableId);
     check('the board tells clients the job is taken', !!flagged && flagged.claimed === true, JSON.stringify(flagged && flagged.claimed));
     const badTask = await call('/claim', known, { taskId: 't9' });
     check('unknown task is rejected', badTask.status === 400, badTask.status);
@@ -325,23 +327,25 @@ try {
     check('a published job carries the publisher identity', !!published.json.task && !!published.json.task.fromName && !!published.json.task.appearance, JSON.stringify(published.json.task && { fromName: published.json.task.fromName, look: !!published.json.task.appearance }));
     const board = await call('/feed', known);
     check('published job reaches the board', !!published.json.task && (board.json.tasks || []).some((task) => task.id === published.json.task.id));
-    check('board still has the seeds', (board.json.tasks || []).some((task) => task.id === 't1'));
+    check('board excludes demonstration jobs', !(board.json.tasks || []).some((task) => /^t[1-5]$/.test(task.id)));
+    const selfClaim = await call('/claim', known, { taskId: published.json.task.id });
+    check('a publisher cannot claim their own new job', selfClaim.status === 409, selfClaim.status);
     const claimPublished = published.json.task
-        ? await call('/claim', known, { taskId: published.json.task.id })
+        ? await call('/claim', known2, { taskId: published.json.task.id })
         : { status: 0 };
     check('a published job can be claimed', claimPublished.status === 201, claimPublished.status);
-    const delivered = await call('/deliver', known, { taskId: published.json.task.id, text: '跑完了，对比表在附件里' });
+    const delivered = await call('/deliver', known2, { taskId: published.json.task.id, text: '跑完了，对比数据已整理为交付正文' });
     check('a claim can be delivered', delivered.status === 200, delivered.status);
     const confirmed = await call('/confirm', known, { taskId: published.json.task.id });
     check('the publisher can confirm', confirmed.status === 200, confirmed.status);
     const boardDone = await call('/feed', known);
     const finished = (boardDone.json.claims || {})[published.json.task.id];
     check('delivery and confirmation are recorded', !!finished && !!finished.deliveredAt && !!finished.confirmedAt, JSON.stringify(finished && Object.keys(finished)));
-    const foreignDeliver = await call('/deliver', known2, { taskId: published.json.task.id, text: '抢着交付' });
+    const foreignDeliver = await call('/deliver', known3, { taskId: published.json.task.id, text: '抢着交付' });
     check('only the claimer can deliver', foreignDeliver.status === 403, foreignDeliver.status);
-    await call('/claim', known, { taskId: 't4', note: '主人已明确接下示例任务' });
+    const seedClaim = await call('/claim', known, { taskId: 't4', note: '不能把示例当真任务' });
     const seedDeliver = await call('/deliver', known, { taskId: 't4', text: '教完了，对方跑通了一次 rank 对照' });
-    check('seed jobs do not bypass explicit confirmation', seedDeliver.status === 200 && seedDeliver.json.confirmed === false, JSON.stringify(seedDeliver.json));
+    check('demo jobs cannot create real commitments or deliveries', seedClaim.status === 409 && seedDeliver.status === 404, seedDeliver.status);
     const bTask = await call('/task', known2, { title: 'B 发的活', desc: '测试交付通知', budget: '¥1', period: '1 天', match: 60 });
     const bTaskId = bTask.json.task.id;
     const bClaim = await call('/claim', known, { taskId: bTaskId });

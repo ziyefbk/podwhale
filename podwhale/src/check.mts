@@ -123,6 +123,8 @@ async function live() {
 const suites: [string, string, string][] = [
   ['本地', 'redact.test.mjs', '脱敏'],
   ['本地', 'server/test-community.mjs', '服务端接口'],
+  ['本地', 'server/test-tasks.mjs', '任务权限、并发与持久化'],
+  ['本地', 'test-task-workflow.mjs', '任务 Host 与独立主人审批闭环'],
   ['本地', 'server/test-enroll.mjs', '注册/自助加入'],
   ['本地', 'server/test-security.mjs', '授权与待审提案'],
   ['本地', 'server/test-revocation.mjs', '撤销与慢请求竞争'],

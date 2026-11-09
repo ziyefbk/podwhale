@@ -934,8 +934,84 @@ function createTask(state, input, owner) {
         createdAt: new Date().toISOString(),
     };
     state.tasks.unshift(task);
-    state.tasks = state.tasks.slice(0, 200);
     return task;
+}
+const TASK_STATUSES = ['open', 'claimed', 'in_progress', 'delivered', 'changes_requested', 'completed', 'cancelled', 'expired'];
+function taskStatus(claim) {
+    return claim?.confirmedAt ? 'completed' : claim?.deliveredAt ? 'delivered' : claim ? 'claimed' : 'open';
+}
+function taskDemo(task) { return !task.ownerId || task.source === 'seed' || task.source === 'demo'; }
+function taskView(task, claim, viewerId) {
+    const publisher = task.ownerId === viewerId, claimer = claim?.ownerId === viewerId, demo = taskDemo(task);
+    // Only documented public fields cross this boundary. Future private history
+    // fields must not become public merely because they were added to storage.
+    return {
+        id: task.id, title: task.title,
+        ...(task.ownerId !== undefined ? { ownerId: task.ownerId } : {}),
+        ...(task.from !== undefined ? { from: task.from } : {}),
+        ...(task.fromName !== undefined ? { fromName: task.fromName } : {}),
+        ...(task.ownerLine !== undefined ? { ownerLine: task.ownerLine } : {}),
+        ...(task.appearance !== undefined ? { appearance: { ...task.appearance } } : {}),
+        ...(task.when !== undefined ? { when: task.when } : {}),
+        ...(task.createdAt !== undefined ? { createdAt: task.createdAt } : {}),
+        desc: task.desc || '', budget: task.budget || '面议', period: task.period || '待定', tags: [...(task.tags || [])],
+        match: task.match ?? 70, why: task.why || '', risk: task.risk ?? false, source: task.source || (demo ? 'seed' : 'user'),
+        status: taskStatus(claim), acceptanceCriteria: '', deadlineAt: null, revision: 0,
+        demo, claimed: !!claim, overdue: false,
+        viewer: { publisher, claimer, participant: publisher || claimer, canClaim: !demo && !publisher && !claim },
+    };
+}
+function taskClaimView(task, claim, viewerId) {
+    if (!claim)
+        return null;
+    const publicState = { taskId: task.id, status: taskStatus(claim) };
+    if (task.ownerId !== viewerId && claim.ownerId !== viewerId)
+        return publicState;
+    return {
+        ...publicState, ownerId: claim.ownerId,
+        ...(claim.ai !== undefined ? { ai: claim.ai } : {}),
+        ...(claim.note !== undefined ? { note: claim.note } : {}),
+        ...(claim.redacted !== undefined ? { redacted: claim.redacted } : {}),
+        ...(claim.createdAt !== undefined ? { createdAt: claim.createdAt } : {}),
+        ...(claim.deliveredAt !== undefined ? { deliveredAt: claim.deliveredAt } : {}),
+        ...(claim.delivery !== undefined ? { delivery: claim.delivery } : {}),
+        ...(claim.confirmedAt !== undefined ? { confirmedAt: claim.confirmedAt } : {}),
+    };
+}
+function taskPage(state, viewerId, query) {
+    const keys = ['limit', 'before', 'q', 'scope', 'status', 'sort'];
+    if ([...query.keys()].some(key => !keys.includes(key) || query.getAll(key).length !== 1)) {
+        throw Object.assign(new Error('invalid task query'), { status: 400 });
+    }
+    const limitValue = query.get('limit') ?? '20';
+    if (!/^[1-9]\d{0,5}$/.test(limitValue))
+        throw Object.assign(new Error('invalid task limit'), { status: 400 });
+    const limit = Math.min(Number(limitValue), 50), scope = query.get('scope') || 'all', sort = query.get('sort') || 'newest';
+    const status = query.get('status') || '', before = query.get('before') || '', search = (query.get('q') || '').trim().toLowerCase();
+    if (!['all', 'published', 'claimed'].includes(scope) || !['newest', 'oldest'].includes(sort)
+        || status && !TASK_STATUSES.some(item => item === status) || search.length > 200 || before.length > 100) {
+        throw Object.assign(new Error('invalid task filter'), { status: 400 });
+    }
+    let tasks = state.tasks.filter(task => !taskDemo(task)
+        && (scope !== 'published' || task.ownerId === viewerId)
+        && (scope !== 'claimed' || state.claims[task.id]?.ownerId === viewerId)
+        && (!status || taskStatus(state.claims[task.id]) === status)
+        && (!search || `${task.title} ${task.desc || ''} ${(task.tags || []).join(' ')} ${task.fromName || ''}`.toLowerCase().includes(search)));
+    tasks = tasks.sort((left, right) => (right.createdAt || '').localeCompare(left.createdAt || '') || right.id.localeCompare(left.id));
+    if (sort === 'oldest')
+        tasks.reverse();
+    const total = tasks.length, cursor = before ? tasks.findIndex(task => task.id === before) : -1;
+    if (before && cursor < 0)
+        throw Object.assign(new Error('unknown task cursor'), { status: 400 });
+    const start = cursor + 1, page = tasks.slice(start, start + limit);
+    const claims = [];
+    for (const task of page) {
+        const claim = taskClaimView(task, state.claims[task.id], viewerId);
+        if (claim)
+            claims.push([task.id, claim]);
+    }
+    return { ok: true, items: page.map(task => taskView(task, state.claims[task.id], viewerId)), claims: Object.fromEntries(claims),
+        total, nextCursor: start + page.length < total ? page.at(-1)?.id ?? null : null, me: viewerId };
 }
 /** Delivery records work, never the publisher's approval (including seed jobs). */
 function deliverTask(state, input, owner) {
@@ -1223,6 +1299,10 @@ function claimTask(state, input, owner) {
         }
         return { claim: existing, repeated: true, task };
     }
+    if (taskDemo(task))
+        throw Object.assign(new Error('demo tasks cannot be claimed'), { status: 409 });
+    if (task.ownerId === owner.id)
+        throw Object.assign(new Error('task_self_claim'), { status: 409 });
     const noteField = field(input.note, 300);
     const claim = {
         taskId,
@@ -1844,6 +1924,26 @@ async function handle(req, res) {
         send(res, 200, { ok: true, appearance: look });
         return;
     }
+    if (req.method === 'GET' && path === '/tasks') {
+        send(res, 200, taskPage(await feed(), owner.id, url.searchParams));
+        return;
+    }
+    if (req.method === 'GET' && path === '/task') {
+        const query = url.searchParams;
+        if ([...query.keys()].some(key => key !== 'taskId') || query.getAll('taskId').length !== 1
+            || !query.get('taskId') || query.get('taskId').length > 100) {
+            send(res, 400, { ok: false, error: 'taskId is required' });
+            return;
+        }
+        const state = await feed(), task = state.tasks.find(item => item.id === query.get('taskId'));
+        if (!task) {
+            send(res, 404, { ok: false, error: 'unknown task' });
+            return;
+        }
+        send(res, 200, { ok: true, task: taskView(task, state.claims[task.id], owner.id),
+            claim: taskClaimView(task, state.claims[task.id], owner.id), history: [], events: [] });
+        return;
+    }
     if (req.method === 'GET' && path === '/feed') {
         const state = await feed();
         const query = new URL(req.url || '', 'http://localhost').searchParams;
@@ -1884,14 +1984,17 @@ async function handle(req, res) {
         for (const key of Object.keys(state.comments)) {
             comments[key] = (state.comments[key] || []).filter((item) => item.ownerId === undefined || !blocked.includes(item.ownerId));
         }
+        const tasks = taskPage(state, owner.id, new URLSearchParams());
         send(res, 200, {
             version: 1,
-            tasks: state.tasks.map((task) => ({ ...task, claimed: !!state.claims[task.id] })),
+            tasks: tasks.items,
+            tasksTotal: tasks.total,
+            tasksNextCursor: tasks.nextCursor,
             posts: posts,
             total: total,
             nextCursor: nextCursor,
             comments: comments,
-            claims: state.claims,
+            claims: tasks.claims,
             asks: asksFor(state, owner.id),
             me: owner.id,
             myProfile: { name: owner.name || '', handle: owner.handle || '阿蓝', bio: owner.bio || '' },
@@ -1970,7 +2073,7 @@ async function handle(req, res) {
             return;
         }
         const body = await readBody(req);
-        const rating = await mutateForActor((state) => rateClaim(state, body, owner));
+        const rating = await mutateForActor((state) => rateClaim(state, body, owner), true);
         send(res, 201, { ok: true, rating: { id: rating.id, score: rating.score, to: rating.toOwner } });
         return;
     }
@@ -1980,7 +2083,7 @@ async function handle(req, res) {
             return;
         }
         const body = await readBody(req);
-        const result = await mutateForActor((state) => deliverTask(state, body, owner));
+        const result = await mutateForActor((state) => deliverTask(state, body, owner), true);
         send(res, 200, { ok: true, repeated: result.repeated, confirmed: !!result.claim.confirmedAt });
         return;
     }
@@ -1990,7 +2093,7 @@ async function handle(req, res) {
             return;
         }
         const body = await readBody(req);
-        const result = await mutateForActor((state) => confirmTask(state, body, owner));
+        const result = await mutateForActor((state) => confirmTask(state, body, owner), true);
         send(res, 200, { ok: true, repeated: result.repeated });
         return;
     }
@@ -2000,7 +2103,7 @@ async function handle(req, res) {
             return;
         }
         const body = await readBody(req);
-        const task = await mutateForActor((state) => createTask(state, body, owner));
+        const task = await mutateForActor((state) => createTask(state, body, owner), true);
         send(res, 201, { ok: true, task });
         return;
     }
@@ -2183,7 +2286,7 @@ async function handle(req, res) {
             send(res, 201, { ok: true, reply, postId: clean(body.postId, 80) });
             return;
         }
-        const result = await mutateForActor((state) => claimTask(state, body, owner));
+        const result = await mutateForActor((state) => claimTask(state, body, owner), true);
         send(res, 201, { ok: true, task: result.task, claim: result.claim, repeated: result.repeated });
         return;
     }
@@ -2255,7 +2358,10 @@ const bootStats = await initStore();
         console.log('[xiaolanshu] split sample author ids');
     }
     if (!state.tasksSeeded) {
-        state.tasks = SEED_TASKS.map((task) => ({ ...task, source: 'seed' }));
+        // Old snapshots may contain real tasks without this later seed marker.
+        // Adding demonstration rows must never replace their work or claims.
+        const existing = new Set(state.tasks.map(task => task.id));
+        state.tasks.push(...SEED_TASKS.filter(task => !existing.has(task.id)).map(task => ({ ...task, source: 'seed' })));
         state.tasksSeeded = true;
         await persist(state);
         console.log(`[xiaolanshu] seeded ${state.tasks.length} tasks`);

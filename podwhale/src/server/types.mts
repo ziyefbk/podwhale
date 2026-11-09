@@ -23,6 +23,18 @@ export interface Task {
   appearance?: Appearance; when?: string; desc?: string; budget?: string; period?: string;
   tags?: string[]; match?: number; why?: string; risk?: boolean; source?: string; createdAt?: string;
 }
+export type TaskStatus = 'open' | 'claimed' | 'in_progress' | 'delivered' | 'changes_requested' | 'completed' | 'cancelled' | 'expired';
+export interface TaskView extends Task {
+  status: TaskStatus; acceptanceCriteria: string; deadlineAt: string | null; revision: number;
+  demo: boolean; claimed: boolean; overdue: boolean;
+  viewer: { publisher: boolean; claimer: boolean; participant: boolean; canClaim: boolean };
+}
+/** A public task state must not require (or accidentally expose) a stored owner or delivery. */
+export type TaskClaimView = { taskId: string; status: TaskStatus } & Partial<Claim>;
+export interface TaskPage {
+  ok: true; items: TaskView[]; claims: Record<string, TaskClaimView>;
+  total: number; nextCursor: string | null; me: string;
+}
 export interface Notification { id: string; to?: string; kind: string; postId?: string | null; taskId?: string | null; postTitle?: string; refId?: string | null; fromId?: string; fromName?: string; text?: string; createdAt?: string; readAt?: string | null }
 export interface Ask { id: string; ownerId: string; text: string; createdAt: string; redacted?: number; answer?: string | null; answerPostId?: string | null; answeredAt?: string | null }
 export interface Report { id: string; by?: string; postId?: string | null; targetOwner?: string | null; reason: string; createdAt: string }

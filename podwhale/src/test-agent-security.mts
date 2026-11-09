@@ -261,12 +261,21 @@ async function host(config: { url: string; token: string } | null, faults: HostF
   const scheduleInjection = (value: Injection): value is ScheduleInjection => value[0][0] === 'schedule';
   const toolsInjection = (value: Injection): value is ToolsInjection => value[0][0] === 'tools';
   const webInjection = (value: Injection): value is WebInjection => value[0][0] === 'webServer' && value[0].length === 1;
+  const connectionInjection = (value: Injection): value is ConnectionInjection => value[0][0] === 'webServer' && value[0].length === 2;
   const fakeHost: HostContext = {
     inject(...value: Injection) {
       if (runtimeInjection(value) && !faults.noRuntime) activations.push(Promise.resolve(value[1](runtime)));
       if (scheduleInjection(value) && faults.schedule) activations.push(Promise.resolve(value[1]({ schedule: faults.schedule, effect: runtime.effect })));
       if (toolsInjection(value)) value[1]({ tools: { register(tool) { tools.set(tool.name, tool); return () => {}; } } });
       if (webInjection(value)) value[1]({ webServer: { register(route) { routes.push(route); return () => {}; } } });
+      if (connectionInjection(value)) activations.push(Promise.resolve(value[1]({
+        webServer: { register(route) { routes.push(route); return () => {}; } },
+        connection: { requestRejection(req) {
+          return req.headers.cookie === 'task-session=active'
+            && (!req.headers.origin || req.headers.origin === 'http://' + req.headers.host)
+            && req.headers['sec-fetch-site'] !== 'cross-site' ? undefined : 403;
+        } }, effect: runtime.effect,
+      })));
     },
     effect() {},
   };
@@ -321,7 +330,7 @@ try {
   await mkdir(publicArt, { recursive: true });
   await writeFile(join(imageRuntime, 'package.json'), '{"type":"module"}');
   for (const name of ['index.js', 'community-endpoint.mjs', 'patrol-runtime.mjs', 'final-request-validator.mjs',
-    'community-connection.mjs', 'community-connection-http.mjs', 'official-community.mjs',
+    'community-connection.mjs', 'community-connection-http.mjs', 'official-community.mjs', 'task-http.mjs',
     'companion-runtime.mjs', 'companion-service.mjs', 'companion-types.mjs', 'companion-http.mjs', 'redact.js',
     'social-controller.mjs', 'social-types.mjs', 'social-http.mjs', 'social-community.mjs']) {
     await copyFile(join(HERE, name), join(imageRuntime, name));
@@ -455,7 +464,7 @@ try {
 
   await writeFile(active.configFile, JSON.stringify({ ...config, token: humanToken }));
   const humanStart = calls.length;
-  check('changing only the token cannot reuse cached agent authority', (await fetch(active.base + '/xiaolanshu/api/feed')).status === 403);
+  check('changing only the token cannot reuse cached agent authority', (await fetch(active.base + '/xiaolanshu/api/feed', { headers: { cookie: 'task-session=active' } })).status === 403);
   check('human token is used only for identity verification', calls.slice(humanStart).every((call) => call.path === '/xiaolanshu/whoami'));
   for (const [name, token] of [['expired', expiredToken], ['missing role', unknownRoleToken]] as const) {
     const invalid = await host({ ...config, token });
@@ -463,17 +472,17 @@ try {
   }
   expiringAt = new Date(Date.now() + 500).toISOString();
   const expiring = await host({ ...config, token: expiringToken });
-  await fetch(expiring.base + '/xiaolanshu/api/feed');
+  await fetch(expiring.base + '/xiaolanshu/api/feed', { headers: { cookie: 'task-session=active' } });
   await new Promise((done) => setTimeout(done, 600));
   check('cached identity cannot outlive credential expiry', (await fetch(expiring.base + '/xiaolanshu/api/post', { method: 'POST', body: JSON.stringify(inputs.post) })).status === 401);
 
   const redirecting = await host({ url: communityBase + '/redirect', token: agentToken });
-  check('identity redirects are rejected', !(await fetch(redirecting.base + '/xiaolanshu/api/feed')).ok && collectedRedirects === 0);
+  check('identity redirects are rejected', !(await fetch(redirecting.base + '/xiaolanshu/api/feed', { headers: { cookie: 'task-session=active' } })).ok && collectedRedirects === 0);
   for (const endpoint of ['http://example.test/xiaolanshu', 'https://user:password@example.test/xiaolanshu',
     'https://example.test/xiaolanshu?t=fake', 'https://example.test/xiaolanshu#fragment']) {
     const before = calls.length;
     const unsafe = await host({ url: endpoint, token: agentToken });
-    check('unsafe endpoint is rejected before sending credentials', !(await fetch(unsafe.base + '/xiaolanshu/api/feed')).ok && calls.length === before);
+    check('unsafe endpoint is rejected before sending credentials', !(await fetch(unsafe.base + '/xiaolanshu/api/feed', { headers: { cookie: 'task-session=active' } })).ok && calls.length === before);
   }
   check('HTTPS and loopback development endpoints are accepted', communityEndpoint('https://example.test/xiaolanshu/') === 'https://example.test/xiaolanshu'
     && communityEndpoint('http://[::1]:8790/xiaolanshu') === 'http://[::1]:8790/xiaolanshu');

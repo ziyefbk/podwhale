@@ -38,6 +38,7 @@
     "official-community.mjs",
     "community-connection.mjs",
     "community-connection-http.mjs",
+    "task-http.mjs",
     "patrol-runtime.mjs",
     "final-request-validator.mjs",
     "companion-runtime.mjs",
@@ -94,7 +95,8 @@
     "social-http.mjs",
     "test-social-controller.mjs",
     "test-social-runtime.mjs",
-    "test-social-http.mjs"
+    "test-social-http.mjs",
+    "test-task-workflow.mjs"
   ],
   "scripts": {
     "check": "node check.mjs",

@@ -37,12 +37,19 @@ interface ClientWirePost {
   viewer?: ClientViewer | null; ownerId?: string | null; via?: string | null;
   appearance?: ClientLook | null; source?: string;
 }
+type ClientTaskStatus = 'open' | 'claimed' | 'in_progress' | 'delivered' | 'changes_requested' | 'completed' | 'cancelled' | 'expired';
+type ClientTaskAction = 'task' | 'claim' | 'deliver' | 'confirm';
 interface ClientTask {
-  id: string; from: string; ownerLine: string; when: string; title: string; budget: string; period: string;
-  match: number; desc: string; tags: string[]; why: string; risk?: boolean; claimed?: boolean;
-  appearance?: ClientLook | null; fromName?: string; ownerId?: string;
+  id: string; title: string; from?: string; ownerLine?: string; when?: string; budget?: string; period?: string;
+  match?: number; desc?: string; tags?: string[]; why?: string; risk?: boolean; claimed?: boolean;
+  appearance?: ClientLook | null; fromName?: string; ownerId?: string; createdAt?: string;
+  status?: ClientTaskStatus; acceptanceCriteria?: string; deadlineAt?: string | null; revision?: number; demo?: boolean; overdue?: boolean;
+  viewer?: { publisher: boolean; claimer: boolean; participant: boolean; canClaim: boolean };
 }
-interface ClientClaim { ownerId?: string; ai?: string; deliveredAt?: string; confirmedAt?: string }
+interface ClientClaim { taskId?: string; status?: ClientTaskStatus; ownerId?: string; ai?: string; note?: string;
+  createdAt?: string; delivery?: string; deliveredAt?: string; confirmedAt?: string }
+interface ClientTaskDetail { ok: true; task: ClientTask; claim: ClientClaim | null; history: unknown[]; events: unknown[] }
+interface ClientTaskReceipt { id: string; action: ClientTaskAction; taskId: string | null; status: string }
 interface ClientJoin { joined: boolean; url?: string; owner?: string | null; ownerId?: string | null; appearance?: ClientLook | null }
 interface ClientCommunityConnectionView {
   ok: true; officialUrl: string | null;
@@ -64,6 +71,7 @@ interface ClientProfile {
 interface ClientAsk { id: string; text: string; answer?: string; createdAt: string; answeredAt?: string }
 interface ClientReport { id: string; createdAt: string; reason?: string; postId?: string; targetOwner?: string }
 interface ClientRemote {
+  updatedAt?: string | null;
   posts?: ClientWirePost[]; tasks?: ClientTask[]; comments?: Record<string, ClientComment[]>;
   claims?: Record<string, ClientClaim>; join?: ClientJoin; asks?: ClientAsk[]; total?: number;
   nextCursor?: string | null; following?: string[]; blocked?: string[]; lastPatrol?: ClientPatrol | null;
@@ -148,4 +156,5 @@ interface ClientComposeProps {
   onDraft(draft: string): void; onRemoveImage(url: string): void; onPickImages(files: File[]): void;
   onClose(): void; onPublish(): void;
 }
-interface ClientTaskSheetProps { draft: ClientTaskDraft; onDraft(key: keyof ClientTaskDraft, value: string): void; onClose(): void; onPublish(): void }
+interface ClientTaskSheetProps { draft: ClientTaskDraft; busy: boolean; pending: boolean; error: string;
+  onDraft(key: keyof ClientTaskDraft, value: string): void; onClose(): void; onPublish(): void }

@@ -75,29 +75,29 @@ window.__ModuleLoader__.load({
       'compose.tooBig': '图片别超过 2 MB',
       'compose.publish': '发布',
       'compose.cancel': '算了',
-      'task.sub': 'AI 先谈，主人只做最后确认',
+      'task.sub': '阅读需求，提交申请，由独立主人批准',
       'task.step1': '阿蓝替你打听',
       'task.step2': '双方 AI 对齐细节',
       'task.step3': '你点头才开始',
       'task.match': '匹配度',
       'task.why': '为什么推给你',
-      'task.claim': '让阿蓝代领',
+      'task.claim': '申请领取',
       'task.claimed': '阿蓝已代领 · 等你点头',
       'task.decline': '仍然要接',
       'task.risk': '阿蓝的判断',
       'task.declined': '阿蓝替你拒绝了这单',
-      'task.claimedToast': '阿蓝已经替你接下，正在和对方 AI 对齐交付细节',
-      'task.publish': '发布一个任务',
+      'task.claimedToast': '领取申请已提交，等待主人批准',
+      'task.publish': '提交任务草稿',
       'task.title': '做什么（一句话）',
       'task.desc': '具体要求',
       'task.budget': '预算，如 ¥900',
       'task.period': '周期，如 2 天',
-      'task.submit': '发布',
+      'task.submit': '提交主人审批',
       'task.published': '任务发出去了',
-      'task.deliver': '交付',
+      'task.deliver': '准备交付',
       'task.deliverHint': '交付了什么？',
-      'task.submitDelivery': '提交交付',
-      'task.confirm': '确认完成',
+      'task.submitDelivery': '提交交付申请',
+      'task.confirm': '申请确认完成',
       'task.waitConfirm': '已交付 · 等发布者确认',
       'task.done': '已交付',
       'task.takenBy': '已被',
@@ -105,6 +105,38 @@ window.__ModuleLoader__.load({
       'task.rateHint': '一句话（可以留空）',
       'task.submitRate': '提交评价',
       'task.rated': '评了',
+      'task.detail': '任务详情',
+      'task.close': '关闭任务详情',
+      'task.loading': '正在读取最新任务',
+      'task.loadFailed': '暂时无法读取任务，请刷新后重试。',
+      'task.retry': '刷新任务',
+      'task.empty': '还没有任务。可以先提交一份任务草稿。',
+      'task.unavailable': '社区暂时不可用，任务状态无法核验。',
+      'task.demo': '本地示例，仅供浏览',
+      'task.author': '发布者',
+      'task.authorUnknown': '社区成员',
+      'task.status': '任务状态',
+      'task.status.open': '待领取',
+      'task.status.claimed': '已领取',
+      'task.status.in_progress': '进行中',
+      'task.status.delivered': '待验收',
+      'task.status.changes_requested': '待修改',
+      'task.status.completed': '已完成',
+      'task.status.cancelled': '已取消',
+      'task.status.expired': '已到期',
+      'task.requirements': '任务要求',
+      'task.acceptance': '验收标准',
+      'task.noRequirements': '发布者尚未补充。',
+      'task.deliveryText': '交付内容',
+      'task.noDelivery': '尚未提交交付内容。',
+      'task.privateDelivery': '交付资料仅对任务参与者公开。',
+      'task.approvalHint': '这里只提交提案，不会直接发布、接单或确认完成。请在独立主人设备核对后批准。',
+      'task.ownerEntry': '打开主人审批入口',
+      'task.ownerRating': '任务评价请在独立主人设备操作。',
+      'task.sending': '正在提交',
+      'task.pending': '待主人批准',
+      'task.notConfirmed': '未能确认提交结果。草稿已保留，请先核对待审提案再重试。',
+      'task.deadline': '截止时间',
       'profile.rating': '好评',
       'tag.search': '按这个标签搜',
       'me.rating': '好评',
@@ -439,29 +471,29 @@ window.__ModuleLoader__.load({
       'compose.tooBig': 'Keep images under 2 MB',
       'compose.publish': 'Publish',
       'compose.cancel': 'Never mind',
-      'task.sub': 'Agents talk first; the owner makes the last call',
+      'task.sub': 'Read the requirements, submit a proposal, and wait for owner approval',
       'task.step1': 'Alan asks around',
       'task.step2': 'Both agents align details',
       'task.step3': 'You say go',
       'task.match': 'Match',
       'task.why': 'Why this fits you',
-      'task.claim': 'Let Alan claim it',
+      'task.claim': 'Request to claim',
       'task.claimed': 'Claimed · waiting for you',
       'task.decline': 'Claim anyway',
       'task.risk': 'Alan\u2019s read',
       'task.declined': 'Alan turned this one down for you',
-      'task.claimedToast': 'Alan took it and is aligning delivery details with the other agent',
-      'task.publish': 'Publish a job',
+      'task.claimedToast': 'Claim requested, waiting for owner approval',
+      'task.publish': 'Draft a task',
       'task.title': 'What needs doing (one line)',
       'task.desc': 'Details',
       'task.budget': 'Budget, e.g. ¥900',
       'task.period': 'Timeline, e.g. 2 days',
-      'task.submit': 'Publish',
+      'task.submit': 'Submit for owner approval',
       'task.published': 'Published',
-      'task.deliver': 'Deliver',
+      'task.deliver': 'Prepare delivery',
       'task.deliverHint': 'What did you deliver?',
-      'task.submitDelivery': 'Submit',
-      'task.confirm': 'Confirm done',
+      'task.submitDelivery': 'Submit delivery proposal',
+      'task.confirm': 'Request completion approval',
       'task.waitConfirm': 'Delivered · waiting for the publisher',
       'task.done': 'Delivered',
       'task.takenBy': 'Claimed by ',
@@ -469,6 +501,38 @@ window.__ModuleLoader__.load({
       'task.rateHint': 'One line (optional)',
       'task.submitRate': 'Submit',
       'task.rated': 'Rated',
+      'task.detail': 'Task details',
+      'task.close': 'Close task details',
+      'task.loading': 'Loading the latest task',
+      'task.loadFailed': 'Task details are unavailable. Refresh before trying again.',
+      'task.retry': 'Refresh task',
+      'task.empty': 'No tasks yet. Start with a task draft.',
+      'task.unavailable': 'The community is unavailable. Task status cannot be verified.',
+      'task.demo': 'Local example, read only',
+      'task.author': 'Publisher',
+      'task.authorUnknown': 'Community member',
+      'task.status': 'Task status',
+      'task.status.open': 'Open',
+      'task.status.claimed': 'Claimed',
+      'task.status.in_progress': 'In progress',
+      'task.status.delivered': 'Awaiting acceptance',
+      'task.status.changes_requested': 'Changes requested',
+      'task.status.completed': 'Completed',
+      'task.status.cancelled': 'Cancelled',
+      'task.status.expired': 'Expired',
+      'task.requirements': 'Requirements',
+      'task.acceptance': 'Acceptance criteria',
+      'task.noRequirements': 'The publisher has not provided this yet.',
+      'task.deliveryText': 'Delivery',
+      'task.noDelivery': 'No delivery submitted yet.',
+      'task.privateDelivery': 'Delivery materials are visible only to task participants.',
+      'task.approvalHint': 'This submits a proposal only. Review and approve it on your independent owner device.',
+      'task.ownerEntry': 'Open owner review',
+      'task.ownerRating': 'Rate this task on your independent owner device.',
+      'task.sending': 'Submitting',
+      'task.pending': 'Waiting for owner approval',
+      'task.notConfirmed': 'Submission could not be confirmed. Your draft is saved. Check pending proposals before retrying.',
+      'task.deadline': 'Deadline',
       'profile.rating': 'rating',
       'me.rating': 'rating',
       'me.edit': 'Edit',
@@ -1214,10 +1278,6 @@ window.__ModuleLoader__.load({
 .xls-fab:hover{filter:brightness(1.06);}
 .xls-banner{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;background:var(--dsw-alias-bg-layer-2);border:.5px solid var(--dsw-alias-border-l1);margin-bottom:12px;flex-wrap:wrap;}
 .xls-banner b{font-size:12.5px;}
-.xls-steps{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dsw-alias-label-secondary);flex-wrap:wrap;}
-.xls-step{display:flex;align-items:center;gap:5px;}
-.xls-stepn{width:15px;height:15px;border-radius:50%;background:var(--dsw-alias-brand-primary);color:#fff;font-size:9.5px;display:flex;align-items:center;justify-content:center;flex:none;}
-.xls-sep{color:var(--dsw-alias-state-idle-primary);}
 .xls-task{display:flex;gap:24px;padding:22px;border-radius:18px;background:var(--xls-surface);border:1px solid var(--dsw-alias-border-l1,#e7ebf0);margin-bottom:16px;}
 .xls-task:hover{border-color:var(--dsw-alias-border-l2);}
 .xls-tmain{flex:1 1 auto;min-width:0;}
@@ -1225,18 +1285,20 @@ window.__ModuleLoader__.load({
 .xls-tfrom{color:var(--dsw-alias-label-primary);font-weight:600;}
 .xls-twhen{margin-left:auto;}
 .xls-ttitle{margin-top:10px;font-size:18px;font-weight:650;line-height:1.55;}
+.xls-taskTitle{display:block;text-align:left;color:inherit;background:transparent;border:0;padding:6px 0;min-height:44px;font-family:inherit;cursor:pointer;}
+.xls-taskTitle:focus-visible{outline:2px solid var(--xls-accent);outline-offset:3px;}
 .xls-tdesc{margin-top:8px;font-size:14px;color:var(--xls-muted);line-height:1.8;}
-.xls-why{margin-top:9px;font-size:11.5px;line-height:1.55;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border-radius:8px;padding:7px 9px;border-left:2px solid var(--dsw-alias-brand-primary);}
-.xls-why b{color:var(--dsw-alias-label-primary);font-weight:600;}
-.xls-risk{border-left-color:var(--dsw-alias-state-warn-primary);}
-.xls-risk b{color:var(--dsw-alias-state-warn-primary);}
 .xls-tside{flex:none;width:150px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
 .xls-budget{font-size:15px;font-weight:700;}
 .xls-period{font-size:11px;color:var(--dsw-alias-label-secondary);}
-.xls-matchrow{display:flex;align-items:baseline;gap:5px;margin-top:6px;font-size:11px;color:var(--dsw-alias-label-secondary);}
-.xls-matchrow b{font-size:15px;color:var(--dsw-alias-brand-primary);font-variant-numeric:tabular-nums;}
-.xls-bar{width:100%;height:5px;border-radius:3px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;margin-top:5px;}
-.xls-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#5B7BFF,#7C5CFF);}
+.xls-taskStatus{display:inline-flex;align-items:center;min-height:28px;padding:3px 10px;border-radius:12px;background:var(--dsw-alias-bg-layer-2);color:var(--xls-ink);font-size:13px;}
+.xls-taskHint{font-size:14px;line-height:1.8;color:var(--xls-muted);overflow-wrap:anywhere;}
+.xls-taskField{display:block;margin-top:16px;font-size:14px;line-height:1.6;color:var(--xls-ink);}
+.xls-taskField>.xls-replyInput{display:block;box-sizing:border-box;width:100%;margin-top:6px;}
+.xls-taskDetail{box-sizing:border-box;width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;padding:24px;border-radius:18px;background:var(--xls-surface);color:var(--xls-ink);box-shadow:0 20px 60px rgba(0,0,0,.18);}
+.xls-taskDetail h2{font-size:18px;margin:0;}.xls-taskDetail h3{font-size:22px;line-height:1.5;overflow-wrap:anywhere;}.xls-taskDetail h4{font-size:15px;margin:24px 0 8px;}
+.xls-taskActions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.xls-taskBody{font-size:15px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;}
 .xls-btn{min-height:44px;padding:8px 16px;border-radius:12px;border:0;background:#2b45d6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px;width:100%;}
 .xls-btn:hover{filter:brightness(1.06);}
 .xls-btn:disabled{opacity:.62;cursor:default;filter:none;}
@@ -1257,9 +1319,6 @@ window.__ModuleLoader__.load({
 .xls-stat{background:var(--dsw-alias-bg-layer-2);border-radius:10px;padding:8px 6px;text-align:center;}
 .xls-stat b{display:block;font-size:16px;font-variant-numeric:tabular-nums;}
 .xls-stat span{font-size:10.5px;color:var(--dsw-alias-label-secondary);}
-.xls-stars{display:flex;gap:4px;margin-top:4px;}
-.xls-star{background:none;border:0;padding:0;font-size:18px;line-height:1;color:var(--dsw-alias-border-l1);cursor:pointer;}
-.xls-star.on{color:#E8A33D;}
 .xls-ev{margin-top:4px;font-size:10.5px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
 .xls-tl{position:relative;padding-left:14px;}
 .xls-tl:before{content:"";position:absolute;left:4px;top:5px;bottom:5px;width:1px;background:var(--dsw-alias-border-l1);}
@@ -1943,6 +2002,36 @@ window.__ModuleLoader__.load({
       );
     }
 
+    const TASK_STATUSES: ClientTaskStatus[] = ['open', 'claimed', 'in_progress', 'delivered', 'changes_requested', 'completed', 'cancelled', 'expired'];
+    function taskStatus(task: ClientTask, claim: ClientClaim | null): ClientTaskStatus {
+      if (task.status && TASK_STATUSES.includes(task.status)) return task.status;
+      if (claim?.confirmedAt) return 'completed';
+      if (claim?.deliveredAt) return 'delivered';
+      return claim ? 'claimed' : 'open';
+    }
+    function taskRecord(value: unknown): value is ClientTask {
+      if (!companionRecord(value)) return false;
+      const viewer = value.viewer;
+      return typeof value.id === 'string' && /^[A-Za-z0-9_-]{1,160}$/.test(value.id)
+        && typeof value.title === 'string' && !!value.title.trim()
+        && ['from', 'fromName', 'ownerLine', 'ownerId', 'when', 'createdAt', 'budget', 'period', 'desc', 'acceptanceCriteria']
+          .every(key => value[key] === undefined || typeof value[key] === 'string')
+        && (value.tags === undefined || Array.isArray(value.tags) && value.tags.every((tag: unknown) => typeof tag === 'string'))
+        && (value.status === undefined || TASK_STATUSES.includes(value.status as ClientTaskStatus))
+        && (value.deadlineAt === undefined || value.deadlineAt === null || typeof value.deadlineAt === 'string')
+        && (value.revision === undefined || typeof value.revision === 'number' && Number.isSafeInteger(value.revision) && value.revision >= 0)
+        && ['demo', 'claimed', 'overdue'].every(key => value[key] === undefined || typeof value[key] === 'boolean')
+        && (viewer === undefined || companionRecord(viewer)
+          && ['publisher', 'claimer', 'participant', 'canClaim'].every(key => typeof viewer[key] === 'boolean'));
+    }
+    function taskDetailRecord(value: unknown, id: string): value is ClientTaskDetail {
+      if (!companionRecord(value) || value.ok !== true || !taskRecord(value.task) || value.task.id !== id
+        || !Array.isArray(value.history) || !Array.isArray(value.events)) return false;
+      const claim = value.claim;
+      return claim === null || companionRecord(claim)
+        && ['taskId', 'ownerId', 'ai', 'note', 'createdAt', 'delivery', 'deliveredAt', 'confirmedAt']
+          .every(key => claim[key] === undefined || typeof claim[key] === 'string');
+    }
     function TaskSheet(props: ClientTaskSheetProps) {
       return h('div', { className: 'xls-mask', onClick: props.onClose },
         h(ModalPanel, { className: 'xls-compose', label: tr('task.publish'), onClose: props.onClose },
@@ -1950,22 +2039,23 @@ window.__ModuleLoader__.load({
             h('span', { className: 'xls-saiAva', style: { background: '#4D6BFE' } }, '＋'),
             h('span', { className: 'xls-ptitle' }, tr('task.publish'))
           ),
-          (['title', 'desc', 'budget', 'period'] as const).map((key) => h('input', {
-            key: key,
-            className: 'xls-replyInput',
-            style: { marginTop: '10px', width: '100%' },
-            value: props.draft[key],
-            placeholder: tr('task.' + key),
-            onChange: (event) => props.onDraft(key, event.target.value),
-          })),
+          h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')),
+          (['title', 'desc', 'budget', 'period'] as const).map((key) => h('label', { className: 'xls-taskField', key },
+            h('span', null, tr('task.' + key)),
+            h('input', { className: 'xls-replyInput', 'data-task-field': key,
+              value: props.draft[key], disabled: props.busy,
+              onChange: (event) => props.onDraft(key, event.target.value) }))),
+          props.error ? h('p', { role: 'alert', className: 'xls-taskHint' }, props.error) : null,
+          props.pending ? h('p', { role: 'status', className: 'xls-taskHint', 'data-task-pending': 'task' }, tr('task.pending')) : null,
           h('div', { className: 'xls-composeActions' },
-            h('button', { className: 'xls-btn ghost', style: { width: 'auto' }, onClick: props.onClose }, tr('compose.cancel')),
+            h('button', { type: 'button', className: 'xls-btn ghost', 'data-task-action': 'cancel-draft', style: { width: 'auto' }, onClick: props.onClose }, tr('compose.cancel')),
             h('button', {
               className: 'xls-btn',
               style: { width: 'auto' },
-              disabled: !props.draft.title.trim(),
+              'data-task-action': 'publish',
+              disabled: !props.draft.title.trim() || props.busy || props.pending,
               onClick: props.onPublish,
-            }, tr('task.submit'))
+            }, tr(props.busy ? 'task.sending' : 'task.submit'))
           )
         )
       );
@@ -3083,7 +3173,6 @@ window.__ModuleLoader__.load({
       const [joinFallback, setJoinFallback] = useState<ClientJoin | null>(null);
       const [bump, setBump] = useState(0);
       const [added, setAdded] = useState<Record<string, ClientComment[]>>({});
-      const [claimed, setClaimed] = useState<Record<string, boolean>>({});
       const [openId, setOpenId] = useState<string | null>(null);
       const [composing, setComposing] = useState(false);
       const [joinOpen, setJoinOpen] = useState(false);
@@ -3094,11 +3183,28 @@ window.__ModuleLoader__.load({
       const [askDraft, setAskDraft] = useState('');
       const [taskOpen, setTaskOpen] = useState(false);
       const [taskDraft, setTaskDraft] = useState({ title: '', desc: '', budget: '', period: '' });
-      const [deliverFor, setDeliverFor] = useState<string | null>(null);
-      const [deliverText, setDeliverText] = useState('');
-      const [rateFor, setRateFor] = useState<string | null>(null);
-      const [rateScore, setRateScore] = useState(0);
-      const [rateText, setRateText] = useState('');
+      const [taskId, setTaskId] = useState<string | null>(null);
+      const [taskDetail, setTaskDetail] = useState<ClientTaskDetail | null>(null);
+      const [taskDetailIdentity, setTaskDetailIdentity] = useState<string | null>(null);
+      const taskIdentity = useRef<string | null>(null);
+      const taskIdentityVersion = useRef(0);
+      const [taskLoading, setTaskLoading] = useState(false);
+      const [taskLoadError, setTaskLoadError] = useState(false);
+      const [taskRefresh, setTaskRefresh] = useState(0);
+      const [deliveryDrafts, setDeliveryDrafts] = useState<Record<string, string>>({});
+      const taskJobs = useRef(new Map<string, 'sending' | 'pending'>());
+      const taskReceiptsRef = useRef(new Map<string, ClientTaskReceipt>());
+      const [taskWork, setTaskWork] = useState<Record<string, 'sending' | 'pending'>>({});
+      const [taskReceipts, setTaskReceipts] = useState<Record<string, ClientTaskReceipt>>({});
+      const [taskErrors, setTaskErrors] = useState<Record<string, string>>({});
+      const taskSelection = useRef<string | null>(taskId);
+      const taskFormOpen = useRef(taskOpen);
+      taskSelection.current = taskId; taskFormOpen.current = taskOpen;
+      const closeTaskDetails = () => { taskSelection.current = null; setTaskId(null); };
+      const closeTaskForm = () => { taskFormOpen.current = false; setTaskOpen(false); };
+      const taskActive = useRef(props.active);
+      taskActive.current = props.active;
+      useEffect(() => () => { taskActive.current = false; }, []);
       const [editing, setEditing] = useState(false);
       const [draftProfile, setDraftProfile] = useState({ handle: '', name: '', bio: '' });
       const [profileId, setProfileId] = useState<string | null>(null);
@@ -3121,19 +3227,20 @@ window.__ModuleLoader__.load({
       }, [toast]);
 
       useEffect(() => {
-        if (!props.active || !openId && !composing && !joinOpen && !inboxOpen && !taskOpen) return undefined;
+        if (!props.active || !openId && !composing && !joinOpen && !inboxOpen && !taskOpen && !taskId) return undefined;
         const onKey = (event: KeyboardEvent) => {
           if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229) {
             setOpenId(null);
             setComposing(false);
             setJoinOpen(false);
             setInboxOpen(false);
-            setTaskOpen(false);
+            closeTaskForm();
+            closeTaskDetails();
           }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-      }, [openId, composing, joinOpen, inboxOpen, taskOpen, props.active]);
+      }, [openId, composing, joinOpen, inboxOpen, taskOpen, taskId, props.active]);
 
       // Pull the live community record from the Host. `bump` re-runs this after
       // a local write so the panel never guesses what the store now holds.
@@ -3194,10 +3301,6 @@ window.__ModuleLoader__.load({
         }
         return merged;
       }, [agentPosts, extra, posts, remote]);
-      const taskList = useMemo(
-        () => (remote && Array.isArray(remote.tasks) && remote.tasks.length ? remote.tasks : TASKS),
-        [remote],
-      );
       const remoteComments = (remote && remote.comments) || {};
       const remoteClaims = (remote && remote.claims) || {};
       const join: ClientJoin = (remote && remote.join) || joinFallback || { joined: false };
@@ -3218,6 +3321,73 @@ window.__ModuleLoader__.load({
       const myProfile = (remote && remote.myProfile) || { name: AGENTS.alan.owner, handle: AGENTS.alan.name, bio: '' };
       const ratedByMe = remote && Array.isArray(remote.ratingsByMe) ? remote.ratingsByMe : [];
       const myOwnerId = (join && join.ownerId) || null;
+      if (!taskIdentity.current && myOwnerId) taskIdentity.current = myOwnerId;
+      const taskIdentityChanged = !!taskIdentity.current && (myOwnerId !== null && taskIdentity.current !== myOwnerId || !!remote && !joined);
+      useEffect(() => {
+        if (!taskIdentityChanged) return;
+        taskIdentityVersion.current += 1;
+        closeTaskForm(); closeTaskDetails(); setTaskDetail(null);
+        setTaskDraft({ title: '', desc: '', budget: '', period: '' }); setDeliveryDrafts({}); setTaskErrors({});
+        taskJobs.current.clear(); taskReceiptsRef.current.clear(); setTaskWork({}); setTaskReceipts({});
+        taskIdentity.current = myOwnerId;
+      }, [myOwnerId, taskIdentityChanged]);
+      const taskList = remote && Array.isArray(remote.tasks) ? remote.tasks : !joined && remote ? TASKS : [];
+      const demoTasks = !joined;
+      const taskRoles = (task: ClientTask, claim: ClientClaim | null) => task.viewer || {
+        publisher: !!myOwnerId && task.ownerId === myOwnerId,
+        claimer: !!myOwnerId && claim?.ownerId === myOwnerId,
+        participant: !!myOwnerId && (task.ownerId === myOwnerId || claim?.ownerId === myOwnerId),
+        canClaim: !!myOwnerId && !!task.ownerId && task.ownerId !== myOwnerId && !claim,
+      };
+      const ownerEntry = safeCommunityUrl(join.url);
+      const publishTaskState = () => {
+        const work: Record<string, 'sending' | 'pending'> = {};
+        const receipts: Record<string, ClientTaskReceipt> = {};
+        for (const [key, value] of taskJobs.current) work[key] = value;
+        for (const [key, value] of taskReceiptsRef.current) receipts[key] = value;
+        setTaskWork(work); setTaskReceipts(receipts);
+      };
+      useEffect(() => {
+        if (!props.active || !taskId) return;
+        setTaskDetailIdentity(myOwnerId);
+        const demo = demoTasks ? taskList.find(task => task.id === taskId) : null;
+        if (demo) {
+          setTaskDetail({ ok: true, task: { ...demo, demo: true }, claim: null, history: [], events: [] });
+          setTaskLoading(false); setTaskLoadError(false); return;
+        }
+        let alive = true;
+        const controller = new AbortController();
+        setTaskDetail(null); setTaskLoading(true); setTaskLoadError(false);
+        fetch('/xiaolanshu/api/task?taskId=' + encodeURIComponent(taskId), { headers: { accept: 'application/json' }, signal: controller.signal })
+          .then(async response => {
+            if (!response.ok) throw new Error('task unavailable');
+            const value: unknown = await response.json();
+            if (!taskDetailRecord(value, taskId)) throw new Error('invalid task');
+            if (alive) setTaskDetail(value);
+          }).catch(() => { if (alive) setTaskLoadError(true); })
+          .finally(() => { if (alive) setTaskLoading(false); });
+        return () => { alive = false; controller.abort(); };
+      }, [taskId, taskRefresh, bump, props.active, joined, myOwnerId, remote?.updatedAt]);
+      useEffect(() => {
+        if (!props.active || !joined) return;
+        let alive = true;
+        const controller = new AbortController();
+        fetch('/xiaolanshu/api/proposals', { headers: { accept: 'application/json' }, signal: controller.signal })
+          .then(async response => {
+            if (!response.ok) return;
+            const value: unknown = await response.json();
+            if (!alive || !companionRecord(value) || !Array.isArray(value.items)) return;
+            let changed = false;
+            for (const [key, receipt] of taskReceiptsRef.current) {
+              const proposal = value.items.find((item: unknown) => companionRecord(item) && item.id === receipt.id);
+              if (companionRecord(proposal) && typeof proposal.status === 'string' && proposal.status !== 'pending') {
+                taskReceiptsRef.current.set(key, { ...receipt, status: proposal.status }); taskJobs.current.delete(key); changed = true;
+              }
+            }
+            if (changed) publishTaskState();
+          }).catch(() => { /* an unavailable review list never clears a pending operation */ });
+        return () => { alive = false; controller.abort(); };
+      }, [remote, bump, props.active, joined]);
       // The phone has to type this by hand, so show the full address, not a path.
       const mobileUrl = join && join.url ? String(join.url).replace(/\/$/, '') + '/m' : 'xiaolanshu/m';
 
@@ -3228,14 +3398,41 @@ window.__ModuleLoader__.load({
         ? (post.likes || 0)
         : (post.likes || 0) + (liked[post.id] ? 1 : 0));
 
-      const showPending = async (response: Response) => {
-        if (response.status !== 202) return false;
-        const data = await response.json();
-        if (data.status !== 'pending' || data.executed !== false || !data.proposalId) {
+      const showPending = async (response: Response, expectedAction?: ClientTaskAction) => {
+        const data: unknown = await response.json();
+        const pending = response.status === 202 || companionRecord(data) && (data.status === 'pending' || data.executed === false);
+        if (!pending && !expectedAction) return false;
+        if (!companionRecord(data) || data.status !== 'pending' || data.executed !== false
+          || typeof data.proposalId !== 'string' || !/^[A-Za-z0-9_-]{1,160}$/.test(data.proposalId)
+          || expectedAction && (data.action !== expectedAction || data.ok !== true)) {
           throw new Error('invalid pending proposal');
         }
         setToast(tr('toast.pending'));
-        return true;
+        return data;
+      };
+      const submitTaskProposal = async (action: ClientTaskAction, id: string | null, body: Record<string, unknown>) => {
+        const key = action + ':' + (id || 'new');
+        if (!taskActive.current || taskIdentityChanged || !joined || offline || taskJobs.current.has(key)
+          || (action === 'task' ? !taskFormOpen.current : taskSelection.current !== id)) return;
+        const version = taskIdentityVersion.current;
+        taskJobs.current.set(key, 'sending'); publishTaskState();
+        setTaskErrors(previous => ({ ...previous, [key]: '' }));
+        try {
+          const response = await fetch('/xiaolanshu/api/' + action, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+          if (!response.ok) throw new Error('task request rejected');
+          const receipt = await showPending(response, action);
+          if (!receipt || !taskActive.current || version !== taskIdentityVersion.current) return;
+          taskJobs.current.set(key, 'pending');
+          taskReceiptsRef.current.set(key, { id: String(receipt.proposalId), action, taskId: id, status: 'pending' });
+          setBump(previous => previous + 1);
+        } catch {
+          if (taskActive.current && version === taskIdentityVersion.current) setTaskErrors(previous => ({ ...previous, [key]: tr('task.notConfirmed') }));
+        } finally {
+          if (version === taskIdentityVersion.current) {
+            if (taskJobs.current.get(key) === 'sending') taskJobs.current.delete(key);
+            if (taskActive.current) publishTaskState();
+          }
+        }
       };
 
       const toggleLike = async (post: ClientPost) => {
@@ -3306,27 +3503,7 @@ window.__ModuleLoader__.load({
       const publishTask = async () => {
         const title = taskDraft.title.trim();
         if (!title) return;
-        try {
-          const response = await fetch('/xiaolanshu/api/task', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              title: title,
-              desc: taskDraft.desc,
-              budget: taskDraft.budget,
-              period: taskDraft.period,
-              tags: [],
-              match: 75,
-            }),
-          });
-          if (!response.ok) throw new Error('http ' + response.status);
-          setTaskOpen(false);
-          setTaskDraft({ title: '', desc: '', budget: '', period: '' });
-          setBump((value) => value + 1);
-          setToast(tr('task.published'));
-        } catch (error) {
-          setToast(tr('toast.failed'));
-        }
+        await submitTaskProposal('task', null, { title, desc: taskDraft.desc, budget: taskDraft.budget, period: taskDraft.period, tags: [] });
       };
 
       useEffect(() => {
@@ -3444,23 +3621,9 @@ window.__ModuleLoader__.load({
       };
 
       const deliverTask = async (task: ClientTask) => {
-        const text = deliverText.trim();
+        const text = (Object.prototype.hasOwnProperty.call(deliveryDrafts, task.id) ? deliveryDrafts[task.id] || '' : '').trim();
         if (!text) return;
-        try {
-          const response = await fetch('/xiaolanshu/api/deliver', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ taskId: task.id, text: text }),
-          });
-          if (!response.ok) throw new Error('http ' + response.status);
-          if (await showPending(response)) return;
-          setDeliverFor(null);
-          setDeliverText('');
-          setBump((value) => value + 1);
-          setToast(tr('task.done'));
-        } catch (error) {
-          setToast(tr('toast.failed'));
-        }
+        await submitTaskProposal('deliver', task.id, { taskId: task.id, text });
       };
 
       const saveProfile = async () => {
@@ -3479,39 +3642,8 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const sendRating = async (task: ClientTask) => {
-        if (!rateScore) return;
-        try {
-          const response = await fetch('/xiaolanshu/api/rate', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ taskId: task.id, score: rateScore, text: rateText.trim() }),
-          });
-          if (!response.ok) throw new Error('http ' + response.status);
-          setRateFor(null);
-          setRateScore(0);
-          setRateText('');
-          setBump((value) => value + 1);
-          setToast(tr('task.rated'));
-        } catch (error) {
-          setToast(tr('toast.failed'));
-        }
-      };
-
       const confirmTaskDone = async (task: ClientTask) => {
-        try {
-          const response = await fetch('/xiaolanshu/api/confirm', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ taskId: task.id }),
-          });
-          if (!response.ok) throw new Error('http ' + response.status);
-          if (await showPending(response)) return;
-          setBump((value) => value + 1);
-          setToast(tr('task.confirm'));
-        } catch (error) {
-          setToast(tr('toast.failed'));
-        }
+        await submitTaskProposal('confirm', task.id, { taskId: task.id });
       };
 
       const saveLook = async (next: ClientLook) => {
@@ -3636,24 +3768,7 @@ window.__ModuleLoader__.load({
       };
 
       const claim = async (task: ClientTask) => {
-        if (task.match < 50) {
-          setToast(tr('task.declined'));
-          return;
-        }
-        try {
-          const response = await fetch('/xiaolanshu/api/claim', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ taskId: task.id, note: '阿蓝替你接下了，细节我来对。' }),
-          });
-          if (!response.ok) throw new Error('http ' + response.status);
-          if (await showPending(response)) return;
-          setBump((value) => value + 1);
-        } catch (error) {
-          setToast(tr('toast.failed'));
-          return;
-        }
-        setToast(tr('task.claimedToast'));
+        await submitTaskProposal('claim', task.id, { taskId: task.id, note: '' });
       };
 
       const addComment = async (postId: string, text: string): Promise<boolean> => {
@@ -3673,8 +3788,6 @@ window.__ModuleLoader__.load({
         setToast(tr('toast.replied'));
         return true;
       };
-
-      const claimedCount = Object.keys(claimed).length + Object.keys(remoteClaims).length;
 
       // ------------------------------------------------------------- header
       const header = h('div', { className: 'xls-top' },
@@ -3788,106 +3901,99 @@ window.__ModuleLoader__.load({
       );
 
       // -------------------------------------------------------------- tasks
-      const steps = ['task.step1', 'task.step2', 'task.step3'];
       const tasks = h('div', null,
         h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' } },
           h('button', {
             className: 'xls-btn',
             style: { width: 'auto', marginTop: 0 },
+            'data-task-action': 'new', disabled: !joined || offline,
             onClick: () => setTaskOpen(true),
           }, '＋ ' + tr('task.publish'))
         ),
-        h('div', { className: 'xls-banner' },
-          h('b', null, tr('task.sub')),
-          h('div', { className: 'xls-steps' },
-            steps.map((key, index) => h('span', { className: 'xls-step', key: key },
-              index > 0 ? h('span', { className: 'xls-sep' }, '→') : null,
-              h('span', { className: 'xls-stepn' }, String(index + 1)),
-              h('span', null, tr(key))
-            ))
-          )
-        ),
+        h('div', { className: 'xls-banner' }, h('b', null, tr(demoTasks ? 'task.demo' : 'task.sub'))),
+        taskList.length === 0 ? h('p', { className: 'xls-taskHint', 'data-task-empty': offline ? 'unavailable' : 'empty' },
+          tr(offline ? 'task.unavailable' : 'task.empty')) : null,
         taskList.map((task) => {
-          const from = AGENTS[task.from] || AGENTS.alan;
-          const taskClaim = remoteClaims[task.id] || null;
-          const risky = task.match < 50;
-          return h('div', { className: 'xls-task', key: task.id },
+          const taskClaim = Object.prototype.hasOwnProperty.call(remoteClaims, task.id) ? remoteClaims[task.id] || null : null;
+          const status = taskStatus(task, taskClaim);
+          return h('article', { className: 'xls-task', key: task.id, 'data-task-id': task.id, 'data-task-status': status },
             h('div', { className: 'xls-tmain' },
               h('div', { className: 'xls-trow' },
                 h(Avatar, { ai: task.from, look: task.appearance || null, size: 16 }),
-                h('span', { className: 'xls-tfrom' }, task.fromName || from.name),
-                h('span', null, '替 ' + task.ownerLine),
+                h('span', { className: 'xls-tfrom' }, task.fromName || task.from || tr('task.authorUnknown')),
+                task.ownerLine ? h('span', null, task.ownerLine) : null,
                 h('span', { className: 'xls-twhen' }, task.when)
               ),
-              h('div', { className: 'xls-ttitle' }, task.title),
+              h('button', { className: 'xls-ttitle xls-taskTitle', type: 'button', 'data-open-task': task.id,
+                onClick: () => { setTaskOpen(false); setTaskId(task.id); } }, task.title),
               h('div', { className: 'xls-tdesc' }, task.desc),
-              h(TagList, { tags: task.tags }),
-              h('div', { className: 'xls-why' + (risky ? ' xls-risk' : '') },
-                h('b', null, risky ? tr('task.risk') + '：' : tr('task.why') + '：'),
-                h('span', null, task.why)
-              )
+              h(TagList, { tags: task.tags || [] })
             ),
             h('div', { className: 'xls-tside' },
-              h('div', { className: 'xls-budget' }, task.budget),
-              h('div', { className: 'xls-period' }, task.period),
-              h('div', { className: 'xls-matchrow' },
-                h('span', null, tr('task.match')),
-                h('b', null, String(task.match) + '%')
-              ),
-              h('div', { className: 'xls-bar' }, h('i', { style: { width: task.match + '%' } })),
-              risky
-                ? h('button', { className: 'xls-btn ghost', onClick: () => claim(task) }, tr('task.decline'))
-                : !taskClaim
-                  ? h('button', { className: 'xls-btn', onClick: () => claim(task) }, tr('task.claim'))
-                  : taskClaim.ownerId && taskClaim.ownerId !== myOwnerId
-                    ? h('div', { className: 'xls-period' }, tr('task.takenBy') + (taskClaim.ai || '别人'))
-                    : !taskClaim.deliveredAt
-                    ? (deliverFor === task.id
-                        ? h('div', { style: { width: '100%' } },
-                            h('input', {
-                              className: 'xls-replyInput',
-                              style: { marginTop: '6px', width: '100%' },
-                              value: deliverText,
-                              placeholder: tr('task.deliverHint'),
-                              onChange: (event) => setDeliverText(event.target.value),
-                            }),
-                            h('button', { className: 'xls-btn', onClick: () => deliverTask(task) }, tr('task.submitDelivery')))
-                        : h('button', {
-                            className: 'xls-btn',
-                            onClick: () => { setDeliverFor(task.id); setDeliverText(''); },
-                          }, tr('task.deliver')))
-                    : !taskClaim.confirmedAt
-                      ? (task.ownerId && task.ownerId === myOwnerId
-                          ? h('button', { className: 'xls-btn', onClick: () => confirmTaskDone(task) }, tr('task.confirm'))
-                          : h('div', { className: 'xls-period' }, tr('task.waitConfirm')))
-                      : (taskClaim.deliveredAt
-                          && (taskClaim.ownerId === myOwnerId || (task.ownerId && task.ownerId === myOwnerId))
-                          && ratedByMe.indexOf(task.id) < 0
-                        ? (rateFor === task.id
-                            ? h('div', { style: { width: '100%' } },
-                                h('div', { className: 'xls-stars' },
-                                  [1, 2, 3, 4, 5].map((score) => h('button', {
-                                    key: score,
-                                    className: 'xls-star' + (rateScore >= score ? ' on' : ''),
-                                    onClick: () => setRateScore(score),
-                                  }, '★'))),
-                                h('input', {
-                                  className: 'xls-replyInput',
-                                  style: { marginTop: '6px', width: '100%' },
-                                  value: rateText,
-                                  placeholder: tr('task.rateHint'),
-                                  onChange: (event) => setRateText(event.target.value),
-                                }),
-                                h('button', { className: 'xls-btn', onClick: () => sendRating(task) }, tr('task.submitRate')))
-                            : h('button', {
-                                className: 'xls-btn',
-                                onClick: () => { setRateFor(task.id); setRateScore(5); setRateText(''); },
-                              }, tr('task.rate')))
-                        : h('div', { className: 'xls-period' }, tr('task.done')))
+              h('span', { className: 'xls-taskStatus' }, tr('task.status.' + status)),
+              h('div', { className: 'xls-budget' }, task.budget || '—'),
+              h('div', { className: 'xls-period' }, task.period || '—'),
+              taskClaim?.ai && taskClaim.ownerId !== myOwnerId
+                ? h('div', { className: 'xls-period' }, tr('task.takenBy') + taskClaim.ai) : null,
+              demoTasks || task.demo ? h('span', { className: 'xls-period' }, tr('task.demo')) : null
             )
           );
         })
       );
+      const selectedTask = taskDetailIdentity === myOwnerId && !taskIdentityChanged && taskDetail?.task.id === taskId ? taskDetail.task : null;
+      const selectedClaim = taskDetail?.claim || null;
+      const selectedRoles = selectedTask ? taskRoles(selectedTask, selectedClaim) : null;
+      const selectedStatus = selectedTask ? taskStatus(selectedTask, selectedClaim) : 'open';
+      const taskNotice = (action: ClientTaskAction, id: string | null) => {
+        const key = action + ':' + (id || 'new'), receipt = taskReceipts[key];
+        return h('div', null,
+          taskWork[key] === 'sending' ? h('p', { role: 'status', className: 'xls-taskHint' }, tr('task.sending')) : null,
+          receipt?.status === 'pending' ? h('p', { role: 'status', className: 'xls-taskHint', 'data-task-pending': action }, tr('task.pending') + ' · ' + receipt.id) : null,
+          taskErrors[key] ? h('p', { role: 'alert', className: 'xls-taskHint' }, taskErrors[key]) : null);
+      };
+      const taskSheet = taskId ? h('div', { className: 'xls-mask', onClick: closeTaskDetails },
+        h(ModalPanel, { className: 'xls-taskDetail', label: tr('task.detail'), active: props.active, onClose: closeTaskDetails },
+          h('div', { className: 'xls-taskActions' }, h('h2', null, tr('task.detail')),
+            h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'close', onClick: closeTaskDetails }, tr('task.close'))),
+          taskLoading ? h('p', { className: 'xls-taskHint', role: 'status', 'data-task-loading': true }, tr('task.loading')) : null,
+          taskLoadError ? h('p', { className: 'xls-taskHint', role: 'alert' }, tr('task.loadFailed')) : null,
+          selectedTask ? h('div', { 'data-task-detail': selectedTask.id },
+            h('h3', null, selectedTask.title),
+            h('p', { className: 'xls-taskHint' }, tr('task.status') + '：' + tr('task.status.' + selectedStatus)),
+            h('p', { className: 'xls-taskHint' }, tr('task.author') + '：' + (selectedTask.fromName || selectedTask.from || tr('task.authorUnknown'))),
+            h('h4', null, tr('task.requirements')),
+            h('p', { className: 'xls-taskBody' }, selectedTask.desc || tr('task.noRequirements')),
+            selectedTask.acceptanceCriteria ? h('div', null, h('h4', null, tr('task.acceptance')),
+              h('p', { className: 'xls-taskBody' }, selectedTask.acceptanceCriteria)) : null,
+            selectedTask.deadlineAt ? h('p', { className: 'xls-taskHint' }, tr('task.deadline') + '：' + selectedTask.deadlineAt) : null,
+            h('h4', null, tr('task.deliveryText')),
+            h('p', { className: 'xls-taskBody', 'data-task-delivery': true }, selectedRoles?.participant
+              ? selectedClaim?.delivery || tr('task.noDelivery') : tr('task.privateDelivery')),
+            demoTasks || selectedTask.demo ? h('p', { className: 'xls-taskHint' }, tr('task.demo')) : h('div', null,
+              h('p', { className: 'xls-taskHint' }, tr('task.approvalHint')),
+              selectedRoles?.canClaim && selectedStatus === 'open'
+                ? h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'claim',
+                    disabled: !!taskWork['claim:' + selectedTask.id] || !joined || offline, onClick: () => claim(selectedTask) }, tr('task.claim')) : null,
+              taskNotice('claim', selectedTask.id),
+              selectedRoles?.claimer && ['claimed', 'in_progress', 'changes_requested'].includes(selectedStatus)
+                ? h('div', null, h('label', { className: 'xls-taskField' }, h('span', null, tr('task.deliverHint')),
+                    h('textarea', { className: 'xls-replyInput', 'data-task-field': 'delivery', rows: 5, maxLength: 2000,
+                      value: Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) ? deliveryDrafts[selectedTask.id] || '' : '',
+                      disabled: taskWork['deliver:' + selectedTask.id] === 'sending',
+                      onChange: (event: import('react').ChangeEvent<HTMLTextAreaElement>) => setDeliveryDrafts(previous => ({ ...previous, [selectedTask.id]: event.target.value })) })),
+                    h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'deliver',
+                      disabled: !!taskWork['deliver:' + selectedTask.id] || !(Object.prototype.hasOwnProperty.call(deliveryDrafts, selectedTask.id) && deliveryDrafts[selectedTask.id]?.trim()) || !joined || offline,
+                      onClick: () => deliverTask(selectedTask) }, tr('task.submitDelivery'))) : null,
+              taskNotice('deliver', selectedTask.id),
+              selectedRoles?.publisher && selectedStatus === 'delivered'
+                ? h('button', { type: 'button', className: 'xls-btn', 'data-task-action': 'confirm',
+                    disabled: !!taskWork['confirm:' + selectedTask.id] || !selectedClaim?.delivery?.trim() || !joined || offline,
+                    onClick: () => confirmTaskDone(selectedTask) }, tr('task.confirm')) : null,
+              taskNotice('confirm', selectedTask.id),
+              selectedStatus === 'completed' && selectedRoles?.participant ? h('p', { className: 'xls-taskHint' }, tr('task.ownerRating')) : null,
+              ownerEntry ? h('a', { className: 'xls-chip', 'data-task-owner-entry': true, href: ownerEntry + '/m', target: '_blank', rel: 'noopener noreferrer' }, tr('task.ownerEntry')) : null)) : null,
+          h('button', { type: 'button', className: 'xls-chip', 'data-task-action': 'refresh', disabled: taskLoading,
+            onClick: () => setTaskRefresh(value => value + 1) }, tr('task.retry')))) : null;
 
       // ----------------------------------------------------------------- me
       const me = h('div', { className: 'xls-me-grid' },
@@ -4111,12 +4217,14 @@ window.__ModuleLoader__.load({
           onTag: pickTag,
           onClose: () => setOpenId(null),
         }) : null,
-        props.active && taskOpen ? h(TaskSheet, {
+        props.active && taskOpen && !taskIdentityChanged ? h(TaskSheet, {
           draft: taskDraft,
+          busy: taskWork['task:new'] === 'sending', pending: taskWork['task:new'] === 'pending', error: taskErrors['task:new'] || '',
           onDraft: updateTaskDraft,
-          onClose: () => setTaskOpen(false),
+          onClose: closeTaskForm,
           onPublish: publishTask,
         }) : null,
+        taskSheet,
         props.active && joinOpen ? h(CommunityConnectionModal, {
           onClose: () => setJoinOpen(false), onConnected: () => setBump((value) => value + 1),
         }) : null,
