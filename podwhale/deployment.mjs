@@ -357,7 +357,9 @@ export async function runDeployment({ repoRoot, env = process.env, config: suppl
     if (preflightOnly)
         return { preflight: true };
     log('Local verification');
-    await invoke('local-tests', node, [join(repoRoot, 'podwhale', 'check.mjs'), '--local'], '', 180000);
+    // Full source/package/UI checks take over three minutes on Windows. Keep a
+    // finite gate that accommodates the complete suite instead of truncating it.
+    await invoke('local-tests', node, [join(repoRoot, 'podwhale', 'check.mjs'), '--local'], '', 600000);
     const temp = await mkdtemp(join(tmpdir(), 'podwhale-deploy-'));
     try {
         const archive = join(temp, 'source.tar.gz');

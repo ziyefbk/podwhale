@@ -90,6 +90,15 @@ try {
     runner: async (command, args, options) => { failedPreflightCalls.push(options.phase); return { code: 1, stderr: 'preflight failed' }; } }));
   check('a failed preflight never tests, packages, stages, or uploads', failedPreflight?.phase === 'preflight' && failedPreflightCalls.join(',') === 'preflight');
 
+  const timedOutVerificationCalls: string[] = [];
+  const timedOutVerification = await failure(() => runDeployment({ repoRoot: ROOT, env: {}, config: CONFIG,
+    runner: async (_command, _args, options) => {
+      timedOutVerificationCalls.push(options.phase);
+      return options.phase === 'local-tests' ? { code: 1, timedOut: true } : { code: 0 };
+    } }));
+  check('verification timeout aborts before packaging, upload or service changes', timedOutVerification?.phase === 'local-tests'
+    && timedOutVerificationCalls.join(',') === 'preflight,local-tests' && timedOutVerification.stopped !== true);
+
   const calls: Invocation[] = [];
   const builtArchive = join(temp, 'built-source.tar.gz');
   let archiveMembers: string[] = [];
